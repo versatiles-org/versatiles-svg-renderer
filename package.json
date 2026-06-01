@@ -85,7 +85,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@mapbox/vector-tile": "^2.0.4",
+    "@mapbox/vector-tile": "^3.0.0",
     "@maplibre/maplibre-gl-style-spec": "^24.8.1",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
