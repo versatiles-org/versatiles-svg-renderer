@@ -30,6 +30,11 @@ export type {
 	View,
 } from './types.js';
 
+// Gaussian stdDeviation as a fraction of MapLibre's line-blur pixels. MapLibre
+// feathers the line edge over ~`blur` px while keeping the core opaque; a Gaussian
+// with the same stdDeviation over-softens, so we scale it down to match.
+const BLUR_STD_FACTOR = 0.5;
+
 export class SVGRenderer {
 	public readonly width: number;
 
@@ -116,7 +121,13 @@ export class SVGRenderer {
 			const dasharrayStr = style.dasharray
 				? style.dasharray.map((v) => formatScaled(v * style.width)).join(',')
 				: '';
-			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
+			// MapLibre's line-blur fades the line as the blur approaches its width
+			// (the feather eats into the opaque core). A Gaussian conserves total ink,
+			// so approximate that fade with an extra opacity factor; it tends to 1 for
+			// blur << width (the common case) and to 0 as blur grows.
+			const blurOpacity = style.blur > 0 ? style.width / (style.width + 2 * style.blur) : 1;
+			const effectiveOpacity = style.opacity * blurOpacity;
+			const opacityAttr = effectiveOpacity < 1 ? ` opacity="${effectiveOpacity.toFixed(3)}"` : '';
 			const filterAttr = style.blur > 0 ? ` filter="url(#${this.#blurFilterId(style.blur)})"` : '';
 			const key = [
 				color.hex,
@@ -164,7 +175,7 @@ export class SVGRenderer {
 
 	/** Register (deduplicated by blur radius) a Gaussian blur filter and return its id. */
 	#blurFilterId(blur: number): string {
-		const stdDev = formatScaled(blur);
+		const stdDev = formatScaled(blur * BLUR_STD_FACTOR);
 		let def = this.#blurFilterDefs.get(stdDev);
 		if (!def) {
 			def = { filterId: `line-blur-${String(this.#blurFilterDefs.size)}`, stdDev };
@@ -462,8 +473,11 @@ export class SVGRenderer {
 			defsContent.push(content);
 		}
 		for (const { filterId, stdDev } of this.#blurFilterDefs.values()) {
+			// Use userSpaceOnUse over the whole canvas: the default objectBoundingBox
+			// region collapses to zero for axis-aligned lines (a horizontal/vertical
+			// path has a zero-height/width bounding box), which clips the blur away.
 			defsContent.push(
-				`<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${stdDev}" /></filter>`,
+				`<filter id="${filterId}" filterUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><feGaussianBlur stdDeviation="${stdDev}" /></filter>`,
 			);
 		}
 

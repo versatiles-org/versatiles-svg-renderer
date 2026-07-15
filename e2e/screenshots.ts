@@ -57,7 +57,13 @@ async function getStyle(type: Region['type']): Promise<StyleSpecification> {
 				style = await styles.satellite({ overlay: false });
 				break;
 			case 'geojson':
-				style = styles.colorful({ hideLabels: true });
+				style = {
+					version: 8,
+					sources: {},
+					layers: [
+						{ id: 'background', type: 'background', paint: { 'background-color': '#ffffff' } },
+					],
+				};
 				style.sources['geojson-overlay'] = {
 					type: 'geojson',
 					data: {

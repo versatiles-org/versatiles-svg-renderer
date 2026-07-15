@@ -282,11 +282,16 @@ describe('SVGRenderer', () => {
 					[100, 50],
 				],
 			]);
+			// width 2, blur 3
 			r.drawLineStrings('line-test', [[feature, lineStyle({ blur: 3 })]]);
 			const svg = r.getString();
 			expect(svg).toContain('feGaussianBlur');
-			expect(svg).toContain('stdDeviation="3"'); // 3px, matching screen units
+			expect(svg).toContain('stdDeviation="1.5"'); // blur 3 * BLUR_STD_FACTOR 0.5
+			// userSpaceOnUse region so axis-aligned lines aren't clipped away
+			expect(svg).toContain('filterUnits="userSpaceOnUse"');
 			expect(svg).toContain('filter="url(#line-blur-0)"');
+			// blurred lines are faded to approximate MapLibre: width/(width+2*blur) = 2/8
+			expect(svg).toContain('opacity="0.250"');
 		});
 
 		test('does not emit a blur filter when line-blur is 0', () => {
