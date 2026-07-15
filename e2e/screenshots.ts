@@ -112,6 +112,23 @@ async function getStyle(type: Region['type']): Promise<StyleSpecification> {
 						),
 					},
 				};
+				// Isolated west->east line for validating line-offset direction and line-blur
+				// against MapLibre (kept separate from the polygon so ring rewinding does not
+				// affect the offset side).
+				style.sources['geojson-lines'] = {
+					type: 'geojson',
+					data: {
+						type: 'Feature',
+						properties: {},
+						geometry: {
+							type: 'LineString',
+							coordinates: [
+								[13.382, 52.512],
+								[13.392, 52.512],
+							],
+						},
+					},
+				};
 				style.layers.push(
 					{
 						id: 'geojson-fill',
@@ -129,6 +146,27 @@ async function getStyle(type: Region['type']): Promise<StyleSpecification> {
 						paint: {
 							'line-color': '#0000ff',
 							'line-width': 4,
+						},
+					},
+					{
+						id: 'geojson-line-offset',
+						type: 'line',
+						source: 'geojson-lines',
+						paint: {
+							'line-color': '#ff8800',
+							'line-width': 2,
+							'line-offset': 6,
+						},
+					},
+					{
+						id: 'geojson-line-blur',
+						type: 'line',
+						source: 'geojson-lines',
+						paint: {
+							'line-color': '#00cccc',
+							'line-width': 3,
+							'line-offset': -6,
+							'line-blur': 3,
 						},
 					},
 					{

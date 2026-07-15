@@ -2,7 +2,14 @@ import { describe, expect, test } from 'vitest';
 import { SVGRenderer } from './svg.js';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { Feature, Point2D } from '../geometry.js';
-import type { CircleStyle, IconStyle, RasterStyle, RasterTile, SymbolStyle } from './svg.js';
+import type {
+	CircleStyle,
+	IconStyle,
+	LineStyle,
+	RasterStyle,
+	RasterTile,
+	SymbolStyle,
+} from './svg.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {
@@ -148,6 +155,7 @@ describe('SVGRenderer', () => {
 				],
 			]);
 			const style = {
+				blur: 0,
 				cap: 'round' as const,
 				color: mc('#FF0000'),
 				join: 'round' as const,
@@ -183,6 +191,7 @@ describe('SVGRenderer', () => {
 				],
 			]);
 			const style = {
+				blur: 0,
 				cap: 'butt' as const,
 				color: mc('#FF0000'),
 				join: 'miter' as const,
@@ -206,6 +215,7 @@ describe('SVGRenderer', () => {
 				],
 			]);
 			const style = {
+				blur: 0,
 				cap: 'butt' as const,
 				color: mc('#FF0000'),
 				join: 'miter' as const,
@@ -218,6 +228,98 @@ describe('SVGRenderer', () => {
 			r.drawLineStrings('line-test', [[feature, style]]);
 			const svg = r.getString();
 			expect(svg).not.toContain('<path');
+		});
+
+		function lineStyle(overrides: Partial<LineStyle> = {}): LineStyle {
+			return {
+				blur: 0,
+				cap: 'butt',
+				color: mc('#FF0000'),
+				join: 'miter',
+				miterLimit: 2,
+				offset: 0,
+				opacity: 1,
+				translate: [0, 0],
+				width: 2,
+				...overrides,
+			};
+		}
+
+		test('positive line-offset shifts an eastward line to the right (screen +y)', () => {
+			const r = makeRenderer();
+			// Eastward line at y=50. MapLibre: positive offset => right of travel => +y (down).
+			const feature = makeLineFeature([
+				[
+					[0, 50],
+					[100, 50],
+				],
+			]);
+			r.drawLineStrings('line-test', [[feature, lineStyle({ offset: 10 })]]);
+			const svg = r.getString();
+			expect(svg).toContain(',60'); // shifted down to y=60
+			expect(svg).not.toContain(',40');
+		});
+
+		test('negative line-offset shifts an eastward line to the left (screen -y)', () => {
+			const r = makeRenderer();
+			const feature = makeLineFeature([
+				[
+					[0, 50],
+					[100, 50],
+				],
+			]);
+			r.drawLineStrings('line-test', [[feature, lineStyle({ offset: -10 })]]);
+			const svg = r.getString();
+			expect(svg).toContain(',40'); // shifted up to y=40
+			expect(svg).not.toContain(',60');
+		});
+
+		test('emits an feGaussianBlur filter for line-blur', () => {
+			const r = makeRenderer();
+			const feature = makeLineFeature([
+				[
+					[0, 50],
+					[100, 50],
+				],
+			]);
+			r.drawLineStrings('line-test', [[feature, lineStyle({ blur: 3 })]]);
+			const svg = r.getString();
+			expect(svg).toContain('feGaussianBlur');
+			expect(svg).toContain('stdDeviation="3"'); // 3px, matching screen units
+			expect(svg).toContain('filter="url(#line-blur-0)"');
+		});
+
+		test('does not emit a blur filter when line-blur is 0', () => {
+			const r = makeRenderer();
+			const feature = makeLineFeature([
+				[
+					[0, 50],
+					[100, 50],
+				],
+			]);
+			r.drawLineStrings('line-test', [[feature, lineStyle({ blur: 0 })]]);
+			const svg = r.getString();
+			expect(svg).not.toContain('feGaussianBlur');
+			expect(svg).not.toContain('filter="url(#line-blur');
+		});
+
+		test('deduplicates blur filters by radius', () => {
+			const r = makeRenderer();
+			const f = (): Feature =>
+				makeLineFeature([
+					[
+						[0, 50],
+						[100, 50],
+					],
+				]);
+			r.drawLineStrings('line-test', [
+				[f(), lineStyle({ blur: 3, color: mc('#FF0000') })],
+				[f(), lineStyle({ blur: 3, color: mc('#00FF00') })],
+				[f(), lineStyle({ blur: 5, color: mc('#0000FF') })],
+			]);
+			const svg = r.getString();
+			// Two distinct radii => exactly two filter defs.
+			expect((svg.match(/<filter id="line-blur-/g) ?? []).length).toBe(2);
 		});
 	});
 

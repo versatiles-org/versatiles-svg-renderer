@@ -1,7 +1,7 @@
 import type { Feature } from '../geometry.js';
 import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
-import { chainSegments, formatNum, segmentsToPath } from './svg_path.js';
+import { chainSegments, formatNum, offsetSegmentPoints, segmentsToPath } from './svg_path.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -50,6 +50,7 @@ export class SVGRenderer {
 	>();
 
 	readonly #sdfFilterDefs = new Map<string, { filterId: string; content: string }>();
+	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
 
 	public constructor(opt: RendererOptions) {
 		this.width = opt.width;
@@ -116,6 +117,7 @@ export class SVGRenderer {
 				? style.dasharray.map((v) => formatScaled(v * style.width)).join(',')
 				: '';
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
+			const filterAttr = style.blur > 0 ? ` filter="url(#${this.#blurFilterId(style.blur)})"` : '';
 			const key = [
 				color.hex,
 				roundedWidth,
@@ -125,6 +127,7 @@ export class SVGRenderer {
 				dasharrayStr,
 				opacityAttr,
 				translate,
+				filterAttr,
 			].join('\0');
 
 			let group = groups.get(key);
@@ -139,13 +142,14 @@ export class SVGRenderer {
 				if (dasharrayStr) attrs.push(`stroke-dasharray="${dasharrayStr}"`);
 				group = {
 					segments: [],
-					attrs: attrs.join(' ') + translate + opacityAttr,
+					attrs: attrs.join(' ') + translate + opacityAttr + filterAttr,
 				};
 				groups.set(key, group);
 			}
 
 			feature.geometry.forEach((line) => {
-				group.segments.push(line.map((p) => roundXY(p.x, p.y)));
+				const points = style.offset === 0 ? line : offsetSegmentPoints(line, style.offset);
+				group.segments.push(points.map((p) => roundXY(p.x, p.y)));
 			});
 		});
 
@@ -156,6 +160,17 @@ export class SVGRenderer {
 			this.#svg.push(`<path d="${d}" ${attrs} />`);
 		}
 		this.#svg.push('</g>');
+	}
+
+	/** Register (deduplicated by blur radius) a Gaussian blur filter and return its id. */
+	#blurFilterId(blur: number): string {
+		const stdDev = formatScaled(blur);
+		let def = this.#blurFilterDefs.get(stdDev);
+		if (!def) {
+			def = { filterId: `line-blur-${String(this.#blurFilterDefs.size)}`, stdDev };
+			this.#blurFilterDefs.set(stdDev, def);
+		}
+		return def.filterId;
 	}
 
 	public drawCircles(id: string, features: [Feature, CircleStyle][]): void {
@@ -445,6 +460,11 @@ export class SVGRenderer {
 		}
 		for (const { content } of this.#sdfFilterDefs.values()) {
 			defsContent.push(content);
+		}
+		for (const { filterId, stdDev } of this.#blurFilterDefs.values()) {
+			defsContent.push(
+				`<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${stdDev}" /></filter>`,
+			);
 		}
 
 		const parts = [

@@ -114,6 +114,7 @@ async function render(job: RenderJob): Promise<void> {
 						lineStringFeatures.map((feature) => [
 							feature,
 							{
+								blur: getPaint('line-blur', feature) as number,
 								color: getPaint('line-color', feature) as MaplibreColor,
 								translate: getPaint('line-translate', feature) as [number, number],
 								cap: getLayout('line-cap', feature) as 'butt' | 'round' | 'square',

@@ -44,6 +44,7 @@ export interface FillStyle {
 }
 
 export interface LineStyle {
+	blur: number;
 	cap: 'butt' | 'round' | 'square';
 	color: MaplibreColor;
 	dasharray?: number[];
