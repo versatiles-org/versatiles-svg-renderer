@@ -83,6 +83,11 @@
       "optional": true
     }
   },
+  "overrides": {
+    "esbuild": ">=0.28.1",
+    "markdown-it": ">=14.2.0",
+    "undici": ">=7.28.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^3.0.0",
@@ -115,8 +120,7 @@
     "vitest": "^4.1.10"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true,
-    "fsevents@2.3.2": true,
-    "fsevents@2.3.3": true
+    "esbuild": true,
+    "fsevents": true
   }
 }
