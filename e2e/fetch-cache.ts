@@ -51,14 +51,17 @@ function cachedFetch(input: string | URL | Request, init?: RequestInit): Promise
 	return originalFetch(input, init).then(async (response) => {
 		const buffer = await response.arrayBuffer();
 		const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
-		const entry: CachedResponse = {
-			status: response.status,
-			contentType,
-			body: Buffer.from(buffer).toString('base64'),
-		};
-		writeCache(url, entry);
+		// Only cache successful, non-empty responses. Caching errors or truncated
+		// bodies would poison the cache permanently and defeat any retry logic.
+		if (response.ok && buffer.byteLength > 0) {
+			writeCache(url, {
+				status: response.status,
+				contentType,
+				body: Buffer.from(buffer).toString('base64'),
+			});
+		}
 		return new Response(buffer, {
-			status: entry.status,
+			status: response.status,
 			headers: { 'content-type': contentType },
 		});
 	});
