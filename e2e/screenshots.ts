@@ -211,25 +211,30 @@ async function installPageCache(page: Page): Promise<void> {
 			});
 			return;
 		}
-		try {
-			const response = await route.fetch();
-			const body = await response.body();
-			// Only cache successful, non-empty responses. Caching errors or empty
-			// bodies would poison the cache and defeat the render retry.
-			if (response.ok() && body.length > 0) {
+		// Retry on a flaky upstream (ECONNRESET) so a cache miss still resolves and
+		// the map can reach `idle`, instead of a single failure aborting the tile.
+		for (let attempt = 0; attempt < 6; attempt++) {
+			try {
+				const response = await route.fetch();
+				const body = await response.body();
+				if (response.status() === 404) {
+					await route.fulfill({ response, body });
+					return;
+				}
+				if (!response.ok() || body.length === 0) continue;
+				// Only cache successful, non-empty responses.
 				writeCache(url, {
 					status: response.status(),
 					contentType: response.headers()['content-type'] ?? 'application/octet-stream',
 					body: body.toString('base64'),
 				});
+				await route.fulfill({ response, body });
+				return;
+			} catch {
+				await new Promise((r) => setTimeout(r, 300));
 			}
-			await route.fulfill({ response, body });
-		} catch {
-			// Network failure (e.g. ECONNRESET): fail this request fast so the map
-			// gives up quickly and the outer retry can restart, rather than hanging
-			// until the idle timeout.
-			await route.abort();
 		}
+		await route.abort();
 	});
 }
 

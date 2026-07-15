@@ -48,23 +48,46 @@ function cachedFetch(input: string | URL | Request, init?: RequestInit): Promise
 		);
 	}
 
-	return originalFetch(input, init).then(async (response) => {
-		const buffer = await response.arrayBuffer();
-		const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
-		// Only cache successful, non-empty responses. Caching errors or truncated
-		// bodies would poison the cache permanently and defeat any retry logic.
-		if (response.ok && buffer.byteLength > 0) {
-			writeCache(url, {
-				status: response.status,
-				contentType,
-				body: Buffer.from(buffer).toString('base64'),
-			});
+	return fetchAndCache(input, init, url);
+}
+
+// Fetch with retries so a flaky upstream (ECONNRESET) warms the cache reliably
+// instead of leaving a tile permanently missing.
+async function fetchAndCache(
+	input: string | URL | Request,
+	init: RequestInit | undefined,
+	url: string,
+	attempts = 6,
+): Promise<Response> {
+	let lastStatus = 502;
+	for (let attempt = 0; attempt < attempts; attempt++) {
+		try {
+			const response = await originalFetch(input, init);
+			const buffer = await response.arrayBuffer();
+			const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+			// Only cache successful, non-empty responses. Caching errors or truncated
+			// bodies would poison the cache permanently and defeat retry logic.
+			if (response.ok && buffer.byteLength > 0) {
+				writeCache(url, {
+					status: response.status,
+					contentType,
+					body: Buffer.from(buffer).toString('base64'),
+				});
+				return new Response(buffer, {
+					status: response.status,
+					headers: { 'content-type': contentType },
+				});
+			}
+			// 404 is a definitive answer; don't retry it.
+			if (response.status === 404) {
+				return new Response(buffer, { status: 404, headers: { 'content-type': contentType } });
+			}
+			lastStatus = response.status;
+		} catch {
+			await new Promise((r) => setTimeout(r, 300));
 		}
-		return new Response(buffer, {
-			status: response.status,
-			headers: { 'content-type': contentType },
-		});
-	});
+	}
+	return new Response(null, { status: lastStatus });
 }
 
 export function installFetchCache(): void {
