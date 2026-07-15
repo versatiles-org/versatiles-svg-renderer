@@ -83,11 +83,6 @@
       "optional": true
     }
   },
-  "overrides": {
-    "esbuild": ">=0.28.1",
-    "markdown-it": ">=14.2.0",
-    "undici": ">=7.28.0"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^3.0.0",
