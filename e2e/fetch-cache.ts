@@ -26,7 +26,7 @@ export function readCache(url: string): CachedResponse | null {
 }
 
 export function writeCache(url: string, entry: CachedResponse): void {
-	writeFileSync(getCachePath(url), JSON.stringify(entry));
+	writeFileSync(getCachePath(url), JSON.stringify({ url, ...entry }));
 }
 
 // --- Node.js fetch patching ---
