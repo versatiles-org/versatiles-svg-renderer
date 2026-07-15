@@ -2,6 +2,18 @@ import { union } from '@turf/union';
 import type { Polygon, Feature as GeoJsonFeature, Position, MultiPolygon } from 'geojson';
 import { Point2D, Feature } from '../geometry.js';
 
+/**
+ * Grid to which polygon coordinates are snapped before unioning. Coordinates are
+ * in SVG pixel space, so 1/10 px is well below anything visible while collapsing
+ * the near-duplicate points (from adjacent tiles) that make polyclip-ts's boolean
+ * ops numerically unstable.
+ */
+const SNAP_PRECISION = 10;
+
+function snap(value: number): number {
+	return Math.round(value * SNAP_PRECISION) / SNAP_PRECISION;
+}
+
 function geojsonToFeature(id: number, polygonFeature: GeoJsonFeature<Polygon>): Feature {
 	const geometry = polygonFeature.geometry.coordinates.map((ring) => {
 		return ring.map((coord: Position) => new Point2D(coord[0] ?? 0, coord[1] ?? 0));
@@ -35,7 +47,7 @@ export function mergePolygonsByFeatureId(featureList: Feature[]): Feature[] {
 		}
 		const turfFeatures: GeoJsonFeature<Polygon>[] = [];
 		features.forEach((f) => {
-			const rings = f.geometry.map((ring) => ring.map((p) => [p.x, p.y]));
+			const rings = f.geometry.map((ring) => ring.map((p) => [snap(p.x), snap(p.y)]));
 			turfFeatures.push({
 				type: 'Feature' as const,
 				geometry: {
