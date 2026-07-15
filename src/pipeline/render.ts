@@ -78,11 +78,18 @@ async function render(job: RenderJob): Promise<void> {
 				continue;
 			case 'fill':
 				{
-					const polygons = getFeatures(layerFeatures, layerStyle)?.polygons;
-					if (!polygons || polygons.length === 0) continue;
+					// MapLibre's fill layer also fills LineString features (auto-closing the
+					// ring), so include linestrings alongside polygons for parity. drawPolygons
+					// closes every subpath, so a linestring is filled as a closed ring.
+					const fillFeatures = getFeatures(layerFeatures, layerStyle);
+					const fillable = [
+						...(fillFeatures?.polygons ?? []),
+						...(fillFeatures?.linestrings ?? []),
+					];
+					if (fillable.length === 0) continue;
 					const polygonFeatures = layerStyle.filterFn
-						? polygons.filter((feature) => layerStyle.filterFn!.filter({ zoom }, feature))
-						: polygons;
+						? fillable.filter((feature) => layerStyle.filterFn!.filter({ zoom }, feature))
+						: fillable;
 
 					if (polygonFeatures.length === 0) continue;
 
