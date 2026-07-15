@@ -27,7 +27,7 @@ vi.mock('@mapbox/vector-tile', () => {
 vi.mock('pbf', () => {
 	return {
 		// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-		default: class {},
+		PbfReader: class {},
 	};
 });
 

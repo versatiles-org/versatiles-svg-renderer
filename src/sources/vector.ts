@@ -3,7 +3,7 @@ import type { RenderJob } from '../renderer/svg.js';
 import { calculateTileGrid, getTile } from './tiles.js';
 import type { LayerFeatures } from '../geometry.js';
 import { VectorTile } from '@mapbox/vector-tile';
-import Protobuf from 'pbf';
+import { PbfReader } from 'pbf';
 
 const TILE_EXTENT = 4096;
 const VTFeatureType = { Unknown: 0, Point: 1, LineString: 2, Polygon: 3 } as const;
@@ -38,7 +38,7 @@ export async function loadVectorSource(
 			const tile = await getTile(tiles[0]!, zoomLevel, x, y);
 			if (!tile) return;
 
-			const vectorTile = new VectorTile(new Protobuf(tile.buffer));
+			const vectorTile = new VectorTile(new PbfReader(tile.buffer));
 			for (const [name, layer] of Object.entries(vectorTile.layers)) {
 				let features = layerFeatures.get(name);
 				if (!features) {
