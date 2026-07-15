@@ -5,8 +5,7 @@ export async function getRasterTiles(job: RenderJob, sourceName: string): Promis
 	const { width, height } = job.renderer;
 	const { zoom, center } = job.view;
 	const source = job.style.sources[sourceName] as
-		| { type: string; tiles?: string[]; maxzoom?: number }
-		| undefined;
+		{ type: string; tiles?: string[]; maxzoom?: number } | undefined;
 
 	if (source?.type !== 'raster' || !source.tiles) {
 		throw Error(

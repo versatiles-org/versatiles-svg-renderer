@@ -5,10 +5,7 @@ export class Color {
 
 	public constructor(
 		...args:
-			| [MaplibreColor]
-			| [number, number, number, number]
-			| [number, number, number]
-			| [string]
+			[MaplibreColor] | [number, number, number, number] | [number, number, number] | [string]
 	) {
 		switch (args.length) {
 			case 1:
