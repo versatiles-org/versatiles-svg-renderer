@@ -200,7 +200,7 @@ const browser = await chromium.launch({
 // Cache browser network requests (unpkg.com, tile servers)
 ensureCacheDir();
 async function installPageCache(page: Page): Promise<void> {
-	await page.route('https://**', async (route) => {
+	await page.route('**/*', async (route) => {
 		const url = route.request().url();
 		const cached = readCache(url);
 		if (cached) {
@@ -212,18 +212,18 @@ async function installPageCache(page: Page): Promise<void> {
 			return;
 		}
 		try {
-		const response = await route.fetch();
-		const body = await response.body();
+			const response = await route.fetch();
+			const body = await response.body();
 			// Only cache successful, non-empty responses. Caching errors or empty
 			// bodies would poison the cache and defeat the render retry.
 			if (response.ok() && body.length > 0) {
-		writeCache(url, {
-			status: response.status(),
-			contentType: response.headers()['content-type'] ?? 'application/octet-stream',
-			body: body.toString('base64'),
-		});
+				writeCache(url, {
+					status: response.status(),
+					contentType: response.headers()['content-type'] ?? 'application/octet-stream',
+					body: body.toString('base64'),
+				});
 			}
-		await route.fulfill({ response, body });
+			await route.fulfill({ response, body });
 		} catch {
 			// Network failure (e.g. ECONNRESET): fail this request fast so the map
 			// gives up quickly and the outer retry can restart, rather than hanging
