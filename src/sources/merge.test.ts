@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { mergePolygonsByFeatureId } from './merge.js';
 import { Feature, Point2D } from '../geometry.js';
@@ -9,6 +10,16 @@ function makePolygon(id: number, rings: [number, number][][]): Feature {
 		properties: {},
 		geometry: rings.map((ring) => ring.map(([x, y]) => new Point2D(x, y))),
 	});
+}
+
+interface UnionCrashFixture {
+	id: number;
+	polygons: [number, number][][][];
+}
+
+function loadFixture(name: string): UnionCrashFixture {
+	const url = new URL(`./__fixtures__/${name}`, import.meta.url);
+	return JSON.parse(readFileSync(url, 'utf8')) as UnionCrashFixture;
 }
 
 describe('mergePolygonsByFeatureId', () => {
@@ -105,6 +116,27 @@ describe('mergePolygonsByFeatureId', () => {
 		expect(result).toHaveLength(2);
 		for (const r of result) {
 			expect(r.type).toBe('Polygon');
+		}
+	});
+
+	test('merges polygons that trigger polyclip-ts robustness bug without throwing', () => {
+		// Regression: this real Berlin building group (feature id 36266223) makes an
+		// all-at-once turf union throw "Unable to complete output ring" in polyclip-ts,
+		// even though every individual polygon is valid. See merge.ts unionAll/snap.
+		const fixture = loadFixture('union-crash-berlin.json');
+		const features = fixture.polygons.map((rings) => makePolygon(fixture.id, rings));
+
+		const result = mergePolygonsByFeatureId(features);
+
+		// Must not throw and must yield a valid, non-empty merge.
+		expect(result.length).toBeGreaterThanOrEqual(1);
+		for (const r of result) {
+			expect(r.type).toBe('Polygon');
+			// outer ring present and closed
+			const outer = r.geometry[0]!;
+			expect(outer.length).toBeGreaterThanOrEqual(4);
+			expect(outer[0]!.x).toBe(outer[outer.length - 1]!.x);
+			expect(outer[0]!.y).toBe(outer[outer.length - 1]!.y);
 		}
 	});
 });
