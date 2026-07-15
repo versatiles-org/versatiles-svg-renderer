@@ -14,6 +14,35 @@ function snap(value: number): number {
 	return Math.round(value * SNAP_PRECISION) / SNAP_PRECISION;
 }
 
+/**
+ * Unions a list of polygon features into one geometry.
+ *
+ * polyclip-ts (used by @turf/union) has floating-point robustness bugs that can
+ * throw "Unable to complete output ring" on valid-but-overlapping input when all
+ * features are unioned at once. We union incrementally and swallow per-step
+ * failures so a single problematic feature degrades gracefully (it is dropped from
+ * the merge) instead of crashing the whole render.
+ */
+function unionAll(
+	features: GeoJsonFeature<Polygon>[],
+): GeoJsonFeature<Polygon | MultiPolygon> | null {
+	let accumulated: GeoJsonFeature<Polygon | MultiPolygon> | null = features[0] ?? null;
+	for (let i = 1; i < features.length; i++) {
+		try {
+			const next = union({
+				type: 'FeatureCollection' as const,
+				features: [accumulated!, features[i]!],
+			});
+			if (next) accumulated = next;
+		} catch (error) {
+			console.warn(
+				`mergePolygonsByFeatureId: skipping a polygon that failed to union: ${String(error)}`,
+			);
+		}
+	}
+	return accumulated;
+}
+
 function geojsonToFeature(id: number, polygonFeature: GeoJsonFeature<Polygon>): Feature {
 	const geometry = polygonFeature.geometry.coordinates.map((ring) => {
 		return ring.map((coord: Position) => new Point2D(coord[0] ?? 0, coord[1] ?? 0));
@@ -57,10 +86,7 @@ export function mergePolygonsByFeatureId(featureList: Feature[]): Feature[] {
 				properties: f.properties,
 			});
 		});
-		const merged = union({
-			type: 'FeatureCollection' as const,
-			features: turfFeatures,
-		});
+		const merged = unionAll(turfFeatures);
 		if (merged) {
 			if (merged.geometry.type === 'Polygon') {
 				const typedMerged = merged as GeoJsonFeature<Polygon>;
