@@ -92,27 +92,27 @@ export class StyleLayer {
 			this.source = (spec as Record<string, unknown>).source as string;
 			this.sourceLayer = (spec as Record<string, unknown>)['source-layer'] as string;
 			this.filter = (spec as Record<string, unknown>).filter as FilterSpecification | undefined;
-			this.filterFn = featureFilter(this.filter);
+			this.filterFn = featureFilter(this.filter, `layers.${this.id}.filter`);
 		}
 
 		this.visibility = (spec.layout?.visibility ?? 'visible') as string;
 
 		// Initialize paint property expressions
 		const paintSpec = (
-			latest as Record<string, Record<string, StylePropertySpecification> | undefined>
+			latest as unknown as Record<string, Record<string, StylePropertySpecification> | undefined>
 		)[`paint_${spec.type}`];
 		if (paintSpec) {
 			const paintValues: Record<string, unknown> = spec.paint ?? {};
 			for (const [name, propSpec] of Object.entries(paintSpec)) {
 				const raw = paintValues[name];
 				const value = raw === undefined ? propSpec.default : raw;
-				this.paintExpressions.set(name, normalizePropertyExpression(value, propSpec));
+				this.paintExpressions.set(name, normalizePropertyExpression(value, name, propSpec));
 			}
 		}
 
 		// Initialize layout property expressions (skip visibility, handled separately)
 		const layoutSpec = (
-			latest as Record<string, Record<string, StylePropertySpecification> | undefined>
+			latest as unknown as Record<string, Record<string, StylePropertySpecification> | undefined>
 		)[`layout_${spec.type}`];
 		if (layoutSpec) {
 			const layoutValues = (spec.layout ?? {}) as Record<string, unknown>;
@@ -120,7 +120,7 @@ export class StyleLayer {
 				if (name === 'visibility') continue;
 				const raw = layoutValues[name];
 				const value = raw === undefined ? propSpec.default : raw;
-				this.layoutExpressions.set(name, normalizePropertyExpression(value, propSpec));
+				this.layoutExpressions.set(name, normalizePropertyExpression(value, name, propSpec));
 			}
 		}
 	}
