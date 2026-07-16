@@ -166,6 +166,10 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 						source: 'geojson-stack',
 						paint: {
 							'fill-color': ['get', 'color'],
+							// Explicit choropleth-style border. MapLibre draws each rectangle's
+							// outline over ALL fills, so a lower rectangle's white edge shows on
+							// top of a later overlapping fill — the parity case for fill-outline-color.
+							'fill-outline-color': '#ffffff',
 						},
 					},
 					{
