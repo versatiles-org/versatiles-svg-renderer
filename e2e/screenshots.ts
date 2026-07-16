@@ -186,8 +186,8 @@ const baseline: Record<string, number> = existsSync(baselinePath)
 
 // A change counts as degradation/improvement only if it clears both a 5% relative
 // move and a 0.1% absolute floor (anything smaller is MapLibre AA/GPU render noise).
-const REL_TOLERANCE = 0.05;
-const ABS_FLOOR = 0.1;
+const REL_TOLERANCE = 0.03;
+const ABS_FLOOR = 0.01;
 // The hard ceiling is derived from the baseline rather than hand-maintained: a diff
 // must stay under max(baseline * 1.5, baseline + 0.3%). It's the backstop above the
 // (stricter) degradation check.
