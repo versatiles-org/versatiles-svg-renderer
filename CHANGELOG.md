@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Renamed the MapLibre plugin bundle** from `maplibre.*` to `maplibre-svg-export.*`, so the distributed files no longer collide with MapLibre GL JS's own `maplibre-gl.js`. The `@versatiles/svg-renderer/maplibre` import subpath and the `VersaTilesSVG` UMD global are unchanged — only the physical file names and CDN paths changed (e.g. `dist/maplibre-svg-export.umd.js`). ([7886d99](https://github.com/versatiles-org/versatiles-svg-renderer/commit/7886d9978122b1f63ca772b770cc42c784e2a66a))
+- Excluded source-map (`*.map`) files from the published npm package, shrinking the tarball's unpacked size from ~4.5 MB to ~1.3 MB. Maps are still generated in `dist/` for local debugging. ([89da461](https://github.com/versatiles-org/versatiles-svg-renderer/commit/89da46164662c4ab4e4990689af7ee212e0a6b59))
+
+### Removed
+
+- Dropped the CommonJS build of the MapLibre plugin (`maplibre-svg-export.cjs`). The browser-only control now ships as ESM + UMD only; nothing consumes a MapLibre control through CommonJS `require()`. The core `renderToSVG` entry keeps its CommonJS build. ([5003d32](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5003d329872455ed47576324c4ea9a6f80b626b3))
+
+> **Note:** the bundle rename and the removed plugin CommonJS build are breaking for anyone importing those files by their old physical path or via `require('@versatiles/svg-renderer/maplibre')`. Importing from the `@versatiles/svg-renderer/maplibre` ESM subpath, or loading `VersaTilesSVG` from the CDN UMD, keeps working.
+
 ## [0.8.0] - 2026-07-16
 
 ### Features
