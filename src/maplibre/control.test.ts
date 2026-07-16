@@ -520,6 +520,10 @@ describe('SVGExportControl', () => {
 			const text = notice?.textContent ?? '';
 			expect(text).toContain('Bold');
 			expect(text).toContain('emphasis');
+			// Allowed tags are preserved, not flattened to plain text.
+			const html = notice?.innerHTML ?? '';
+			expect(html).toContain('<b>Bold</b>');
+			expect(html).toContain('<em>emphasis</em>');
 		});
 
 		test('sanitizes attribution HTML - handles anchor tags with https', () => {
@@ -543,6 +547,11 @@ describe('SVGExportControl', () => {
 			const notice = map.getContainer().querySelector('.panel-attribution');
 			const text = notice?.textContent ?? '';
 			expect(text).toContain('Link');
+			// The link is preserved with its href and hardened with target/rel.
+			const anchor = notice?.querySelector('a');
+			expect(anchor?.getAttribute('href')).toBe('https://example.com');
+			expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer');
+			expect(anchor?.getAttribute('target')).toBe('_blank');
 		});
 
 		test('sanitizes attribution HTML - strips javascript: urls', () => {

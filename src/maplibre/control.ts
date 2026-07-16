@@ -18,7 +18,12 @@ const ALLOWED_TAGS = new Set(['a', 'b', 'i', 'em', 'strong', 'span']);
 function sanitizeHTML(html: string): string {
 	const parser = new DOMParser();
 	const doc = parser.parseFromString(html, 'text/html');
-	return sanitizeNode(doc.body).textContent ?? '';
+	// Serialize the sanitized tree back to HTML so allowed tags and safe links
+	// survive. The result is later assigned via innerHTML; every text node is
+	// re-escaped by the serializer, so it is safe to concatenate and inject.
+	const container = document.createElement('div');
+	container.append(sanitizeNode(doc.body));
+	return container.innerHTML;
 }
 
 function sanitizeNode(node: Node): Node {
