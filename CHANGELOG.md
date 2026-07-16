@@ -29,6 +29,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a `typecheck` step to CI so type regressions fail the build (previously only lint/build/test ran). ([1ae2269](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1ae2269b305bfa02f6899ae82f1bae9175179744))
 
+## [1.0.0] - 2026-07-16
+
+### Features
+
+- update references to maplibre-svg-export for consistency across files ([7886d99](https://github.com/versatiles-org/versatiles-svg-renderer/commit/7886d9978122b1f63ca772b770cc42c784e2a66a))
+- implement arrayBufferToBase64 function for encoding ArrayBuffers to Base64 ([a9c0b97](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a9c0b9723d8a698100540e970951b5ad95ec8870))
+- enhance HTML sanitization to preserve allowed tags and safe links ([ac23f19](https://github.com/versatiles-org/versatiles-svg-renderer/commit/ac23f19a9a88ddaeac7779d5763e57cb22a06052))
+- add default export size options to SVGExportControl ([333adea](https://github.com/versatiles-org/versatiles-svg-renderer/commit/333adea137ce0e4b0776b80cf5f74bfa19993d88))
+
+### Bug Fixes
+
+- remove CommonJS output for maplibre-svg-export as it is not required ([5003d32](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5003d329872455ed47576324c4ea9a6f80b626b3))
+- exclude source map files from package distribution ([89da461](https://github.com/versatiles-org/versatiles-svg-renderer/commit/89da46164662c4ab4e4990689af7ee212e0a6b59))
+
+### Code Refactoring
+
+- replace base64 encoding logic with arrayBufferToBase64 utility in raster and sprite sources ([0de690f](https://github.com/versatiles-org/versatiles-svg-renderer/commit/0de690fb5fa7e827361a8ee5a9c5f3f7a6d7ace4))
+- remove Turf.js dependencies and related merge functionality ([1cba1af](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1cba1afd56880dffaf0e8cbd794b0c044906c89d))
+
+### Documentation
+
+- enhance SVGExportControl documentation with bundler import example ([2b9b736](https://github.com/versatiles-org/versatiles-svg-renderer/commit/2b9b7365fa4266be3ac32045acf3a3c14d6be803))
+- update changelog with recent changes to MapLibre plugin bundle and package structure ([84b1ea3](https://github.com/versatiles-org/versatiles-svg-renderer/commit/84b1ea34fbb1ab4c4a2db1f25c8316d5dd9aa8ff))
+
+### CI/CD
+
+- add typecheck step to CI workflow ([1ae2269](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1ae2269b305bfa02f6899ae82f1bae9175179744))
+
+### Chores
+
+- update changelog with recent changes and fixes ([8f588eb](https://github.com/versatiles-org/versatiles-svg-renderer/commit/8f588eb34a4e0494b7d0af2bbc6dfe468572a030))
+
 ## [0.8.0] - 2026-07-16
 
 ### Features
