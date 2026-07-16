@@ -143,6 +143,36 @@ describe('SVGRenderer', () => {
 			const svg = r.getString();
 			expect(svg).not.toContain('<path');
 		});
+
+		test('merges only consecutive same-attribute features, preserving draw order', () => {
+			const r = makeRenderer();
+			const poly = (): Feature =>
+				makePolygonFeature([
+					[
+						[0, 0],
+						[10, 0],
+						[10, 10],
+					],
+				]);
+			const fill = (
+				hex: string,
+			): { color: Color; opacity: number; translate: [number, number] } => ({
+				color: mc(hex),
+				opacity: 1,
+				translate: [0, 0],
+			});
+			// Order: red, red, blue, red. Global merging would emit red(×3) then blue,
+			// changing the paint order; run-length keeps red-red, blue, red.
+			r.drawPolygons('fill-test', [
+				[poly(), fill('#FF0000')],
+				[poly(), fill('#FF0000')],
+				[poly(), fill('#0000FF')],
+				[poly(), fill('#FF0000')],
+			]);
+			const svg = r.getString();
+			const fills = [...svg.matchAll(/fill="(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
+			expect(fills).toEqual(['#FF0000', '#0000FF', '#FF0000']);
+		});
 	});
 
 	describe('drawLineStrings', () => {
