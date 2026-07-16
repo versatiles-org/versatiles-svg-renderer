@@ -105,7 +105,7 @@ new SVGExportControl({
 
 | Option         | Type                 | Default      | Description                               |
 | -------------- | -------------------- | ------------ | ----------------------------------------- |
-| `style`        | `StyleSpecification` | _(required)_ | MapLibre style specification              |
+| `style`        | `StyleSpecification` | *(required)* | MapLibre style specification              |
 | `width`        | `number`             | `1024`       | Output width in pixels                    |
 | `height`       | `number`             | `1024`       | Output height in pixels                   |
 | `lon`          | `number`             | `0`          | Center longitude                          |
@@ -145,54 +145,53 @@ subgraph 0["src"]
 2["index.ts"]
 subgraph 3["pipeline"]
 4["render.ts"]
-E["style_layer.ts"]
+D["style_layer.ts"]
 end
 subgraph 5["sources"]
 6["index.ts"]
 7["geojson.ts"]
-9["merge.ts"]
-A["raster.ts"]
-B["tiles.ts"]
-C["sprite.ts"]
-D["vector.ts"]
+9["raster.ts"]
+A["tiles.ts"]
+B["sprite.ts"]
+C["vector.ts"]
+N["merge.ts"]
 end
 8["geometry.ts"]
-subgraph F["renderer"]
-G["svg.ts"]
-H["color.ts"]
-I["svg_path.ts"]
-N["types.ts"]
+subgraph E["renderer"]
+F["svg.ts"]
+G["color.ts"]
+H["svg_path.ts"]
+M["types.ts"]
 end
-subgraph J["maplibre"]
-K["control.ts"]
-L["panel_css.ts"]
-M["index.ts"]
+subgraph I["maplibre"]
+J["control.ts"]
+K["panel_css.ts"]
+L["index.ts"]
 end
 end
 1-->2
 2-->4
-2-->G
+2-->F
 4-->6
-4-->C
-4-->E
+4-->B
+4-->D
 6-->7
 6-->9
-6-->A
+6-->B
 6-->C
-6-->D
 7-->8
-9-->8
-A-->B
-B-->8
-D-->8
-D-->B
-G-->H
-G-->I
-K-->2
-K-->L
-M-->2
-M-->K
+9-->A
+A-->8
+C-->8
+C-->A
+F-->G
+F-->H
+J-->2
+J-->K
+L-->2
+L-->J
+N-->8
 
-class 0,3,5,F,J subgraphs;
+class 0,3,5,E,I subgraphs;
 classDef subgraphs fill-opacity:0.1, fill:#888, color:#888, stroke:#888;
 ```

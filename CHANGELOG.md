@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-16
+
+### Features
+
+- implement line-offset and add line-blur support ([d872106](https://github.com/versatiles-org/versatiles-svg-renderer/commit/d8721062f3f3358ce332363c0418ca1f1f768117))
+- add regression testing for SVG rendering with baseline comparison ([18ed351](https://github.com/versatiles-org/versatiles-svg-renderer/commit/18ed35134e12ae249dcf1742c2a41d010789b836))
+- add geojson stack source for cascading, overlapping squares with correct paint order ([722a060](https://github.com/versatiles-org/versatiles-svg-renderer/commit/722a060138bc0dbf5d4f1c665c9c35d8998281d7))
+- implement fill-antialiasing with outline color support in SVGRenderer ([fb62ed8](https://github.com/versatiles-org/versatiles-svg-renderer/commit/fb62ed871516d86b4d842ac1ca50bbf05dc3b7e1))
+- add polygon outlines for accurate line rendering and prevent duplicate fills ([4fed4f3](https://github.com/versatiles-org/versatiles-svg-renderer/commit/4fed4f3feaad721a1bf4bdd54d0c9f662721c9b0))
+
+### Bug Fixes
+
+- remove unnecessary type assertions in various files ([5deef56](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5deef56f23c99f3635d158abfba98ae073ccaa85))
+- update funding information in FUNDING.yml ([ef4211d](https://github.com/versatiles-org/versatiles-svg-renderer/commit/ef4211d17af4135284a3ff7dc31d53111851792e))
+- update Pbf import to use PbfReader class ([25e847b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/25e847b4d241928be50ee92a5e396fed98ef269f))
+- enhance filter function and normalize property expressions in StyleLayer ([67788c0](https://github.com/versatiles-org/versatiles-svg-renderer/commit/67788c01ca8b6c48cb8d10ba5d898fb9d017998f))
+- implement snapping of polygon coordinates to improve union stability ([11e6fb3](https://github.com/versatiles-org/versatiles-svg-renderer/commit/11e6fb36ee9eebd96c79e9b75b4f28384b7205cd))
+- implement incremental union of polygon features to handle floating-point robustness issues ([3c24943](https://github.com/versatiles-org/versatiles-svg-renderer/commit/3c24943a3c9e096fb13823fc37554187ead8fbf4))
+- update package overrides and allowScripts ([802ffd5](https://github.com/versatiles-org/versatiles-svg-renderer/commit/802ffd5cd6cf12578228f99791756d826c061cd3))
+- downgrade undici to version 7.28.0 and update node engine requirement ([d7a6340](https://github.com/versatiles-org/versatiles-svg-renderer/commit/d7a6340cf7408ef51f3df1866ee989325030ac10))
+- include URL in cached response when writing to cache ([5a51b3f](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5a51b3f2c902d3f0a878ec1de888a0a15a87a90b))
+- cache only successful, non-empty responses in cachedFetch ([95729d6](https://github.com/versatiles-org/versatiles-svg-renderer/commit/95729d69d809a91f1a8f13e5d5c2389bfde11c8a))
+- cache only successful, non-empty responses in installPageCache function ([e65e3b6](https://github.com/versatiles-org/versatiles-svg-renderer/commit/e65e3b6884bcafbfa9c43e68ac6c6b4799df2694))
+- update route pattern in installPageCache to match all URLs ([b1785c4](https://github.com/versatiles-org/versatiles-svg-renderer/commit/b1785c4d501a90db62ef157ca1f867f483e2fccb))
+- implement retry logic for caching in installPageCache and cachedFetch functions ([363f297](https://github.com/versatiles-org/versatiles-svg-renderer/commit/363f297fff7a6cb39f3f10fc8a39dfe93124aac7))
+- adjust Gaussian blur implementation for line rendering and improve opacity calculation ([699f55e](https://github.com/versatiles-org/versatiles-svg-renderer/commit/699f55e62d0b309740a962f616b79fb35c181b35))
+- include LineString features in fill layer rendering for parity with polygons ([33f6867](https://github.com/versatiles-org/versatiles-svg-renderer/commit/33f6867cb75ea150ae7e6520158883dd71051acb))
+- refactor SVG rendering logic for improved Gaussian blur and opacity handling ([5e0a3fb](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5e0a3fb38b5d03a7c8a70c872f23c857bb5ac4b9))
+- update pages assembly to include new demo and distribution directories ([ec72994](https://github.com/versatiles-org/versatiles-svg-renderer/commit/ec72994696af5f905a1eb4f985d4af12bcc63b4c))
+- remove package.json from prettier ignore list ([62ce372](https://github.com/versatiles-org/versatiles-svg-renderer/commit/62ce3729ab335ad5491a906933edc1b507e45d7a))
+- merge consecutive features with identical attributes for correct paint order ([884762b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/884762bc46043f1e01528b7281585fa3e7bf417e))
+- update baseline values and improve screenshot rendering for accurate pixel comparison ([fbacfdf](https://github.com/versatiles-org/versatiles-svg-renderer/commit/fbacfdf245c7e803afdf03e9c87f00a00dc8864b))
+- adjust berlin-geojson baseline value and update geojson region coordinates for accurate rendering test: add case to verify radius adjustment for stroke width in circle rendering refactor: modify SVGRenderer to correctly account for stroke width in drawn radius ([a8efcb7](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a8efcb7a46c1300f07cd0e794e5bddd1756b7658))
+- update berlin-geojson baseline value for accurate rendering and enhance geojson stack source with rainbow color features ([1157b8e](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1157b8e3097b4acd763cd0d2acb8475857902418))
+- add explicit choropleth-style border to geojson fill for correct rendering ([5efe338](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5efe3388aa73ea0f0bdcc9ebae92916a67649ffe))
+- update berlin-geojson baseline value and adjust tolerance thresholds for rendering accuracy ([f591221](https://github.com/versatiles-org/versatiles-svg-renderer/commit/f59122124de53923ceba98e9c6c8d20c8f741643))
+
+### Code Refactoring
+
+- remove polygon merging logic from getLayerFeatures function ([5982aef](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5982aef95fe87d86979aefe888c0f2da8a560589))
+- add parallel processing for screenshots ([a73fe6c](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a73fe6c7e819ecbcb454c95d659337a44af69ae2))
+
+### Documentation
+
+- add README for end-to-end tests and entry points ([0fb1647](https://github.com/versatiles-org/versatiles-svg-renderer/commit/0fb1647222aee1e950d3f0ba80d3ae513cf3a540))
+
+### Tests
+
+- add regression test for merging polygons that trigger polyclip-ts bug ([588b4d3](https://github.com/versatiles-org/versatiles-svg-renderer/commit/588b4d3d7f61b8962de4d3e92afac1a5ea7fa3e2))
+- add case for merging consecutive same-attribute features to preserve draw order ([0d2ad92](https://github.com/versatiles-org/versatiles-svg-renderer/commit/0d2ad92ab55dcd74a02702273aa70d23f2382e56))
+
+### CI/CD
+
+- update Playwright container image to v1.61.1 ([e3ef49b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/e3ef49b3773effb13922eeac61c70b0672d0ae0b))
+
+### Chores
+
+- update dependencies to latest versions ([343b473](https://github.com/versatiles-org/versatiles-svg-renderer/commit/343b4731715e428ede119804e0ef731013d806d0))
+- **deps:** bump actions/upload-pages-artifact in the action group ([dfff1bb](https://github.com/versatiles-org/versatiles-svg-renderer/commit/dfff1bb00414de9b825c240618793b4e19f5b670))
+- **deps-dev:** bump the npm group with 3 updates ([9fb0856](https://github.com/versatiles-org/versatiles-svg-renderer/commit/9fb085648b53c9ad50e1f752663fb8330d20bd71))
+- **deps-dev:** bump the npm group with 14 updates ([0d87b6d](https://github.com/versatiles-org/versatiles-svg-renderer/commit/0d87b6d4d7a14249234522fe2e7450c744074057))
+- **deps:** bump the action group with 2 updates ([0f6f13b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/0f6f13bbe6b8489b8a49a7b79779db067b4c0d1d))
+- **deps-dev:** bump the npm group with 13 updates ([1c5db0b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1c5db0b8ead82162a1586ebb4956c7bd0065a5d4))
+- **deps-dev:** update dependencies to latest versions ([b1158cf](https://github.com/versatiles-org/versatiles-svg-renderer/commit/b1158cfce5ac17497d86efefc15f2c0938fc9b96))
+
+### Styles
+
+- update format ([b5dedb9](https://github.com/versatiles-org/versatiles-svg-renderer/commit/b5dedb948cd2f393c8b9c950a35d92f25e6f44d7))
+
 ## [0.7.3] - 2026-04-04
 
 ### Bug Fixes
