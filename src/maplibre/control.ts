@@ -3,7 +3,9 @@ import { PANEL_CSS } from './panel_css.js';
 import { renderToSVG } from '../index.js';
 
 export interface SVGExportControlOptions {
+	/** Initial export width in px. Defaults to the current map viewport width. */
 	defaultWidth?: number;
+	/** Initial export height in px. Defaults to the current map viewport height. */
 	defaultHeight?: number;
 }
 
@@ -60,13 +62,10 @@ export class SVGExportControl implements IControl {
 	private debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	private currentSVG: string | undefined;
 	private renderGeneration = 0;
-	private options: Required<SVGExportControlOptions>;
+	private options: SVGExportControlOptions;
 
 	constructor(options?: SVGExportControlOptions) {
-		this.options = {
-			defaultWidth: options?.defaultWidth ?? 1024,
-			defaultHeight: options?.defaultHeight ?? 1024,
-		};
+		this.options = { ...options };
 	}
 
 	onAdd(map: Map): HTMLElement {
@@ -103,6 +102,14 @@ export class SVGExportControl implements IControl {
 		if (this.panel || !this.map) return;
 
 		const mapContainer = this.map.getContainer();
+
+		// Seed the size inputs from the current map viewport so the default export
+		// matches what the user sees on screen. Explicit constructor options win;
+		// the 1024 fallback covers environments that report no layout size
+		// (clientWidth 0). Inputs stay independent — the user can change either.
+		const defaultWidth = this.options.defaultWidth ?? (mapContainer.clientWidth || 1024);
+		const defaultHeight = this.options.defaultHeight ?? (mapContainer.clientHeight || 1024);
+
 		this.panel = document.createElement('div');
 		this.panel.className = 'svg-export-panel';
 
@@ -118,8 +125,8 @@ export class SVGExportControl implements IControl {
 			</div>
 			<div class="panel-inputs">
 				<div class="grid">
-					<label>Width<input type="number" class="input-width" value="${String(this.options.defaultWidth)}" min="1" max="8192"></label>
-					<label>Height<input type="number" class="input-height" value="${String(this.options.defaultHeight)}" min="1" max="8192"></label>
+					<label>Width<input type="number" class="input-width" value="${String(defaultWidth)}" min="1" max="8192"></label>
+					<label>Height<input type="number" class="input-height" value="${String(defaultHeight)}" min="1" max="8192"></label>
 				</div>
 				<label class="label-checkbox"><input type="checkbox" class="input-labels"> Include labels and icons (buggy)</label>
 			</div>

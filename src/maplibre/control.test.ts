@@ -70,6 +70,35 @@ describe('SVGExportControl', () => {
 			expect(container.querySelector<HTMLInputElement>('.input-width')!.value).toBe('800');
 			expect(container.querySelector<HTMLInputElement>('.input-height')!.value).toBe('600');
 		});
+
+		test('defaults export size to the map viewport when no size option is given', () => {
+			const control = new SVGExportControl();
+			const map = createMockMap();
+			const container = map.getContainer();
+			// Simulate a laid-out map viewport (jsdom reports 0 without this).
+			Object.defineProperty(container, 'clientWidth', { value: 1200, configurable: true });
+			Object.defineProperty(container, 'clientHeight', { value: 800, configurable: true });
+
+			const el = control.onAdd(map as never);
+			el.querySelector('button')!.click();
+
+			expect(container.querySelector<HTMLInputElement>('.input-width')!.value).toBe('1200');
+			expect(container.querySelector<HTMLInputElement>('.input-height')!.value).toBe('800');
+		});
+
+		test('explicit size options override the viewport size', () => {
+			const control = new SVGExportControl({ defaultWidth: 640, defaultHeight: 480 });
+			const map = createMockMap();
+			const container = map.getContainer();
+			Object.defineProperty(container, 'clientWidth', { value: 1200, configurable: true });
+			Object.defineProperty(container, 'clientHeight', { value: 800, configurable: true });
+
+			const el = control.onAdd(map as never);
+			el.querySelector('button')!.click();
+
+			expect(container.querySelector<HTMLInputElement>('.input-width')!.value).toBe('640');
+			expect(container.querySelector<HTMLInputElement>('.input-height')!.value).toBe('480');
+		});
 	});
 
 	describe('onAdd', () => {
