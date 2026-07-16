@@ -27,8 +27,10 @@ const allConfigs: RollupOptions[] = [
 	{
 		input: 'src/maplibre/index.ts',
 		output: [
+			// The MapLibre control is browser-only (needs the DOM + maplibre-gl), so it
+			// ships ESM (for bundlers) and UMD (for <script>) — but no CommonJS: nothing
+			// `require()`s a MapLibre control from Node.
 			{ file: 'dist/maplibre-svg-export.js', format: 'es', sourcemap: true },
-			{ file: 'dist/maplibre-svg-export.cjs', format: 'cjs', sourcemap: true },
 			{
 				file: 'dist/maplibre-svg-export.umd.js',
 				format: 'umd',

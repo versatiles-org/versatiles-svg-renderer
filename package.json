@@ -36,10 +36,6 @@
       "import": {
         "types": "./dist/maplibre-svg-export.d.ts",
         "default": "./dist/maplibre-svg-export.js"
-      },
-      "require": {
-        "types": "./dist/maplibre-svg-export.d.ts",
-        "default": "./dist/maplibre-svg-export.cjs"
       }
     }
   },
