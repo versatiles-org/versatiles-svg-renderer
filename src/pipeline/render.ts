@@ -113,8 +113,15 @@ async function render(job: RenderJob): Promise<void> {
 				continue;
 			case 'line':
 				{
-					const lineStrings = getFeatures(layerFeatures, layerStyle)?.linestrings;
-					if (!lineStrings || lineStrings.length === 0) continue;
+					// Stroke real linestrings plus polygon boundaries (MapLibre draws polygon
+					// rings in a line layer). polygonOutlines is kept out of `fill` so polygons
+					// are not filled a second time.
+					const lineFeats = getFeatures(layerFeatures, layerStyle);
+					const lineStrings = [
+						...(lineFeats?.linestrings ?? []),
+						...(lineFeats?.polygonOutlines ?? []),
+					];
+					if (lineStrings.length === 0) continue;
 					const lineStringFeatures = layerStyle.filterFn
 						? lineStrings.filter((feature) => layerStyle.filterFn!.filter({ zoom }, feature))
 						: lineStrings;

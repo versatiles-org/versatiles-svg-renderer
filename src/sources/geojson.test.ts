@@ -131,7 +131,12 @@ describe('loadGeoJSONSource', () => {
 			const features = getFeatures(lf);
 			expect(features.polygons.length).toBe(1);
 			expect(features.polygons[0]!.type).toBe('Polygon');
-			expect(features.linestrings.length).toBe(1);
+			// The polygon boundary is materialized as a stroke source in polygonOutlines
+			// (for `line` layers), NOT in linestrings — otherwise `fill` layers, which
+			// consume polygons + linestrings, would fill the polygon twice.
+			expect(features.linestrings.length).toBe(0);
+			expect(features.polygonOutlines?.length).toBe(1);
+			expect(features.polygonOutlines![0]!.type).toBe('LineString');
 			expect(features.points.length).toBe(1);
 		});
 

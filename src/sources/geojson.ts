@@ -17,7 +17,13 @@ export interface GeoJSONLoadOptions {
 export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 	const { sourceName, data, width, height, zoom, center, layerFeatures } = options;
 	const existing = layerFeatures.get(sourceName);
-	const features: Features = existing ?? { points: [], linestrings: [], polygons: [] };
+	const features: Features = existing ?? {
+		points: [],
+		linestrings: [],
+		polygons: [],
+		polygonOutlines: [],
+	};
+	features.polygonOutlines ??= [];
 	if (!existing) layerFeatures.set(sourceName, features);
 
 	const worldSize = 512 * 2 ** zoom;
@@ -84,7 +90,11 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 				const f = makeFeature('Polygon', geometry, id, properties);
 				if (f) {
 					features.polygons.push(f);
-					features.linestrings.push(new Feature({ type: 'LineString', geometry, id, properties }));
+					// Stroke source for `line` layers only — NOT `fill` (the polygon is
+					// already filled via features.polygons; filling this too would double it).
+					features.polygonOutlines!.push(
+						new Feature({ type: 'LineString', geometry, id, properties }),
+					);
 					features.points.push(
 						new Feature({ type: 'Point', geometry: extractPoints(geometry), id, properties }),
 					);

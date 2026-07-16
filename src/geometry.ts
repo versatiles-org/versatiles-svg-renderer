@@ -21,6 +21,12 @@ export interface Features {
 	points: Feature[];
 	linestrings: Feature[];
 	polygons: Feature[];
+	/**
+	 * Polygon boundaries materialized as lines, so `line` layers can stroke polygon
+	 * rings (MapLibre parity). Kept separate from `linestrings` so `fill` layers do
+	 * NOT fill them a second time (the polygon itself is already in `polygons`).
+	 */
+	polygonOutlines?: Feature[];
 }
 
 export type LayerFeatures = Map<string, Features>;

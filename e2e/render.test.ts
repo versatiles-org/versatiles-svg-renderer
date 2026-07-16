@@ -243,6 +243,73 @@ describe('e2e: geojson source with fill layer', () => {
 		expect(svg).toContain('<path d=');
 		expect(svg).toContain('fill="#00FF00"');
 	});
+
+	test('fills a GeoJSON polygon exactly once (no linestring-twin duplicate)', async () => {
+		// A GeoJSON polygon is also materialized as a boundary line (so `line` layers
+		// can stroke its rings). Regression: the fill layer, which consumes polygons +
+		// linestrings, must not fill that boundary twin too — one fill path, not two.
+		const svg = await renderMap(
+			makeJob({
+				version: 8,
+				sources: {
+					polygons: geojsonSource({
+						type: 'Feature',
+						geometry: {
+							type: 'Polygon',
+							coordinates: [
+								[
+									[-20, 20],
+									[20, 20],
+									[20, -20],
+									[-20, -20],
+									[-20, 20],
+								],
+							],
+						},
+						properties: {},
+					}),
+				},
+				layers: [
+					{ id: 'fill', type: 'fill', source: 'polygons', paint: { 'fill-color': '#00FF00' } },
+				],
+			}),
+		);
+
+		const fills = [...svg.matchAll(/fill="#00FF00"/g)];
+		expect(fills).toHaveLength(1);
+	});
+
+	test('a line layer still strokes GeoJSON polygon boundaries', async () => {
+		// The boundary twin lives in polygonOutlines now; `line` layers must still draw it.
+		const svg = await renderMap(
+			makeJob({
+				version: 8,
+				sources: {
+					polygons: geojsonSource({
+						type: 'Feature',
+						geometry: {
+							type: 'Polygon',
+							coordinates: [
+								[
+									[-20, 20],
+									[20, 20],
+									[20, -20],
+									[-20, -20],
+									[-20, 20],
+								],
+							],
+						},
+						properties: {},
+					}),
+				},
+				layers: [
+					{ id: 'stroke', type: 'line', source: 'polygons', paint: { 'line-color': '#FF00FF' } },
+				],
+			}),
+		);
+
+		expect(svg).toContain('stroke="#FF00FF"');
+	});
 });
 
 describe('e2e: geojson source with line layer', () => {
