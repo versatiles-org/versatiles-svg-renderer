@@ -27,10 +27,10 @@ const allConfigs: RollupOptions[] = [
 	{
 		input: 'src/maplibre/index.ts',
 		output: [
-			{ file: 'dist/maplibre.js', format: 'es', sourcemap: true },
-			{ file: 'dist/maplibre.cjs', format: 'cjs', sourcemap: true },
+			{ file: 'dist/maplibre-svg-export.js', format: 'es', sourcemap: true },
+			{ file: 'dist/maplibre-svg-export.cjs', format: 'cjs', sourcemap: true },
 			{
-				file: 'dist/maplibre.umd.js',
+				file: 'dist/maplibre-svg-export.umd.js',
 				format: 'umd',
 				name: 'VersaTilesSVG',
 				sourcemap: true,
@@ -42,7 +42,7 @@ const allConfigs: RollupOptions[] = [
 	},
 	{
 		input: 'dist/types/maplibre/index.d.ts',
-		output: { file: 'dist/maplibre.d.ts', format: 'es' },
+		output: { file: 'dist/maplibre-svg-export.d.ts', format: 'es' },
 		plugins: [dts()],
 	},
 ];
@@ -50,7 +50,7 @@ const allConfigs: RollupOptions[] = [
 const maplibreConfig: RollupOptions[] = [
 	{
 		input: 'src/maplibre/index.ts',
-		output: [{ file: 'dist/maplibre.js', format: 'es', sourcemap: true }],
+		output: [{ file: 'dist/maplibre-svg-export.js', format: 'es', sourcemap: true }],
 		external: ['maplibre-gl'],
 		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],
 	},

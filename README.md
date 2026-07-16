@@ -70,7 +70,7 @@ The package includes an `SVGExportControl` that adds an export button to any Map
 	<head>
 		<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
 		<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
-		<script src="https://unpkg.com/@versatiles/svg-renderer/dist/maplibre.umd.js"></script>
+		<script src="https://unpkg.com/@versatiles/svg-renderer/dist/maplibre-svg-export.umd.js"></script>
 	</head>
 	<body>
 		<div id="map"></div>

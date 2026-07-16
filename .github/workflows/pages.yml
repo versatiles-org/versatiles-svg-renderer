@@ -53,7 +53,7 @@ jobs:
           cp -r doc-typescript/* pages/doc-typescript/
           cp -r dev/render-comparison-output/* pages/render-comparison/
           cp demo/index.html pages/demo/index.html
-          cp dist/maplibre.umd.js pages/dist/
+          cp dist/maplibre-svg-export.umd.js pages/dist/
 
           cat > pages/index.html << 'LANDING'
           <!doctype html>

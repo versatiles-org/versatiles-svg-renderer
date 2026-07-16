@@ -18,8 +18,8 @@
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "unpkg": "dist/maplibre.umd.js",
-  "jsdelivr": "dist/maplibre.umd.js",
+  "unpkg": "dist/maplibre-svg-export.umd.js",
+  "jsdelivr": "dist/maplibre-svg-export.umd.js",
   "exports": {
     ".": {
       "import": {
@@ -32,14 +32,14 @@
       }
     },
     "./maplibre": {
-      "script": "./dist/maplibre.umd.js",
+      "script": "./dist/maplibre-svg-export.umd.js",
       "import": {
-        "types": "./dist/maplibre.d.ts",
-        "default": "./dist/maplibre.js"
+        "types": "./dist/maplibre-svg-export.d.ts",
+        "default": "./dist/maplibre-svg-export.js"
       },
       "require": {
-        "types": "./dist/maplibre.d.ts",
-        "default": "./dist/maplibre.cjs"
+        "types": "./dist/maplibre-svg-export.d.ts",
+        "default": "./dist/maplibre-svg-export.cjs"
       }
     }
   },
