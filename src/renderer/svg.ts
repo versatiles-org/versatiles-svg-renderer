@@ -217,10 +217,17 @@ export class SVGRenderer {
 				style.translate[0] === 0 && style.translate[1] === 0
 					? ''
 					: ` transform="translate(${formatPoint(style.translate)})"`;
-			const roundedRadius = formatScaled(style.radius);
 			const strokeColor = new Color(style.strokeColor);
-			const strokeAttrs =
-				style.strokeWidth > 0 ? ` ${strokeAttr(strokeColor, formatScaled(style.strokeWidth))}` : '';
+			const hasStroke = style.strokeWidth > 0;
+			// MapLibre draws the stroke *outside* the radius (fill to `radius`, stroke
+			// over `[radius, radius + strokeWidth]`), whereas an SVG stroke is centered
+			// on the circle path. Grow the drawn radius by half the stroke width so the
+			// fill still reaches `radius` and the stroke lands on the same ring.
+			const drawRadius = hasStroke ? style.radius + style.strokeWidth / 2 : style.radius;
+			const roundedRadius = formatScaled(drawRadius);
+			const strokeAttrs = hasStroke
+				? ` ${strokeAttr(strokeColor, formatScaled(style.strokeWidth))}`
+				: '';
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 			const key = [color.hex, roundedRadius, strokeAttrs, opacityAttr, translate].join('\0');
 

@@ -21,7 +21,7 @@ export const regions: Region[] = [
 
 	{ name: 'berlin', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite' },
 
-	{ name: 'berlin', lon: 13.388, lat: 52.517, zoom: 14, type: 'geojson' },
+	{ name: 'berlin', lon: 13.388, lat: 52.514, zoom: 14, type: 'geojson' },
 ];
 
 export function regionId(region: Region): string {
@@ -157,7 +157,7 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 						type: 'fill',
 						source: 'geojson-overlay',
 						paint: {
-							'fill-color': '#00ff00',
+							'fill-color': '#00aaaa',
 							'fill-opacity': 0.3,
 						},
 					},
@@ -207,7 +207,7 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 							'circle-radius': 8,
 							'circle-color': '#cc0000',
 							'circle-stroke-width': 2,
-							'circle-stroke-color': '#ffffff',
+							'circle-stroke-color': '#00cc00',
 						},
 					},
 				);

@@ -428,6 +428,18 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('stroke-width="2"');
 		});
 
+		test('grows the drawn radius by half the stroke width (MapLibre draws stroke outside)', () => {
+			const r = makeRenderer();
+			const feature = makePointFeature([[100, 50]]);
+			// radius 5 + strokeWidth 2 / 2 = 6, so the fill still reaches radius 5.
+			r.drawCircles('circle-test', [[feature, defaultCircleStyle({ radius: 5, strokeWidth: 2 })]]);
+			expect(r.getString()).toContain('r="6"');
+			// without a stroke the drawn radius is unchanged
+			const r2 = makeRenderer();
+			r2.drawCircles('circle-test', [[feature, defaultCircleStyle({ radius: 5, strokeWidth: 0 })]]);
+			expect(r2.getString()).toContain('r="5"');
+		});
+
 		test('no stroke attributes when strokeWidth is 0', () => {
 			const r = makeRenderer();
 			const feature = makePointFeature([[100, 50]]);
