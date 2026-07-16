@@ -105,7 +105,7 @@ new SVGExportControl({
 
 | Option         | Type                 | Default      | Description                               |
 | -------------- | -------------------- | ------------ | ----------------------------------------- |
-| `style`        | `StyleSpecification` | *(required)* | MapLibre style specification              |
+| `style`        | `StyleSpecification` | _(required)_ | MapLibre style specification              |
 | `width`        | `number`             | `1024`       | Output width in pixels                    |
 | `height`       | `number`             | `1024`       | Output height in pixels                   |
 | `lon`          | `number`             | `0`          | Center longitude                          |
