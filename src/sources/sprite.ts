@@ -1,4 +1,5 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { arrayBufferToBase64 } from './base64.js';
 
 export interface SpriteEntry {
 	width: number;
@@ -60,11 +61,7 @@ export async function loadSpriteAtlas(style: StyleSpecification): Promise<Sprite
 
 				const json = (await jsonResponse.json()) as Record<string, SpriteJsonEntry>;
 				const imageBuffer = await imageResponse.arrayBuffer();
-				const base64 =
-					typeof Buffer !== 'undefined'
-						? Buffer.from(imageBuffer).toString('base64')
-						: btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-				const sheetDataUri = `data:image/png;base64,${base64}`;
+				const sheetDataUri = `data:image/png;base64,${arrayBufferToBase64(imageBuffer)}`;
 
 				// Estimate sheet dimensions from sprite entries
 				let sheetWidth = 0;

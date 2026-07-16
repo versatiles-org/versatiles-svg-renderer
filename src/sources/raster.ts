@@ -1,5 +1,6 @@
 import type { RenderJob, RasterTile } from '../renderer/svg.js';
 import { calculateTileGrid, getTile } from './tiles.js';
+import { arrayBufferToBase64 } from './base64.js';
 
 export async function getRasterTiles(job: RenderJob, sourceName: string): Promise<RasterTile[]> {
 	const { width, height } = job.renderer;
@@ -27,11 +28,7 @@ export async function getRasterTiles(job: RenderJob, sourceName: string): Promis
 			const tile = await getTile(sourceUrl, zoomLevel, x, y);
 			if (!tile) return null;
 
-			const base64 =
-				typeof Buffer !== 'undefined'
-					? Buffer.from(tile.buffer).toString('base64')
-					: btoa(String.fromCharCode(...new Uint8Array(tile.buffer)));
-			const dataUri = `data:${tile.contentType};base64,${base64}`;
+			const dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;
 
 			return {
 				x: offsetX,
