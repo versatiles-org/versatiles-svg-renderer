@@ -30,10 +30,19 @@ export type {
 	View,
 } from './types.js';
 
-// Gaussian stdDeviation as a fraction of MapLibre's line-blur pixels. MapLibre
-// feathers the line edge over ~`blur` px while keeping the core opaque; a Gaussian
-// with the same stdDeviation over-softens, so we scale it down to match.
-const BLUR_STD_FACTOR = 0.5;
+// line-blur approximates MapLibre's edge-feather blur, which keeps an opaque core
+// and feathers over ~`blur` px with a hard cutoff. feGaussianBlur alone conserves
+// total ink and leaves soft, infinite tails, so we combine three corrections,
+// calibrated against MapLibre's output in the e2e comparison:
+//   1. fade the line by width/(width + K*blur) to match MapLibre's reduced intensity,
+//   2. blur at stdDeviation = blur * STD_FACTOR (a Gaussian matches a narrower feather),
+//   3. steepen the resulting alpha with feComponentTransfer (slope>1, intercept<0) to
+//      clip the Gaussian tails toward MapLibre's hard edge.
+// The constants below were calibrated against MapLibre via the e2e geojson comparison.
+const BLUR_STD_FACTOR = 0.15;
+const BLUR_OPACITY_K = 1.5;
+const BLUR_ALPHA_SLOPE = 1.5;
+const BLUR_ALPHA_INTERCEPT = -0.6;
 
 export class SVGRenderer {
 	public readonly width: number;
@@ -125,7 +134,8 @@ export class SVGRenderer {
 			// (the feather eats into the opaque core). A Gaussian conserves total ink,
 			// so approximate that fade with an extra opacity factor; it tends to 1 for
 			// blur << width (the common case) and to 0 as blur grows.
-			const blurOpacity = style.blur > 0 ? style.width / (style.width + 2 * style.blur) : 1;
+			const blurOpacity =
+				style.blur > 0 ? style.width / (style.width + BLUR_OPACITY_K * style.blur) : 1;
 			const effectiveOpacity = style.opacity * blurOpacity;
 			const opacityAttr = effectiveOpacity < 1 ? ` opacity="${effectiveOpacity.toFixed(3)}"` : '';
 			const filterAttr = style.blur > 0 ? ` filter="url(#${this.#blurFilterId(style.blur)})"` : '';
@@ -476,8 +486,13 @@ export class SVGRenderer {
 			// Use userSpaceOnUse over the whole canvas: the default objectBoundingBox
 			// region collapses to zero for axis-aligned lines (a horizontal/vertical
 			// path has a zero-height/width bounding box), which clips the blur away.
+			// feGaussianBlur softens the line, then feComponentTransfer steepens the
+			// alpha to clip the Gaussian tails toward MapLibre's hard-edged feather.
 			defsContent.push(
-				`<filter id="${filterId}" filterUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><feGaussianBlur stdDeviation="${stdDev}" /></filter>`,
+				`<filter id="${filterId}" filterUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}">` +
+					`<feGaussianBlur stdDeviation="${stdDev}" />` +
+					`<feComponentTransfer><feFuncA type="linear" slope="${String(BLUR_ALPHA_SLOPE)}" intercept="${String(BLUR_ALPHA_INTERCEPT)}" /></feComponentTransfer>` +
+					`</filter>`,
 			);
 		}
 

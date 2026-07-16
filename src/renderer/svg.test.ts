@@ -286,12 +286,14 @@ describe('SVGRenderer', () => {
 			r.drawLineStrings('line-test', [[feature, lineStyle({ blur: 3 })]]);
 			const svg = r.getString();
 			expect(svg).toContain('feGaussianBlur');
-			expect(svg).toContain('stdDeviation="1.5"'); // blur 3 * BLUR_STD_FACTOR 0.5
+			expect(svg).toContain('stdDeviation="0.5"'); // blur 3 * stdFactor 0.15 = 0.45
 			// userSpaceOnUse region so axis-aligned lines aren't clipped away
 			expect(svg).toContain('filterUnits="userSpaceOnUse"');
 			expect(svg).toContain('filter="url(#line-blur-0)"');
-			// blurred lines are faded to approximate MapLibre: width/(width+2*blur) = 2/8
-			expect(svg).toContain('opacity="0.250"');
+			// alpha is steepened to clip the Gaussian tails toward MapLibre's hard edge
+			expect(svg).toContain('<feComponentTransfer><feFuncA type="linear"');
+			// blurred lines are faded to approximate MapLibre: width/(width+opacityK*blur) = 2/6.5
+			expect(svg).toContain('opacity="0.308"');
 		});
 
 		test('does not emit a blur filter when line-blur is 0', () => {
