@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
+import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { renderToSVG } from '../src/index.js';
 import type { Page } from 'playwright';
 import { ensureCacheDir, installFetchCache, readCache, writeCache } from './fetch-cache.js';
@@ -27,7 +28,7 @@ const browser = await chromium.launch({
 	args: ['--use-gl=angle', '--use-angle=swiftshader'],
 });
 
-// Cache browser network requests (unpkg.com, tile servers)
+// Cache browser network requests (unpkg.com, tile servers) to disk.
 ensureCacheDir();
 async function installPageCache(page: Page): Promise<void> {
 	await page.route('**/*', async (route) => {
@@ -68,13 +69,12 @@ async function installPageCache(page: Page): Promise<void> {
 	});
 }
 
-// Generate SVG screenshots
-console.log('\n--- SVG Screenshots ---');
-const svgSizes = new Map<string, number>();
-for (const region of regions) {
+// Render the region's SVG and rasterize it; returns the screenshot + SVG size (KB).
+async function renderSvgShot(
+	region: Region,
+	style: StyleSpecification,
+): Promise<{ png: PNG; sizeKB: number }> {
 	const id = regionId(region);
-	const style = await getStyle(region.type);
-	console.log(`  Rendering SVG: ${id}...`);
 	const svg = await renderToSVG({
 		width: WIDTH,
 		height: HEIGHT,
@@ -83,81 +83,72 @@ for (const region of regions) {
 		lat: region.lat,
 		zoom: region.zoom,
 	});
-
-	svgSizes.set(id, Buffer.byteLength(svg, 'utf8'));
 	writeFileSync(resolve(svgDir, `${id}.svg`), svg);
 
 	const page = await browser.newPage({
 		viewport: { width: WIDTH, height: HEIGHT },
 		deviceScaleFactor: 1,
 	});
-	await page.setContent(`<!DOCTYPE html>
+	try {
+		await page.setContent(`<!DOCTYPE html>
 <html><head><style>* { margin: 0; padding: 0; }</style></head>
 <body>${svg}</body></html>`);
-	await page.screenshot({ path: resolve(svgDir, `${id}.png`) });
-	await page.close();
+		const buffer = await page.screenshot({ path: resolve(svgDir, `${id}.png`) });
+		return { png: PNG.sync.read(buffer), sizeKB: Buffer.byteLength(svg, 'utf8') / 1024 };
+	} finally {
+		await page.close();
+	}
 }
 
-// Generate MapLibre screenshots
-console.log('\n--- MapLibre Screenshots ---');
-for (const region of regions) {
+// Render the same region with MapLibre GL in a headless page.
+async function renderMapLibreShot(region: Region, style: StyleSpecification): Promise<PNG> {
 	const id = regionId(region);
-	const style = await getStyle(region.type);
-	console.log(`  Rendering MapLibre: ${id}...`);
 	const page = await browser.newPage({
 		viewport: { width: WIDTH, height: HEIGHT },
 		deviceScaleFactor: 1,
 	});
-	await installPageCache(page);
-
-	await page.setContent(`<!DOCTYPE html>
+	try {
+		await installPageCache(page);
+		await page.setContent(`<!DOCTYPE html>
 <html><head>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
 <style>* { margin: 0; padding: 0; } #map { width: ${WIDTH}px; height: ${HEIGHT}px; }</style>
 </head><body><div id="map"></div></body></html>`);
 
-	await page.waitForFunction(() => typeof (window as any).maplibregl !== 'undefined', {
-		timeout: 15000,
-	});
+		await page.waitForFunction(() => typeof (window as any).maplibregl !== 'undefined', {
+			timeout: 15000,
+		});
 
-	// @ts-expect-error page.evaluate type instantiation too deep
-	await page.evaluate(
-		({ styleJson, center, zoom }: { styleJson: any; center: [number, number]; zoom: number }) => {
-			return new Promise<void>((resolve, reject) => {
-				const map = new (window as any).maplibregl.Map({
-					container: 'map',
-					style: styleJson,
-					center,
-					zoom,
-					interactive: false,
-					fadeDuration: 0,
-					attributionControl: false,
-					pixelRatio: 1,
+		// @ts-expect-error page.evaluate type instantiation too deep
+		await page.evaluate(
+			({ styleJson, center, zoom }: { styleJson: any; center: [number, number]; zoom: number }) => {
+				return new Promise<void>((resolve, reject) => {
+					const map = new (window as any).maplibregl.Map({
+						container: 'map',
+						style: styleJson,
+						center,
+						zoom,
+						interactive: false,
+						fadeDuration: 0,
+						attributionControl: false,
+						pixelRatio: 1,
+					});
+					map.once('idle', () => resolve());
+					setTimeout(() => reject(new Error('MapLibre idle timeout')), 30000);
 				});
-				map.once('idle', () => resolve());
-				setTimeout(() => reject(new Error('MapLibre idle timeout')), 30000);
-			});
-		},
-		{
-			styleJson: style,
-			center: [region.lon, region.lat] as [number, number],
-			zoom: region.zoom,
-		},
-	);
+			},
+			{ styleJson: style, center: [region.lon, region.lat] as [number, number], zoom: region.zoom },
+		);
 
-	await page.screenshot({ path: resolve(maplibreDir, `${id}.png`) });
-	await page.close();
+		const buffer = await page.screenshot({ path: resolve(maplibreDir, `${id}.png`) });
+		return PNG.sync.read(buffer);
+	} finally {
+		await page.close();
+	}
 }
 
-await browser.close();
-
-// Compare each region against MapLibre and against the committed diff baseline.
-// The run fails on a missing screenshot, a diff above the region's maxDiff ceiling,
-// or a degradation (diff risen beyond noise) vs the baseline. Surprising
-// improvements are highlighted (green) but do not fail — re-bless with
-// `UPDATE_BASELINE=1 npm run test:e2e:screenshots`.
-console.log('\n--- Comparing ---');
+// --- Comparison setup ---
 
 const useColor = !process.env.NO_COLOR;
 const paint = (code: number, s: string): string => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
@@ -174,10 +165,9 @@ const baseline: Record<string, number> = existsSync(baselinePath)
 // move and a 0.1% absolute floor (anything smaller is MapLibre AA/GPU render noise).
 const REL_TOLERANCE = 0.05;
 const ABS_FLOOR = 0.1;
-
 // The hard ceiling is derived from the baseline rather than hand-maintained: a diff
 // must stay under max(baseline * 1.5, baseline + 0.3%). It's the backstop above the
-// (stricter) degradation check, and reproduces the old per-region maxDiff values.
+// (stricter) degradation check.
 const ceilingFor = (base: number): number => Math.max(base * 1.5, base + 0.3);
 
 interface Result {
@@ -191,20 +181,31 @@ const results: Result[] = [];
 const updatedBaseline: Record<string, number> = {};
 let failed = false;
 
+// For each region: render the SVG and MapLibre screenshots in parallel, diff them,
+// and report a single line (green improvement / red degradation vs the baseline).
 for (const region of regions) {
 	const id = regionId(region);
-	const maplibrePath = resolve(maplibreDir, `${id}.png`);
-	const svgPath = resolve(svgDir, `${id}.png`);
-	if (!existsSync(maplibrePath) || !existsSync(svgPath)) {
-		console.log(red(`  ${id}: MISSING screenshot — render failed`));
+	const style = await getStyle(region.type);
+
+	let svgPng: PNG;
+	let maplibrePng: PNG;
+	let svgSizeKB: number;
+	try {
+		const [svgShot, maplibre] = await Promise.all([
+			renderSvgShot(region, style),
+			renderMapLibreShot(region, style),
+		]);
+		svgPng = svgShot.png;
+		svgSizeKB = svgShot.sizeKB;
+		maplibrePng = maplibre;
+	} catch (error) {
+		console.log(red(`  ${id}: render failed — ${String(error)}`));
 		failed = true;
 		continue;
 	}
 
-	const maplibreData = PNG.sync.read(readFileSync(maplibrePath));
-	const svgData = PNG.sync.read(readFileSync(svgPath));
 	const diff = new PNG({ width: WIDTH, height: HEIGHT });
-	const mismatch = pixelmatch(maplibreData.data, svgData.data, diff.data, WIDTH, HEIGHT);
+	const mismatch = pixelmatch(maplibrePng.data, svgPng.data, diff.data, WIDTH, HEIGHT);
 	const diffPercent = (mismatch / (WIDTH * HEIGHT)) * 100;
 	writeFileSync(resolve(diffDir, `${id}.png`), PNG.sync.write(diff));
 	updatedBaseline[id] = Math.round(diffPercent * 100) / 100;
@@ -233,16 +234,12 @@ for (const region of regions) {
 	}
 	console.log(`  ${color(`${id}: ${diffPercent.toFixed(2)}%`)}${note}`);
 
-	results.push({
-		region,
-		id,
-		diffPercent,
-		svgSizeKB: (svgSizes.get(id) ?? 0) / 1024,
-	});
+	results.push({ region, id, diffPercent, svgSizeKB });
 }
 
-// Generate HTML report
-console.log('\n--- Generating Report ---');
+await browser.close();
+
+// --- HTML report ---
 const rows = results
 	.map((r) => {
 		return `<tr>
