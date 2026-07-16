@@ -13,6 +13,14 @@ installFetchCache();
 
 const WIDTH = 800;
 const HEIGHT = 600;
+// Render both the SVG and MapLibre at a higher device pixel ratio. The SVG is
+// vector so it gains real detail; MapLibre must be told to match via its map
+// `pixelRatio` (otherwise it renders at 1x and the screenshot just upscales).
+// AA noise lives on edges (∝ length) while the image is area (∝ size²), so a higher
+// ratio shrinks the AA-noise fraction of the diff without hiding real differences.
+const SCALE = 2;
+const SW = WIDTH * SCALE;
+const SH = HEIGHT * SCALE;
 
 const outputDir = resolve(import.meta.dirname, 'output');
 const maplibreDir = resolve(outputDir, 'maplibre');
@@ -87,7 +95,7 @@ async function renderSvgShot(
 
 	const page = await browser.newPage({
 		viewport: { width: WIDTH, height: HEIGHT },
-		deviceScaleFactor: 1,
+		deviceScaleFactor: SCALE,
 	});
 	try {
 		await page.setContent(`<!DOCTYPE html>
@@ -105,7 +113,7 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 	const id = regionId(region);
 	const page = await browser.newPage({
 		viewport: { width: WIDTH, height: HEIGHT },
-		deviceScaleFactor: 1,
+		deviceScaleFactor: SCALE,
 	});
 	try {
 		await installPageCache(page);
@@ -122,7 +130,17 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 
 		// @ts-expect-error page.evaluate type instantiation too deep
 		await page.evaluate(
-			({ styleJson, center, zoom }: { styleJson: any; center: [number, number]; zoom: number }) => {
+			({
+				styleJson,
+				center,
+				zoom,
+				pixelRatio,
+			}: {
+				styleJson: any;
+				center: [number, number];
+				zoom: number;
+				pixelRatio: number;
+			}) => {
 				return new Promise<void>((resolve, reject) => {
 					const map = new (window as any).maplibregl.Map({
 						container: 'map',
@@ -132,13 +150,18 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 						interactive: false,
 						fadeDuration: 0,
 						attributionControl: false,
-						pixelRatio: 1,
+						pixelRatio,
 					});
 					map.once('idle', () => resolve());
 					setTimeout(() => reject(new Error('MapLibre idle timeout')), 30000);
 				});
 			},
-			{ styleJson: style, center: [region.lon, region.lat] as [number, number], zoom: region.zoom },
+			{
+				styleJson: style,
+				center: [region.lon, region.lat] as [number, number],
+				zoom: region.zoom,
+				pixelRatio: SCALE,
+			},
 		);
 
 		const buffer = await page.screenshot({ path: resolve(maplibreDir, `${id}.png`) });
@@ -204,9 +227,9 @@ for (const region of regions) {
 		continue;
 	}
 
-	const diff = new PNG({ width: WIDTH, height: HEIGHT });
-	const mismatch = pixelmatch(maplibrePng.data, svgPng.data, diff.data, WIDTH, HEIGHT);
-	const diffPercent = (mismatch / (WIDTH * HEIGHT)) * 100;
+	const diff = new PNG({ width: SW, height: SH });
+	const mismatch = pixelmatch(maplibrePng.data, svgPng.data, diff.data, SW, SH);
+	const diffPercent = (mismatch / (SW * SH)) * 100;
 	writeFileSync(resolve(diffDir, `${id}.png`), PNG.sync.write(diff));
 	updatedBaseline[id] = Math.round(diffPercent * 100) / 100;
 

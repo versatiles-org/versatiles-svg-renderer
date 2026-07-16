@@ -5,11 +5,11 @@ MapLibre GL. Run the whole suite with `npm run test:e2e`.
 
 ## Entry points
 
-| File                  | What it does                                                                                                                      | Run                            |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                              | `npm run test:e2e` (vitest)    |
-| `screenshots.ts`      | Renders each region with both the SVG renderer and MapLibre, pixel-diffs them, and writes an HTML report to `output/report.html`. | `npm run test:e2e:screenshots` |
-| `maplibre-control.ts` | Drives the MapLibre `SVGExportControl` plugin in a headless browser and checks the export flow.                                   | `npm run test:e2e:maplibre`    |
+| File                  | What it does                                                                                                                                                                                                     | Run                            |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                                                                                                             | `npm run test:e2e` (vitest)    |
+| `screenshots.ts`      | Renders each region with both the SVG renderer and MapLibre (at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff), pixel-diffs them, and writes an HTML report to `output/report.html`. | `npm run test:e2e:screenshots` |
+| `maplibre-control.ts` | Drives the MapLibre `SVGExportControl` plugin in a headless browser and checks the export flow.                                                                                                                  | `npm run test:e2e:maplibre`    |
 
 ## Shared helpers
 
