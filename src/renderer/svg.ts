@@ -82,7 +82,11 @@ export class SVGRenderer {
 	public drawPolygons(id: string, features: [Feature, FillStyle][]): void {
 		if (features.length === 0) return;
 
-		const groups = new Map<string, { segments: Segment[]; attrs: string }>();
+		// Merge only *consecutive* features with identical attributes, so the paint
+		// order of overlapping features matches MapLibre's source order. A global
+		// merge would reorder interleaved features (e.g. data-driven fill colors).
+		const groups: { segments: Segment[]; attrs: string }[] = [];
+		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
 			const color = new Color(style.color);
@@ -95,18 +99,18 @@ export class SVGRenderer {
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 			const key = color.hex + translate + opacityAttr;
 
-			let group = groups.get(key);
-			if (!group) {
-				group = { segments: [], attrs: `${fillAttr(color)}${translate}${opacityAttr}` };
-				groups.set(key, group);
+			if (key !== currentKey) {
+				groups.push({ segments: [], attrs: `${fillAttr(color)}${translate}${opacityAttr}` });
+				currentKey = key;
 			}
+			const group = groups[groups.length - 1]!;
 			feature.geometry.forEach((ring) => {
 				group.segments.push(ring.map((p) => roundXY(p.x, p.y)));
 			});
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, attrs } of groups.values()) {
+		for (const { segments, attrs } of groups) {
 			const d = segmentsToPath(segments, true);
 			this.#svg.push(`<path d="${d}" ${attrs} />`);
 		}
@@ -116,7 +120,10 @@ export class SVGRenderer {
 	public drawLineStrings(id: string, features: [Feature, LineStyle][]): void {
 		if (features.length === 0) return;
 
-		const groups = new Map<string, { segments: Segment[]; attrs: string }>();
+		// Merge only *consecutive* same-attribute features (see drawPolygons) so the
+		// paint order of overlapping lines matches MapLibre's source order.
+		const groups: { segments: Segment[]; attrs: string }[] = [];
+		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
 			const color = new Color(style.color);
@@ -151,8 +158,7 @@ export class SVGRenderer {
 				filterAttr,
 			].join('\0');
 
-			let group = groups.get(key);
-			if (!group) {
+			if (key !== currentKey) {
 				const attrs = [
 					'fill="none"',
 					strokeAttr(color, roundedWidth),
@@ -161,12 +167,13 @@ export class SVGRenderer {
 					`stroke-miterlimit="${String(style.miterLimit)}"`,
 				];
 				if (dasharrayStr) attrs.push(`stroke-dasharray="${dasharrayStr}"`);
-				group = {
+				groups.push({
 					segments: [],
 					attrs: attrs.join(' ') + translate + opacityAttr + filterAttr,
-				};
-				groups.set(key, group);
+				});
+				currentKey = key;
 			}
+			const group = groups[groups.length - 1]!;
 
 			feature.geometry.forEach((line) => {
 				const points = style.offset === 0 ? line : offsetSegmentPoints(line, style.offset);
@@ -175,7 +182,7 @@ export class SVGRenderer {
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, attrs } of groups.values()) {
+		for (const { segments, attrs } of groups) {
 			const chains = chainSegments(segments);
 			const d = segmentsToPath(chains);
 			this.#svg.push(`<path d="${d}" ${attrs} />`);
@@ -197,7 +204,10 @@ export class SVGRenderer {
 	public drawCircles(id: string, features: [Feature, CircleStyle][]): void {
 		if (features.length === 0) return;
 
-		const groups = new Map<string, { points: [number, number][]; attrs: string }>();
+		// Merge only *consecutive* same-attribute features (see drawPolygons) so the
+		// paint order of overlapping circles matches MapLibre's source order.
+		const groups: { points: [number, number][]; attrs: string }[] = [];
+		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
 			const color = new Color(style.color);
@@ -214,14 +224,14 @@ export class SVGRenderer {
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 			const key = [color.hex, roundedRadius, strokeAttrs, opacityAttr, translate].join('\0');
 
-			let group = groups.get(key);
-			if (!group) {
-				group = {
+			if (key !== currentKey) {
+				groups.push({
 					points: [],
 					attrs: `r="${roundedRadius}" ${fillAttr(color)}${strokeAttrs}${translate}${opacityAttr}`,
-				};
-				groups.set(key, group);
+				});
+				currentKey = key;
 			}
+			const group = groups[groups.length - 1]!;
 			feature.geometry.forEach((ring) => {
 				const p = ring[0];
 				if (p) group.points.push(roundXY(p.x, p.y));
@@ -229,7 +239,7 @@ export class SVGRenderer {
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { points, attrs } of groups.values()) {
+		for (const { points, attrs } of groups) {
 			for (const [x, y] of points) {
 				this.#svg.push(`<circle cx="${formatNum(x)}" cy="${formatNum(y)}" ${attrs} />`);
 			}
