@@ -118,6 +118,39 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 						},
 					},
 				};
+				// Cascading, overlapping squares with interleaved data-driven colors
+				// (red, blue, red, blue). Their paint order is only correct if features
+				// are merged run-length rather than globally — a regression guard for
+				// SVGRenderer's draw-order handling.
+				style.sources['geojson-stack'] = {
+					type: 'geojson',
+					data: {
+						type: 'FeatureCollection',
+						features: (
+							[
+								['#ff0000', 13.378],
+								['#0000ff', 13.38],
+								['#ff0000', 13.382],
+								['#0000ff', 13.384],
+							] as [string, number][]
+						).map(([color, lon]) => ({
+							type: 'Feature',
+							properties: { color },
+							geometry: {
+								type: 'Polygon',
+								coordinates: [
+									[
+										[lon, 52.51],
+										[lon + 0.004, 52.51],
+										[lon + 0.004, 52.507],
+										[lon, 52.507],
+										[lon, 52.51],
+									],
+								],
+							},
+						})),
+					},
+				};
 				style.layers.push(
 					{
 						id: 'geojson-fill',
@@ -126,6 +159,14 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 						paint: {
 							'fill-color': '#00ff00',
 							'fill-opacity': 0.3,
+						},
+					},
+					{
+						id: 'geojson-stack',
+						type: 'fill',
+						source: 'geojson-stack',
+						paint: {
+							'fill-color': ['get', 'color'],
 						},
 					},
 					{
