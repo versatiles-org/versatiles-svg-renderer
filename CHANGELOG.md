@@ -11,12 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Renamed the MapLibre plugin bundle** from `maplibre.*` to `maplibre-svg-export.*`, so the distributed files no longer collide with MapLibre GL JS's own `maplibre-gl.js`. The `@versatiles/svg-renderer/maplibre` import subpath and the `VersaTilesSVG` UMD global are unchanged — only the physical file names and CDN paths changed (e.g. `dist/maplibre-svg-export.umd.js`). ([7886d99](https://github.com/versatiles-org/versatiles-svg-renderer/commit/7886d9978122b1f63ca772b770cc42c784e2a66a))
 - Excluded source-map (`*.map`) files from the published npm package, shrinking the tarball's unpacked size from ~4.5 MB to ~1.3 MB. Maps are still generated in `dist/` for local debugging. ([89da461](https://github.com/versatiles-org/versatiles-svg-renderer/commit/89da46164662c4ab4e4990689af7ee212e0a6b59))
+- **The MapLibre export control now defaults to the current map viewport size.** The Width/Height inputs previously opened at a fixed 1024×1024, so an export rarely matched the size or aspect ratio of the map on screen. They are now seeded from the live viewport each time the panel opens, so the default export matches what the user sees. Pass `defaultWidth`/`defaultHeight` to `SVGExportControl` to keep a fixed size. ([333adea](https://github.com/versatiles-org/versatiles-svg-renderer/commit/333adea137ce0e4b0776b80cf5f74bfa19993d88))
 
 ### Removed
 
 - Dropped the CommonJS build of the MapLibre plugin (`maplibre-svg-export.cjs`). The browser-only control now ships as ESM + UMD only; nothing consumes a MapLibre control through CommonJS `require()`. The core `renderToSVG` entry keeps its CommonJS build. ([5003d32](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5003d329872455ed47576324c4ea9a6f80b626b3))
+- Removed the unused `mergePolygonsByFeatureId` helper (`src/sources/merge.ts`) and the `@turf/union` dev dependency it required. The function was never wired into the render pipeline; dropping it also prunes `@turf/union`, `polyclip-ts`, and their transitive packages from the dependency tree. ([1cba1af](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1cba1afd56880dffaf0e8cbd794b0c044906c89d))
 
 > **Note:** the bundle rename and the removed plugin CommonJS build are breaking for anyone importing those files by their old physical path or via `require('@versatiles/svg-renderer/maplibre')`. Importing from the `@versatiles/svg-renderer/maplibre` ESM subpath, or loading `VersaTilesSVG` from the CDN UMD, keeps working.
+
+### Fixed
+
+- **Raster tiles and sprite sheets no longer crash the renderer in the browser.** Base64 encoding spread an entire tile/sprite byte array into a single `String.fromCharCode(...)` call, which overflows the JS engine's argument-count limit and throws `RangeError: Maximum call stack size exceeded` for any image above ~64 KB (Node was unaffected). Encoding now uses the native `Uint8Array.prototype.toBase64()` when available and a chunked fallback otherwise. ([a9c0b97](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a9c0b9723d8a698100540e970951b5ad95ec8870), [0de690f](https://github.com/versatiles-org/versatiles-svg-renderer/commit/0de690fb5fa7e827361a8ee5a9c5f3f7a6d7ace4))
+- **Attribution links in the export panel are preserved again.** The HTML sanitizer built an allow-listed DOM (safe tags, plus `https` links hardened with `target`/`rel="noopener noreferrer"`) but then returned only its text content, silently stripping every tag and link. It now serializes the sanitized tree back to HTML, so allowed formatting and links survive while `<script>` and `javascript:` URLs are still removed. ([ac23f19](https://github.com/versatiles-org/versatiles-svg-renderer/commit/ac23f19a9a88ddaeac7779d5763e57cb22a06052))
+
+### Internal
+
+- Added a `typecheck` step to CI so type regressions fail the build (previously only lint/build/test ran). ([1ae2269](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1ae2269b305bfa02f6899ae82f1bae9175179744))
 
 ## [0.8.0] - 2026-07-16
 
