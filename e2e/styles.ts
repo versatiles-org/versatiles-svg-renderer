@@ -118,37 +118,36 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 						},
 					},
 				};
-				// Cascading, overlapping squares with interleaved data-driven colors
-				// (red, blue, red, blue). Their paint order is only correct if features
-				// are merged run-length rather than globally — a regression guard for
-				// SVGRenderer's draw-order handling.
+				// Six overlapping rectangles cascading diagonally, each a different rainbow
+				// color via data-driven `fill-color`. Checks data-driven paint and that
+				// overlapping fills paint in source order (last on top) like MapLibre.
+				// (The run-length grouping itself is unit-tested in svg.test.ts.)
 				style.sources['geojson-stack'] = {
 					type: 'geojson',
 					data: {
 						type: 'FeatureCollection',
 						features: (
-							[
-								['#ff0000', 13.378],
-								['#0000ff', 13.38],
-								['#ff0000', 13.382],
-								['#0000ff', 13.384],
-							] as [string, number][]
-						).map(([color, lon]) => ({
-							type: 'Feature',
-							properties: { color },
-							geometry: {
-								type: 'Polygon',
-								coordinates: [
-									[
-										[lon, 52.51],
-										[lon + 0.004, 52.51],
-										[lon + 0.004, 52.507],
-										[lon, 52.507],
-										[lon, 52.51],
+							['#ff0000', '#ff8800', '#ffdd00', '#00bb00', '#0077ff', '#8800dd'] as string[]
+						).map((color, i) => {
+							const lon = 13.379 + i * 0.0012;
+							const lat = 52.51 - i * 0.0002;
+							return {
+								type: 'Feature',
+								properties: { color },
+								geometry: {
+									type: 'Polygon',
+									coordinates: [
+										[
+											[lon, lat],
+											[lon + 0.004, lat],
+											[lon + 0.004, lat - 0.0025],
+											[lon, lat - 0.0025],
+											[lon, lat],
+										],
 									],
-								],
-							},
-						})),
+								},
+							};
+						}),
 					},
 				};
 				style.layers.push(
