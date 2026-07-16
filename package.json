@@ -86,7 +86,6 @@
     "@maplibre/maplibre-gl-style-spec": "^26.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
-    "@turf/union": "^7.3.5",
     "@types/node": "^26.1.1",
     "@types/pbf": "^3.0.5",
     "@types/pngjs": "^6.0.5",
