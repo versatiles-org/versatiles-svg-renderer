@@ -1,0 +1,10 @@
+{
+	"berlin-vector": 0.04,
+	"paris-vector": 0,
+	"warsaw-vector": 0.01,
+	"tokyo-vector": 0.15,
+	"roma-vector": 0.01,
+	"sao-paulo-vector": 0.03,
+	"berlin-satellite": 0.99,
+	"berlin-geojson": 0.64
+}

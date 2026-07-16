@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import pixelmatch from 'pixelmatch';
@@ -152,8 +152,34 @@ for (const region of regions) {
 
 await browser.close();
 
-// Compare screenshots
+// Compare each region against MapLibre and against the committed diff baseline.
+// The run fails on a missing screenshot, a diff above the region's maxDiff ceiling,
+// or a degradation (diff risen beyond noise) vs the baseline. Surprising
+// improvements are highlighted (green) but do not fail — re-bless with
+// `UPDATE_BASELINE=1 npm run test:e2e:screenshots`.
 console.log('\n--- Comparing ---');
+
+const useColor = !process.env.NO_COLOR;
+const paint = (code: number, s: string): string => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
+const red = (s: string): string => paint(31, s);
+const green = (s: string): string => paint(32, s);
+const dim = (s: string): string => paint(90, s);
+
+const baselinePath = resolve(import.meta.dirname, 'diff-baseline.json');
+const baseline: Record<string, number> = existsSync(baselinePath)
+	? (JSON.parse(readFileSync(baselinePath, 'utf8')) as Record<string, number>)
+	: {};
+
+// A change counts as degradation/improvement only if it clears both a 5% relative
+// move and a 0.1% absolute floor (anything smaller is MapLibre AA/GPU render noise).
+const REL_TOLERANCE = 0.05;
+const ABS_FLOOR = 0.1;
+
+// The hard ceiling is derived from the baseline rather than hand-maintained: a diff
+// must stay under max(baseline * 1.5, baseline + 0.3%). It's the backstop above the
+// (stricter) degradation check, and reproduces the old per-region maxDiff values.
+const ceilingFor = (base: number): number => Math.max(base * 1.5, base + 0.3);
+
 interface Result {
 	region: Region;
 	id: string;
@@ -162,19 +188,50 @@ interface Result {
 }
 
 const results: Result[] = [];
+const updatedBaseline: Record<string, number> = {};
+let failed = false;
 
 for (const region of regions) {
 	const id = regionId(region);
-	const maplibreData = PNG.sync.read(readFileSync(resolve(maplibreDir, `${id}.png`)));
-	const svgData = PNG.sync.read(readFileSync(resolve(svgDir, `${id}.png`)));
+	const maplibrePath = resolve(maplibreDir, `${id}.png`);
+	const svgPath = resolve(svgDir, `${id}.png`);
+	if (!existsSync(maplibrePath) || !existsSync(svgPath)) {
+		console.log(red(`  ${id}: MISSING screenshot — render failed`));
+		failed = true;
+		continue;
+	}
+
+	const maplibreData = PNG.sync.read(readFileSync(maplibrePath));
+	const svgData = PNG.sync.read(readFileSync(svgPath));
 	const diff = new PNG({ width: WIDTH, height: HEIGHT });
-
 	const mismatch = pixelmatch(maplibreData.data, svgData.data, diff.data, WIDTH, HEIGHT);
-	const totalPixels = WIDTH * HEIGHT;
-	const diffPercent = (mismatch / totalPixels) * 100;
-
+	const diffPercent = (mismatch / (WIDTH * HEIGHT)) * 100;
 	writeFileSync(resolve(diffDir, `${id}.png`), PNG.sync.write(diff));
-	console.log(`  ${id}: ${diffPercent.toFixed(2)}% different`);
+	updatedBaseline[id] = Math.round(diffPercent * 100) / 100;
+
+	const base = baseline[id];
+	let color: (s: string) => string = (s) => s;
+	let note = '';
+	if (base === undefined) {
+		note = dim(' (no baseline — bless with UPDATE_BASELINE=1)');
+	} else {
+		const ceiling = ceilingFor(base);
+		const delta = diffPercent - base;
+		const significant = Math.abs(delta) > Math.max(base * REL_TOLERANCE, ABS_FLOOR);
+		if (diffPercent > ceiling) {
+			color = red;
+			note = red(` ✗ exceeds ceiling ${ceiling.toFixed(2)}%`);
+			failed = true;
+		} else if (significant && delta > 0) {
+			color = red;
+			note = red(` ▲ degradation (was ${base.toFixed(2)}%)`);
+			failed = true;
+		} else if (significant && delta < 0) {
+			color = green;
+			note = green(` ▼ improvement (was ${base.toFixed(2)}%) — update baseline`);
+		}
+	}
+	console.log(`  ${color(`${id}: ${diffPercent.toFixed(2)}%`)}${note}`);
 
 	results.push({
 		region,
@@ -231,3 +288,12 @@ ${rows}
 const reportPath = resolve(outputDir, 'report.html');
 writeFileSync(reportPath, html);
 console.log(`\nReport saved to: ${reportPath}`);
+
+// Update the committed baseline, or fail the run on any degradation/ceiling breach.
+if (process.env.UPDATE_BASELINE) {
+	writeFileSync(baselinePath, JSON.stringify(updatedBaseline, null, '\t') + '\n');
+	console.log(`Baseline updated: ${baselinePath}`);
+} else if (failed) {
+	console.log(red('\nE2E comparison failed — see ✗/▲ above (or bless with UPDATE_BASELINE=1).'));
+	process.exitCode = 1;
+}
