@@ -64,6 +64,16 @@ document.body.innerHTML = svg;
 
 The package includes an `SVGExportControl` that adds an export button to any MapLibre GL JS map.
 
+With a bundler, import it from the `/maplibre` subpath:
+
+```typescript
+import { SVGExportControl } from '@versatiles/svg-renderer/maplibre';
+
+map.addControl(new SVGExportControl(), 'top-right');
+```
+
+Or load it directly in the browser via the UMD bundle, which exposes a `VersaTilesSVG` global:
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -87,7 +97,7 @@ The package includes an `SVGExportControl` that adds an export button to any Map
 </html>
 ```
 
-The control opens a panel where the user can set width, height, and scale, preview the SVG, download it, or open it in a new tab. Map interactions are disabled while the panel is open.
+The control opens a panel where the user can set width and height, preview the SVG, download it, or open it in a new tab. Map interactions are disabled while the panel is open.
 
 Options:
 
@@ -95,7 +105,6 @@ Options:
 new SVGExportControl({
 	defaultWidth: 1024, // default: 1024
 	defaultHeight: 1024, // default: 1024
-	defaultScale: 1, // default: 1
 });
 ```
 
@@ -105,7 +114,7 @@ new SVGExportControl({
 
 | Option         | Type                 | Default      | Description                               |
 | -------------- | -------------------- | ------------ | ----------------------------------------- |
-| `style`        | `StyleSpecification` | *(required)* | MapLibre style specification              |
+| `style`        | `StyleSpecification` | _(required)_ | MapLibre style specification              |
 | `width`        | `number`             | `1024`       | Output width in pixels                    |
 | `height`       | `number`             | `1024`       | Output height in pixels                   |
 | `lon`          | `number`             | `0`          | Center longitude                          |
