@@ -41,6 +41,18 @@ export interface FillStyle {
 	color: MaplibreColor;
 	opacity: number;
 	translate: [number, number];
+	/**
+	 * fill-outline-color. When omitted the fill `color` is used (MapLibre's
+	 * default: the antialias outline is drawn in the fill color).
+	 */
+	outlineColor?: MaplibreColor;
+	/**
+	 * fill-antialias. When truthy, a ~1px edge outline in `outlineColor` is drawn
+	 * over all fills of the layer (a separate pass) so a lower feature's border
+	 * composites on top of later overlapping fills — matching MapLibre for
+	 * choropleths and stacked polygons.
+	 */
+	antialias?: boolean;
 }
 
 export interface LineStyle {

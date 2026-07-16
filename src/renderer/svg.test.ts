@@ -4,6 +4,7 @@ import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { Feature, Point2D } from '../geometry.js';
 import type {
 	CircleStyle,
+	FillStyle,
 	IconStyle,
 	LineStyle,
 	RasterStyle,
@@ -172,6 +173,102 @@ describe('SVGRenderer', () => {
 			const svg = r.getString();
 			const fills = [...svg.matchAll(/fill="(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
 			expect(fills).toEqual(['#FF0000', '#0000FF', '#FF0000']);
+		});
+
+		test('fill-antialias draws outlines in a second pass, in source order', () => {
+			const r = makeRenderer();
+			const poly = (): Feature =>
+				makePolygonFeature([
+					[
+						[0, 0],
+						[10, 0],
+						[10, 10],
+					],
+				]);
+			const fill = (hex: string): FillStyle => ({
+				color: mc(hex),
+				opacity: 1,
+				translate: [0, 0],
+				antialias: true,
+				outlineColor: mc(hex),
+			});
+			// Two overlapping fills of different colors, each with an explicit outline in
+			// its own color. MapLibre draws both fills, then both outlines, so the lower
+			// outline shows over the upper fill. The SVG must emit all fills before any
+			// outline.
+			r.drawPolygons('fill-test', [
+				[poly(), fill('#FF0000')],
+				[poly(), fill('#0000FF')],
+			]);
+			const svg = r.getString();
+			// Fill paths (fill="#..."), then stroke-only outline paths (fill="none").
+			const paths = [...svg.matchAll(/<path [^>]*\/>/g)].map((m) => m[0]);
+			expect(paths).toHaveLength(4);
+			expect(paths[0]).toContain('fill="#FF0000"');
+			expect(paths[1]).toContain('fill="#0000FF"');
+			expect(paths[2]).toContain('fill="none"');
+			expect(paths[2]).toContain('stroke="#FF0000"');
+			expect(paths[3]).toContain('fill="none"');
+			expect(paths[3]).toContain('stroke="#0000FF"');
+		});
+
+		test('outline drawn only for an explicit fill-outline-color', () => {
+			const r = makeRenderer();
+			const poly = (): Feature =>
+				makePolygonFeature([
+					[
+						[0, 0],
+						[10, 0],
+						[10, 10],
+					],
+				]);
+			// First feature: antialias on but no outline color → no outline (the plain
+			// fill's own antialiasing already covers the default fill-color outline).
+			// Second feature: explicit outline color → a stroke in that color.
+			r.drawPolygons('fill-test', [
+				[poly(), { color: mc('#112233'), opacity: 1, translate: [0, 0], antialias: true }],
+				[
+					poly(),
+					{
+						color: mc('#112233'),
+						opacity: 1,
+						translate: [0, 0],
+						antialias: true,
+						outlineColor: mc('#ffcc00'),
+					},
+				],
+			]);
+			const svg = r.getString();
+			expect(svg).toContain('stroke="#FFCC00"');
+			expect(svg).not.toContain('stroke="#112233"');
+			// Exactly one outline path (only the second feature has an outline color).
+			expect([...svg.matchAll(/fill="none"/g)]).toHaveLength(1);
+		});
+
+		test('no outline without fill-antialias, even with an outline color', () => {
+			const r = makeRenderer();
+			const feature = makePolygonFeature([
+				[
+					[0, 0],
+					[10, 0],
+					[10, 10],
+				],
+			]);
+			r.drawPolygons('fill-test', [
+				[
+					feature,
+					{
+						color: mc('#336699'),
+						opacity: 1,
+						translate: [0, 0],
+						antialias: false,
+						outlineColor: mc('#ff0000'),
+					},
+				],
+			]);
+			const svg = r.getString();
+			expect(svg).not.toContain('stroke=');
+			expect(svg).not.toContain('fill="none"');
 		});
 	});
 

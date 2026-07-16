@@ -101,6 +101,11 @@ async function render(job: RenderJob): Promise<void> {
 								color: getPaint('fill-color', feature) as MaplibreColor,
 								opacity: getPaint('fill-opacity', feature) as number,
 								translate: getPaint('fill-translate', feature) as [number, number],
+								// fill-outline-color has no default (stays undefined when unset); the
+								// renderer only draws an outline when a distinct color is given.
+								outlineColor: getPaint('fill-outline-color', feature) as MaplibreColor | undefined,
+								// fill-antialias defaults to true (data-constant).
+								antialias: getPaint('fill-antialias') as boolean,
 							},
 						]),
 					);

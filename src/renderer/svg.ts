@@ -44,6 +44,11 @@ const BLUR_OPACITY_K = 1.5;
 const BLUR_ALPHA_SLOPE = 1.5;
 const BLUR_ALPHA_INTERCEPT = -0.6;
 
+// MapLibre's fill-antialias draws a ~1px edge feather along every fill boundary.
+// We approximate it with a thin stroke in fill-outline-color; the width (in user
+// px) is tuned against the e2e comparison.
+const FILL_OUTLINE_WIDTH_PX = 0.5;
+
 export class SVGRenderer {
 	public readonly width: number;
 
@@ -85,34 +90,66 @@ export class SVGRenderer {
 		// Merge only *consecutive* features with identical attributes, so the paint
 		// order of overlapping features matches MapLibre's source order. A global
 		// merge would reorder interleaved features (e.g. data-driven fill colors).
-		const groups: { segments: Segment[]; attrs: string }[] = [];
-		let currentKey: string | undefined;
+		// Fills and their antialias outlines are collected in one pass but emitted
+		// as two: MapLibre draws every fill first, then every outline, so a lower
+		// feature's outline composites on top of a later overlapping fill.
+		const fillGroups: { segments: Segment[]; attrs: string }[] = [];
+		const outlineGroups: { segments: Segment[]; attrs: string }[] = [];
+		let currentFillKey: string | undefined;
+		let currentOutlineKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
-			const color = new Color(style.color);
-			if (color.alpha <= 0) return;
 
 			const translate =
 				style.translate[0] === 0 && style.translate[1] === 0
 					? ''
 					: ` transform="translate(${formatPoint(style.translate)})"`;
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
-			const key = color.hex + translate + opacityAttr;
 
-			if (key !== currentKey) {
-				groups.push({ segments: [], attrs: `${fillAttr(color)}${translate}${opacityAttr}` });
-				currentKey = key;
+			// Round each ring once; shared by the fill and the outline pass.
+			const rings = feature.geometry.map((ring) => ring.map((p) => roundXY(p.x, p.y)));
+
+			const color = new Color(style.color);
+			if (color.alpha > 0) {
+				const key = color.hex + translate + opacityAttr;
+				if (key !== currentFillKey) {
+					fillGroups.push({ segments: [], attrs: `${fillAttr(color)}${translate}${opacityAttr}` });
+					currentFillKey = key;
+				}
+				const group = fillGroups[fillGroups.length - 1]!;
+				for (const ring of rings) group.segments.push(ring);
 			}
-			const group = groups[groups.length - 1]!;
-			feature.geometry.forEach((ring) => {
-				group.segments.push(ring.map((p) => roundXY(p.x, p.y)));
-			});
+
+			// fill-antialias outline in an explicit fill-outline-color. MapLibre also
+			// draws a *default* outline in the fill color, but that outline IS its fill-
+			// edge antialiasing (draw_fill.ts clips it to just outside the shape) — and
+			// an SVG <path fill> is already rasterizer-antialiased, so redrawing it is
+			// redundant: measured identical pixel diff for +46–88% SVG size. We only
+			// draw the outline when a distinct color is set — the visible-border case
+			// (choropleths), which the browser's fill AA does not cover.
+			if (style.antialias && style.outlineColor !== undefined) {
+				const outlineColor = new Color(style.outlineColor);
+				if (outlineColor.alpha > 0) {
+					const key = outlineColor.hex + translate + opacityAttr;
+					if (key !== currentOutlineKey) {
+						outlineGroups.push({
+							segments: [],
+							attrs: `fill="none" ${strokeAttr(outlineColor, formatScaled(FILL_OUTLINE_WIDTH_PX))}${translate}${opacityAttr}`,
+						});
+						currentOutlineKey = key;
+					}
+					const group = outlineGroups[outlineGroups.length - 1]!;
+					for (const ring of rings) group.segments.push(ring);
+				}
+			}
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, attrs } of groups) {
-			const d = segmentsToPath(segments, true);
-			this.#svg.push(`<path d="${d}" ${attrs} />`);
+		for (const { segments, attrs } of fillGroups) {
+			this.#svg.push(`<path d="${segmentsToPath(segments, true)}" ${attrs} />`);
+		}
+		for (const { segments, attrs } of outlineGroups) {
+			this.#svg.push(`<path d="${segmentsToPath(segments, true)}" ${attrs} />`);
 		}
 		this.#svg.push('</g>');
 	}
