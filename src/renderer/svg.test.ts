@@ -122,6 +122,88 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('fill="#336699"');
 		});
 
+		test('translucent fills are drawn one feature at a time, with their outline', () => {
+			const r = makeRenderer();
+			const square = (x: number): Feature =>
+				makePolygonFeature([
+					[
+						[x, 0],
+						[x + 10, 0],
+						[x + 10, 10],
+						[x, 10],
+					],
+				]);
+			const style = {
+				color: mc('#336699'),
+				opacity: 0.2,
+				translate: [0, 0] as [number, number],
+				antialias: true,
+			};
+			r.drawPolygons('fill-test', [
+				[square(0), style],
+				[square(5), style],
+			]);
+			const svg = r.getString();
+			// Two fills, so the overlap gets both opacities (like MapLibre) …
+			expect(svg.match(/<path d="[^"]*" fill="#336699" opacity="0.200" \/>/g)).toHaveLength(2);
+			// … and two outlines in the fill color, drawn after the fills.
+			const outlines = svg.match(/<path d="[^"]*" fill="none" stroke="#336699"[^>]*\/>/g);
+			expect(outlines).toHaveLength(2);
+			expect(svg.lastIndexOf('fill="#336699"')).toBeLessThan(svg.indexOf('stroke="#336699"'));
+		});
+
+		test('opaque fills are merged and get no default outline', () => {
+			const r = makeRenderer();
+			const square = (x: number): Feature =>
+				makePolygonFeature([
+					[
+						[x, 0],
+						[x + 10, 0],
+						[x + 10, 10],
+						[x, 10],
+					],
+				]);
+			const style = {
+				color: mc('#336699'),
+				opacity: 1,
+				translate: [0, 0] as [number, number],
+				antialias: true,
+			};
+			r.drawPolygons('fill-test', [
+				[square(0), style],
+				[square(20), style],
+			]);
+			const svg = r.getString();
+			expect(svg.match(/<path /g)).toHaveLength(1);
+			expect(svg).not.toContain('stroke=');
+		});
+
+		test('the outline of a polygon clipped to its tile skips the clipped edges', () => {
+			const r = makeRenderer();
+			const feature = new Feature({
+				type: 'Polygon',
+				properties: {},
+				geometry: [
+					[new Point2D(0, 0), new Point2D(10, 0), new Point2D(10, 10), new Point2D(0, 10)],
+				],
+				// Clipped at x = 10: the right edge is not part of the outline.
+				outline: [[new Point2D(10, 10), new Point2D(0, 10), new Point2D(0, 0), new Point2D(10, 0)]],
+			});
+			r.drawPolygons('fill-test', [
+				[
+					feature,
+					{
+						color: mc('#336699'),
+						opacity: 0.5,
+						translate: [0, 0] as [number, number],
+						antialias: true,
+					},
+				],
+			]);
+			const svg = r.getString();
+			expect(svg).toContain('<path d="M10,10H0V0h10" fill="none" stroke="#336699"');
+		});
+
 		test('empty features produce no output', () => {
 			const r = makeRenderer();
 			r.drawPolygons('fill-test', []);

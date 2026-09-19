@@ -195,6 +195,17 @@ describe('Projection', () => {
 		expect(tiles.length).toBeLessThanOrEqual(9);
 	});
 
+	test('isTileFullyVisible tells tiles crossing the horizon apart', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		// Around the map center (lng 0, lat 0) …
+		expect(p.isTileFullyVisible({ x: 8, y: 7, z: 4 })).toBe(true);
+		// … at the edge of the globe (lng -90 … -67.5) …
+		expect(p.isTileFullyVisible({ x: 4, y: 7, z: 4 })).toBe(false);
+		// … and mercator never clips.
+		const flat = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1 });
+		expect(flat.isTileFullyVisible({ x: 0, y: 0, z: 1 })).toBe(true);
+	});
+
 	test('coveringTiles skips the far side of the globe', () => {
 		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
 		const tiles = p.coveringTiles(3);

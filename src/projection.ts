@@ -613,6 +613,25 @@ export class Projection {
 		return result;
 	}
 
+	/**
+	 * Whether a tile, including a margin around it (the tile buffer, as a fraction of the tile
+	 * size), lies completely on the visible side of the globe, so no horizon clipping happens.
+	 */
+	public isTileFullyVisible(tile: TileID, margin = 0.1): boolean {
+		if (!this.clipsHorizon) return true;
+		const size = 1 / 2 ** tile.z;
+		const samples = 8;
+		for (let j = 0; j <= samples; j++) {
+			for (let i = 0; i <= samples; i++) {
+				if (i !== 0 && i !== samples && j !== 0 && j !== samples) continue; // the border only
+				const mx = (tile.x - margin + ((1 + 2 * margin) * i) / samples) * size;
+				const my = (tile.y - margin + ((1 + 2 * margin) * j) / samples) * size;
+				if (!this.isVisible(this.toSphere(mx, my))) return false;
+			}
+		}
+		return true;
+	}
+
 	#isTileVisible(z: number, x: number, y: number): boolean {
 		const samples = 6;
 		const size = 1 / 2 ** z;

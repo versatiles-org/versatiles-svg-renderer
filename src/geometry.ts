@@ -74,6 +74,13 @@ export class Feature implements MapLibreFeature {
 
 	public readonly geometry: Geometry;
 
+	/**
+	 * The boundary of a polygon for the fill-antialias outline, as open polylines — when it
+	 * differs from the polygon's rings, i.e. when the polygon was clipped to its tile: the
+	 * clipped edges along the tile border are not part of the outline.
+	 */
+	public readonly outline?: Geometry;
+
 	#bbox: Bbox | undefined;
 
 	public constructor(opt: {
@@ -82,12 +89,14 @@ export class Feature implements MapLibreFeature {
 		properties: Properties;
 		patterns?: Patterns;
 		geometry: Geometry;
+		outline?: Geometry;
 	}) {
 		this.type = opt.type;
 		this.id = opt.id;
 		this.properties = opt.properties;
 		this.patterns = opt.patterns;
 		this.geometry = opt.geometry;
+		this.outline = opt.outline;
 	}
 
 	public getBbox(): Bbox {

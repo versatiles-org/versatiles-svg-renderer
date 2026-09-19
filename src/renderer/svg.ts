@@ -104,11 +104,13 @@ export class SVGRenderer {
 		// Merge only *consecutive* features with identical attributes, so the paint
 		// order of overlapping features matches MapLibre's source order. A global
 		// merge would reorder interleaved features (e.g. data-driven fill colors).
-		// Fills and their antialias outlines are collected in one pass but emitted
-		// as two: MapLibre draws every fill first, then every outline, so a lower
-		// feature's outline composites on top of a later overlapping fill.
+		// Translucent features are never merged: MapLibre blends each one separately,
+		// so where they overlap, their opacity adds up — within one merged <path> it
+		// would not. Fills and their antialias outlines are collected in one pass but
+		// emitted as two: MapLibre draws every fill first, then every outline, so a
+		// lower feature's outline composites on top of a later overlapping fill.
 		const fillGroups: { segments: Segment[]; attrs: string }[] = [];
-		const outlineGroups: { segments: Segment[]; attrs: string }[] = [];
+		const outlineGroups: { closed: Segment[]; open: Segment[]; attrs: string }[] = [];
 		let currentFillKey: string | undefined;
 		let currentOutlineKey: string | undefined;
 		features.forEach(([feature, style]) => {
@@ -124,36 +126,47 @@ export class SVGRenderer {
 			const rings = feature.geometry.map((ring) => ring.map((p) => roundXY(p.x, p.y)));
 
 			const color = new Color(style.color);
+			const translucent = style.opacity < 1 || color.alpha < 255;
 			if (color.alpha > 0) {
 				const key = color.hex + translate + opacityAttr;
-				if (key !== currentFillKey) {
+				if (translucent || key !== currentFillKey) {
 					fillGroups.push({ segments: [], attrs: `${fillAttr(color)}${translate}${opacityAttr}` });
-					currentFillKey = key;
+					currentFillKey = translucent ? undefined : key;
 				}
 				const group = fillGroups[fillGroups.length - 1]!;
 				for (const ring of rings) group.segments.push(ring);
 			}
 
-			// fill-antialias outline in an explicit fill-outline-color. MapLibre also
-			// draws a *default* outline in the fill color, but that outline IS its fill-
-			// edge antialiasing (draw_fill.ts clips it to just outside the shape) — and
-			// an SVG <path fill> is already rasterizer-antialiased, so redrawing it is
-			// redundant: measured identical pixel diff for +46–88% SVG size. We only
-			// draw the outline when a distinct color is set — the visible-border case
-			// (choropleths), which the browser's fill AA does not cover.
-			if (style.antialias && style.outlineColor !== undefined) {
-				const outlineColor = new Color(style.outlineColor);
+			// fill-antialias outline, in fill-outline-color or else the fill color. For an
+			// opaque fill, MapLibre's default outline IS its fill-edge antialiasing
+			// (draw_fill.ts keeps it outside of the shape), and an SVG <path fill> is already
+			// rasterizer-antialiased, so redrawing it is redundant: measured identical pixel
+			// diff for +46–88% SVG size. It is drawn when it shows: in a distinct
+			// fill-outline-color (choropleths), or for a translucent fill, where MapLibre
+			// draws the outline over the fill's edge (e.g. buildings fading in).
+			if (style.antialias && (style.outlineColor !== undefined || translucent)) {
+				const outlineColor =
+					style.outlineColor !== undefined ? new Color(style.outlineColor) : color;
 				if (outlineColor.alpha > 0) {
+					const outlineTranslucent = translucent || outlineColor.alpha < 255;
 					const key = outlineColor.hex + translate + opacityAttr;
-					if (key !== currentOutlineKey) {
+					if (outlineTranslucent || key !== currentOutlineKey) {
 						outlineGroups.push({
-							segments: [],
+							closed: [],
+							open: [],
 							attrs: `fill="none" ${strokeAttr(outlineColor, formatScaled(FILL_OUTLINE_WIDTH_PX))}${translate}${opacityAttr}`,
 						});
-						currentOutlineKey = key;
+						currentOutlineKey = outlineTranslucent ? undefined : key;
 					}
 					const group = outlineGroups[outlineGroups.length - 1]!;
-					for (const ring of rings) group.segments.push(ring);
+					// A polygon clipped to its tile has an outline without the clipped edges.
+					if (feature.outline) {
+						for (const line of feature.outline) {
+							group.open.push(line.map((p) => roundXY(p.x, p.y)));
+						}
+					} else {
+						for (const ring of rings) group.closed.push(ring);
+					}
 				}
 			}
 		});
@@ -162,8 +175,9 @@ export class SVGRenderer {
 		for (const { segments, attrs } of fillGroups) {
 			this.#svg.push(`<path d="${segmentsToPath(segments, true)}" ${attrs} />`);
 		}
-		for (const { segments, attrs } of outlineGroups) {
-			this.#svg.push(`<path d="${segmentsToPath(segments, true)}" ${attrs} />`);
+		for (const { closed, open, attrs } of outlineGroups) {
+			const d = segmentsToPath(closed, true) + segmentsToPath(open, false);
+			this.#svg.push(`<path d="${d}" ${attrs} />`);
 		}
 		this.#svg.push('</g>');
 	}

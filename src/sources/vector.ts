@@ -5,6 +5,7 @@ import type { LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
+import { clipPolygon, clipPolygonOutline, exceedsSquare, type XY } from './clip.js';
 
 const TILE_EXTENT = 4096;
 const VTFeatureType = { Unknown: 0, Point: 1, LineString: 2, Polygon: 3 } as const;
@@ -26,7 +27,7 @@ export async function loadVectorSource(
 	const { width, height } = job.renderer;
 
 	await Promise.all(
-		getTileProjections(source, job).map(async ({ x, y, z, project }): Promise<void> => {
+		getTileProjections(source, job).map(async ({ x, y, z, project, clipToTile }): Promise<void> => {
 			const tile = await getTile(tiles[0]!, z, x, y);
 			if (!tile) return;
 
@@ -59,7 +60,15 @@ export async function loadVectorSource(
 							break;
 					}
 
-					const geometry = project(type, featureSrc.loadGeometry());
+					let rings: XY[][] = featureSrc.loadGeometry();
+					let outline: Point2D[][] | undefined;
+					// Clip polygons to the tile, like MapLibre's stencil clipping: otherwise the
+					// parts in the tile buffer are drawn twice, which shows for translucent fills.
+					if (type === 'Polygon' && clipToTile && exceedsSquare(rings, 0, TILE_EXTENT)) {
+						outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
+						rings = clipPolygon(rings, 0, TILE_EXTENT);
+					}
+					const geometry = project(type, rings);
 					if (geometry.length === 0) continue;
 
 					// Split MultiPoint into individual Point features
@@ -77,6 +86,7 @@ export async function loadVectorSource(
 						const feature = new Feature({
 							type,
 							geometry,
+							outline,
 							id: featureSrc.id,
 							properties: featureSrc.properties,
 						});
@@ -92,6 +102,12 @@ interface TileProjection {
 	x: number;
 	y: number;
 	z: number;
+	/**
+	 * Whether polygons are clipped to the tile. On the globe, not for tiles crossing the
+	 * horizon: the zero-width edges the clipping leaves along the tile border would confuse the
+	 * horizon clipping, which relies on the polygon's interior always lying right of its rings.
+	 */
+	clipToTile: boolean;
 	/** Converts geometry in tile coordinates (0..TILE_EXTENT) to screen pixels. */
 	project: (
 		type: 'LineString' | 'Point' | 'Polygon',
@@ -113,6 +129,7 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 			x,
 			y,
 			z,
+			clipToTile: projection.isTileFullyVisible({ x, y, z }),
 			project: (type, rings) =>
 				projection.projectGeometry(
 					type,
@@ -139,6 +156,7 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 			x,
 			y,
 			z: zoomLevel,
+			clipToTile: true,
 			project: (_type, rings) =>
 				rings.map((ring) =>
 					ring.map((point) =>
