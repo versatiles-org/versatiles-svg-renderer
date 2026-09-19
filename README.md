@@ -114,7 +114,7 @@ new SVGExportControl({
 
 | Option         | Type                 | Default      | Description                               |
 | -------------- | -------------------- | ------------ | ----------------------------------------- |
-| `style`        | `StyleSpecification` | *(required)* | MapLibre style specification              |
+| `style`        | `StyleSpecification` | _(required)_ | MapLibre style specification              |
 | `width`        | `number`             | `1024`       | Output width in pixels                    |
 | `height`       | `number`             | `1024`       | Output height in pixels                   |
 | `lon`          | `number`             | `0`          | Center longitude                          |
@@ -134,7 +134,7 @@ When `renderLabels` is set to `true`, symbol layers are rendered, including text
 
 ### Projections
 
-The renderer follows the style's [`projection`](https://maplibre.org/maplibre-style-spec/projection/): `mercator` (the default), `vertical-perspective` and `globe`, which — like in MapLibre GL JS — shows the globe up to zoom 11 and blends into mercator between zoom 11 and 12. Zoom-dependent `step`/`interpolate` expressions are supported as well. On the globe, geometry is clipped at the horizon and the map is clipped to the globe's outline; everything outside of it stays transparent. Raster tiles are drawn as a mesh of small, individually transformed image cells.
+The renderer follows the style's [`projection`](https://maplibre.org/maplibre-style-spec/projection/): `mercator` (the default), `vertical-perspective` and `globe`, which — like in MapLibre GL JS — shows the globe up to zoom 11 and blends into mercator between zoom 11 and 12. Zoom-dependent `step`/`interpolate` expressions are supported as well. On the globe, geometry is clipped at the horizon and the map is clipped to the globe's outline; everything outside of it stays transparent. Raster tiles are drawn as a mesh of small triangles, each mapped exactly onto the globe by its own affine transform.
 
 ## E2E Visual Comparison
 
