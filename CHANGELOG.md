@@ -29,6 +29,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a `typecheck` step to CI so type regressions fail the build (previously only lint/build/test ran). ([1ae2269](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1ae2269b305bfa02f6899ae82f1bae9175179744))
 
+## [1.2.0] - 2026-09-19
+
+### Features
+
+- add dependency graph SVG and configuration for VRT ([276d450](https://github.com/versatiles-org/versatiles-svg-renderer/commit/276d450f8f096cb5ea828ab5adedf697cf0e932a))
+- implement globe projection and geometry handling ([916e1d1](https://github.com/versatiles-org/versatiles-svg-renderer/commit/916e1d163b846e6c25d0e4282e9eb9482af71ff5))
+
+### Bug Fixes
+
+- update upgrade script to use vrt deps-upgrade ([e346fa0](https://github.com/versatiles-org/versatiles-svg-renderer/commit/e346fa08cd07e0b4af10e403c2f02be8e4a2c9fb))
+- update vector values in diff-baseline.json for accuracy ([fe8b913](https://github.com/versatiles-org/versatiles-svg-renderer/commit/fe8b913f40b17cb57b97a1d5cda03cee9dc147ac))
+- update vector values in diff-baseline.json for accuracy and adjust pixelmatch threshold for vector maps ([7a86a97](https://github.com/versatiles-org/versatiles-svg-renderer/commit/7a86a97557f7a0a3a3d7268ef534dd4a7325163c))
+- update vector values in diff-baseline.json for accuracy and adjust zoom level for world region in styles.ts ([e7c5158](https://github.com/versatiles-org/versatiles-svg-renderer/commit/e7c51588606560773804175871347cb84c366c3b))
+- update vector values in diff-baseline.json for accuracy and enhance globe shader precision in styles.ts and maplibre-page.ts ([9863c79](https://github.com/versatiles-org/versatiles-svg-renderer/commit/9863c7980c34e589cd52aacd94e82ded18aacb09))
+- enhance typecheck script to include additional TypeScript configurations for e2e and dev ([c3e1f0f](https://github.com/versatiles-org/versatiles-svg-renderer/commit/c3e1f0f7614b68af14dbb178253138d5dd9fda13))
+- remove scale parameter from SVGRenderer instantiation in makeJob function ([5a3358b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5a3358b6f2e0a42fbd15aba35155f764e9e8952a))
+- update vector values in diff-baseline.json for accuracy; add polygon clipping functions and tests for rendering ([45a4da4](https://github.com/versatiles-org/versatiles-svg-renderer/commit/45a4da49f868d56ffec6c89d4659e4f5f2738786))
+- update vector values in diff-baseline.json for accuracy; enhance SVGRenderer to handle translucent lines and add line clipping functionality ([843c011](https://github.com/versatiles-org/versatiles-svg-renderer/commit/843c011ebc8aaab2d559b044718ab5c7fd4996e7))
+
+### Code Refactoring
+
+- update style handling to use inlineSources for MapLibre styles ([3196239](https://github.com/versatiles-org/versatiles-svg-renderer/commit/3196239a36e4992b9548afa5315189c337182cb3))
+- update raster handling to use triangles instead of cells for globe projection ([215f51c](https://github.com/versatiles-org/versatiles-svg-renderer/commit/215f51c6d8c34f1e2ad8393316acc586c8483178))
+
+### Chores
+
+- add security update groups for GitHub Actions and npm in dependabot configuration ([ca8eac4](https://github.com/versatiles-org/versatiles-svg-renderer/commit/ca8eac4173a704d726b13b1cdf4fdf0d1b3319be))
+- update dependencies in package.json ([ca464de](https://github.com/versatiles-org/versatiles-svg-renderer/commit/ca464de42acbf9bc605cf2a9a96b1ddb6d1d9282))
+
 ## [1.1.0] - 2026-08-15
 
 ### Features
