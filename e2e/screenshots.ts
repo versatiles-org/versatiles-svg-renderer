@@ -23,6 +23,17 @@ const SCALE = 2;
 const SW = WIDTH * SCALE;
 const SH = HEIGHT * SCALE;
 
+// pixelmatch's per-pixel color tolerance (YIQ distance, 0..1). Its default of 0.1 is too
+// lenient for vector maps: it rates a missing light background (e.g. rgb(248,244,240)
+// vs. white) as identical, since that distance corresponds to a threshold of ~0.04.
+// Raster imagery keeps the default: the browser and MapLibre resample images slightly
+// differently, so a stricter threshold there only measures resampling noise.
+const PIXELMATCH_THRESHOLD: Record<Region['type'], number> = {
+	vector: 0.03,
+	geojson: 0.03,
+	satellite: 0.1,
+};
+
 const outputDir = resolve(import.meta.dirname, 'output');
 const maplibreDir = resolve(outputDir, 'maplibre');
 const svgDir = resolve(outputDir, 'svg');
@@ -239,7 +250,9 @@ for (const region of regions) {
 	}
 
 	const diff = new PNG({ width: SW, height: SH });
-	const mismatch = pixelmatch(maplibrePng.data, svgPng.data, diff.data, SW, SH);
+	const mismatch = pixelmatch(maplibrePng.data, svgPng.data, diff.data, SW, SH, {
+		threshold: PIXELMATCH_THRESHOLD[region.type],
+	});
 	const diffPercent = (mismatch / (SW * SH)) * 100;
 	writeFileSync(resolve(diffDir, `${id}.png`), PNG.sync.write(diff));
 	updatedBaseline[id] = Math.round(diffPercent * 100) / 100;
