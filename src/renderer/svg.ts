@@ -186,8 +186,13 @@ export class SVGRenderer {
 		if (features.length === 0) return;
 
 		// Merge only *consecutive* same-attribute features (see drawPolygons) so the
-		// paint order of overlapping lines matches MapLibre's source order.
-		const groups: { segments: Segment[]; attrs: string }[] = [];
+		// paint order of overlapping lines matches MapLibre's source order. Translucent
+		// lines are never merged: MapLibre blends every line separately, so where lines
+		// overlap (e.g. parallel rail tracks fading in), their opacity adds up — even
+		// between the parts of one feature (tiles merge equal ways into one multi-line
+		// feature). One <path> covers its overlaps only once, so a translucent line gets
+		// a <path> per part.
+		const groups: { segments: Segment[]; attrs: string; separate: boolean }[] = [];
 		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
@@ -223,7 +228,8 @@ export class SVGRenderer {
 				filterAttr,
 			].join('\0');
 
-			if (key !== currentKey) {
+			const translucent = effectiveOpacity < 1 || color.alpha < 255;
+			if (translucent || key !== currentKey) {
 				const attrs = [
 					'fill="none"',
 					strokeAttr(color, roundedWidth),
@@ -235,8 +241,9 @@ export class SVGRenderer {
 				groups.push({
 					segments: [],
 					attrs: attrs.join(' ') + translate + opacityAttr + filterAttr,
+					separate: translucent,
 				});
-				currentKey = key;
+				currentKey = translucent ? undefined : key;
 			}
 			const group = groups[groups.length - 1]!;
 
@@ -247,7 +254,13 @@ export class SVGRenderer {
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, attrs } of groups) {
+		for (const { segments, attrs, separate } of groups) {
+			if (separate) {
+				for (const segment of segments) {
+					this.#svg.push(`<path d="${segmentsToPath([segment])}" ${attrs} />`);
+				}
+				continue;
+			}
 			const chains = chainSegments(segments);
 			const d = segmentsToPath(chains);
 			this.#svg.push(`<path d="${d}" ${attrs} />`);

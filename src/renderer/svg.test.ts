@@ -402,6 +402,48 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('stroke-linejoin="round"');
 		});
 
+		test('translucent lines get a path per part, opaque ones are merged', () => {
+			// One feature with two overlapping parts, plus a second feature.
+			const parts = makeLineFeature([
+				[
+					[0, 0],
+					[50, 0],
+				],
+				[
+					[0, 1],
+					[50, 1],
+				],
+			]);
+			const other = makeLineFeature([
+				[
+					[0, 20],
+					[50, 20],
+				],
+			]);
+			const style = {
+				blur: 0,
+				cap: 'butt' as const,
+				color: mc('#FF0000'),
+				join: 'miter' as const,
+				miterLimit: 2,
+				offset: 0,
+				opacity: 1,
+				translate: [0, 0] as [number, number],
+				width: 2,
+			};
+			const count = (opacity: number): number => {
+				const r = makeRenderer();
+				r.drawLineStrings('line-test', [
+					[parts, { ...style, opacity }],
+					[other, { ...style, opacity }],
+				]);
+				return (r.getString().match(/<path /g) ?? []).length;
+			};
+			// MapLibre blends every line part separately, so overlaps add up.
+			expect(count(0.5)).toBe(3);
+			expect(count(1)).toBe(1);
+		});
+
 		test('empty features produce no output', () => {
 			const r = makeRenderer();
 			r.drawLineStrings('line-test', []);

@@ -5,7 +5,7 @@ import type { LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
-import { clipPolygon, clipPolygonOutline, exceedsSquare, type XY } from './clip.js';
+import { clipLine, clipPolygon, clipPolygonOutline, exceedsSquare, type XY } from './clip.js';
 
 const TILE_EXTENT = 4096;
 const VTFeatureType = { Unknown: 0, Point: 1, LineString: 2, Polygon: 3 } as const;
@@ -62,11 +62,15 @@ export async function loadVectorSource(
 
 					let rings: XY[][] = featureSrc.loadGeometry();
 					let outline: Point2D[][] | undefined;
-					// Clip polygons to the tile, like MapLibre's stencil clipping: otherwise the
-					// parts in the tile buffer are drawn twice, which shows for translucent fills.
-					if (type === 'Polygon' && clipToTile && exceedsSquare(rings, 0, TILE_EXTENT)) {
-						outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
-						rings = clipPolygon(rings, 0, TILE_EXTENT);
+					// Clip polygons and lines to the tile, like MapLibre's stencil clipping: otherwise
+					// the parts in the tile buffer are drawn twice, which shows when translucent.
+					if (clipToTile && type !== 'Point' && exceedsSquare(rings, 0, TILE_EXTENT)) {
+						if (type === 'Polygon') {
+							outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
+							rings = clipPolygon(rings, 0, TILE_EXTENT);
+						} else {
+							rings = rings.flatMap((line) => clipLine(line, 0, TILE_EXTENT));
+						}
 					}
 					const geometry = project(type, rings);
 					if (geometry.length === 0) continue;
@@ -103,7 +107,7 @@ interface TileProjection {
 	y: number;
 	z: number;
 	/**
-	 * Whether polygons are clipped to the tile. On the globe, not for tiles crossing the
+	 * Whether polygons and lines are clipped to the tile. On the globe, not for tiles crossing the
 	 * horizon: the zero-width edges the clipping leaves along the tile border would confuse the
 	 * horizon clipping, which relies on the polygon's interior always lying right of its rings.
 	 */
