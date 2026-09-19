@@ -1,0 +1,5 @@
+{
+	"deps-graph": {
+		"svg": "docs/dependency-graph.svg"
+	}
+}
