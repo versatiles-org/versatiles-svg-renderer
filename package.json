@@ -63,7 +63,7 @@
     "test:e2e:screenshots": "tsx e2e/screenshots.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts && npm run test:e2e:maplibre && npm run test:e2e:screenshots",
     "typecheck": "tsc --noEmit",
-    "upgrade": "npm-check-updates -u; rm -f package-lock.json; rm -rf node_modules; npm i"
+    "upgrade": "vrt deps-upgrade"
   },
   "sideEffects": false,
   "type": "module",
