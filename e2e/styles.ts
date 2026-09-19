@@ -30,7 +30,7 @@ export const regions: Region[] = [
 	// Note: at high zoom MapLibre's globe shader is visibly imprecise (GPU sin/cos on
 	// a globe with a radius of ~10^5 px): its rendering is shifted by a few pixels against
 	// its own `map.project()`, which the SVG matches. That dominates `tokyo-z11.5`.
-	{ name: 'world', lon: 10, lat: 20, zoom: 1, type: 'vector', projection: 'globe' },
+	{ name: 'world', lon: 10, lat: 20, zoom: 2, type: 'vector', projection: 'globe' },
 	{ name: 'europe', lon: 12, lat: 50, zoom: 3.5, type: 'vector', projection: 'globe' },
 	{ name: 'scandinavia', lon: 20, lat: 68, zoom: 5, type: 'vector', projection: 'globe' },
 	{ name: 'japan', lon: 138.5, lat: 36, zoom: 7, type: 'vector', projection: 'globe' },
@@ -42,6 +42,7 @@ export const regions: Region[] = [
 		type: 'vector',
 		projection: 'globe',
 	},
+	{ name: 'world', lon: 10, lat: 20, zoom: 2, type: 'satellite', projection: 'globe' },
 	{ name: 'europe', lon: 12, lat: 50, zoom: 3.5, type: 'satellite', projection: 'globe' },
 ];
 
