@@ -62,7 +62,7 @@
     "test:e2e:maplibre": "tsx e2e/maplibre-control.ts",
     "test:e2e:screenshots": "tsx e2e/screenshots.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts && npm run test:e2e:maplibre && npm run test:e2e:screenshots",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json",
     "upgrade": "vrt deps-upgrade"
   },
   "sideEffects": false,
