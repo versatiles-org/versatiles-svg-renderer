@@ -1,0 +1,217 @@
+import { describe, expect, test } from 'vitest';
+import { Point2D } from './geometry.js';
+import { getGlobeness, Projection } from './projection.js';
+
+function mercator(lng: number, lat: number): [number, number] {
+	const p = new Point2D(lng, lat).getProject2Pixel();
+	return [p.x, p.y];
+}
+
+function polygonArea(ring: Point2D[]): number {
+	let area = 0;
+	for (let i = 0; i < ring.length; i++) {
+		const a = ring[i]!;
+		const b = ring[(i + 1) % ring.length]!;
+		area += a.x * b.y - b.x * a.y;
+	}
+	return area / 2;
+}
+
+describe('getGlobeness', () => {
+	test('mercator and missing projection', () => {
+		expect(getGlobeness(undefined, 3)).toBe(0);
+		expect(getGlobeness({ type: 'mercator' }, 3)).toBe(0);
+	});
+
+	test('vertical-perspective', () => {
+		expect(getGlobeness({ type: 'vertical-perspective' }, 15)).toBe(1);
+	});
+
+	test('globe transitions to mercator between zoom 11 and 12', () => {
+		expect(getGlobeness({ type: 'globe' }, 5)).toBe(1);
+		expect(getGlobeness({ type: 'globe' }, 11)).toBe(1);
+		expect(getGlobeness({ type: 'globe' }, 11.25)).toBeCloseTo(0.75);
+		expect(getGlobeness({ type: 'globe' }, 12)).toBe(0);
+		expect(getGlobeness({ type: 'globe' }, 16)).toBe(0);
+	});
+
+	test('step and interpolate expressions', () => {
+		const step = { type: ['step', ['zoom'], 'vertical-perspective', 6, 'mercator'] };
+		expect(getGlobeness(step as never, 5)).toBe(1);
+		expect(getGlobeness(step as never, 6)).toBe(0);
+		const interpolate = {
+			type: ['interpolate', ['linear'], ['zoom'], 2, 'mercator', 4, 'vertical-perspective'],
+		};
+		expect(getGlobeness(interpolate as never, 3)).toBeCloseTo(0.5);
+	});
+});
+
+describe('Projection', () => {
+	test('mercator matches the flat projection', () => {
+		const p = new Projection({ width: 800, height: 600, center: [13.4, 52.5], zoom: 10 });
+		expect(p.isGlobe).toBe(false);
+		const [cx, cy] = mercator(13.4, 52.5);
+		const [mx, my] = mercator(13.5, 52.4);
+		const point = p.project(mx, my);
+		expect(point.x).toBeCloseTo((mx - cx) * 512 * 1024 + 400, 6);
+		expect(point.y).toBeCloseTo((my - cy) * 512 * 1024 + 300, 6);
+	});
+
+	test('globe matches MapLibre’s map.project()', () => {
+		// Reference values from MapLibre GL JS 6.10 (globe projection, 800×600, zoom 10).
+		const p = new Projection({
+			width: 800,
+			height: 600,
+			center: [139.692, 35.69],
+			zoom: 10,
+			globeness: 1,
+		});
+		const cases: [number, number, number, number][] = [
+			[139.692, 35.69, 400, 300],
+			[139.9, 35.8, 702.2896044269569, 102.574625841179],
+			[139.4, 35.5, -25.580315209038584, 639.5148661317205],
+			[135, 30, -3573.7621889785464, 5766.587320395815],
+		];
+		for (const [lng, lat, x, y] of cases) {
+			const point = p.project(...mercator(lng, lat));
+			expect(point.x).toBeCloseTo(x, 5);
+			expect(point.y).toBeCloseTo(y, 5);
+		}
+	});
+
+	test('the silhouette of the globe', () => {
+		const p = new Projection({ width: 800, height: 600, center: [10, 20], zoom: 1, globeness: 1 });
+		const circle = p.clipCircle!;
+		expect(circle.x).toBe(400);
+		expect(circle.y).toBe(300);
+		// Radius r = 1024 / (2π·cos 20°) at a camera distance of d = 900: d·r / √((d+r)² − r²)
+		expect(circle.radius).toBeCloseTo(147.3, 1);
+		// Mercator and the transition do not clip.
+		expect(new Projection({ width: 8, height: 6, center: [0, 0], zoom: 1 }).clipCircle).toBe(
+			undefined,
+		);
+	});
+
+	test('toSphere and fromSphere are inverse', () => {
+		const p = new Projection({ width: 800, height: 600, center: [10, 20], zoom: 1, globeness: 1 });
+		const [mx, my] = mercator(-40, 55);
+		const [x, y] = p.fromSphere(p.toSphere(mx, my));
+		expect(x).toBeCloseTo(mx, 9);
+		expect(y).toBeCloseTo(my, 9);
+	});
+
+	test('the four zoom 1 tiles cover the globe', () => {
+		const p = new Projection({ width: 800, height: 600, center: [10, 20], zoom: 1, globeness: 1 });
+		const { x, y, radius } = p.clipCircle!;
+		let area = 0;
+		for (const [tx, ty] of [
+			[0, 0],
+			[0.5, 0],
+			[0, 0.5],
+			[0.5, 0.5],
+		] as const) {
+			// Each tile as one polygon, in vector tile winding (clockwise on screen).
+			const rings = p.projectGeometry('Polygon', [
+				[
+					[tx, ty],
+					[tx + 0.5, ty],
+					[tx + 0.5, ty + 0.5],
+					[tx, ty + 0.5],
+					[tx, ty],
+				],
+			]);
+			for (const ring of rings) {
+				for (const point of ring) {
+					expect(Math.hypot(point.x - x, point.y - y)).toBeLessThanOrEqual(radius + 0.01);
+				}
+				area += polygonArea(ring);
+			}
+		}
+		// Only the pole caps beyond ±85° are missing.
+		expect(area).toBeGreaterThan(0.95 * Math.PI * radius * radius);
+		expect(area).toBeLessThanOrEqual(Math.PI * radius * radius);
+	});
+
+	test('a polygon on the far side disappears', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		const ring: [number, number][] = [
+			mercator(170, 10),
+			mercator(175, 10),
+			mercator(175, 5),
+			mercator(170, 5),
+		];
+		expect(p.projectGeometry('Polygon', [ring])).toEqual([]);
+	});
+
+	test('a ring leaving and re-entering the visible side is reconnected along the silhouette', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		// A clockwise (on screen) band along the equator, reaching around the back of the globe
+		// on both sides: it has to become one ring covering the visible part of the band.
+		const ring: [number, number][] = [
+			mercator(-120, 10),
+			mercator(120, 10),
+			mercator(120, -10),
+			mercator(-120, -10),
+			mercator(-120, 10),
+		];
+		const rings = p.projectGeometry('Polygon', [ring]);
+		expect(rings).toHaveLength(1);
+		const area = polygonArea(rings[0]!);
+		expect(area).toBeGreaterThan(0);
+		expect(area).toBeLessThan(Math.PI * p.clipCircle!.radius ** 2 * 0.5);
+	});
+
+	test('lines are cut at the horizon', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		const parts = p.projectGeometry('LineString', [
+			[mercator(-170, 0), mercator(0, 0), mercator(170, 0)],
+		]);
+		expect(parts).toHaveLength(1);
+		const { x, radius } = p.clipCircle!;
+		const xs = parts[0]!.map((point) => point.x);
+		expect(Math.min(...xs)).toBeCloseTo(x - radius, 1);
+		expect(Math.max(...xs)).toBeCloseTo(x + radius, 1);
+	});
+
+	test('points on the far side are dropped', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		const points = p.projectGeometry('Point', [[mercator(0, 0)], [mercator(180, 0)]]);
+		expect(points).toHaveLength(1);
+		expect(points[0]![0]!.x).toBeCloseTo(400, 6);
+	});
+
+	test('coveringTiles finds the tiles on screen, even when zoomed in', () => {
+		const p = new Projection({
+			width: 800,
+			height: 600,
+			center: [139.692, 35.69],
+			zoom: 10,
+			globeness: 1,
+		});
+		const tiles = p.coveringTiles(10);
+		const [mx, my] = mercator(139.692, 35.69);
+		expect(tiles).toContainEqual({ x: Math.floor(mx * 1024), y: Math.floor(my * 1024), z: 10 });
+		expect(tiles.length).toBeGreaterThanOrEqual(4);
+		expect(tiles.length).toBeLessThanOrEqual(9);
+	});
+
+	test('coveringTiles skips the far side of the globe', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		const tiles = p.coveringTiles(3);
+		expect(tiles.length).toBeGreaterThan(0);
+		// Tiles around the antimeridian (x = 0 and x = 7) are behind the globe.
+		expect(tiles.some((t) => t.x === 0 || t.x === 7)).toBe(false);
+	});
+
+	test('rasterCells map the tile onto the globe', () => {
+		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
+		const cells = p.rasterCells({ x: 1, y: 1, z: 1 });
+		expect(cells.length).toBeGreaterThan(1);
+		// The cell at the map center maps its corner (tile units 0,0 of tile 1/1/1 = lng 0, lat 0)
+		// close to the screen center.
+		const cell = cells.find((c) => c.bounds[0] === 0 && c.bounds[1] === 0)!;
+		const [a, b, c, d, e, f] = cell.matrix;
+		expect(a * 0 + c * 0 + e).toBeCloseTo(400, 0);
+		expect(b * 0 + d * 0 + f).toBeCloseTo(300, 0);
+	});
+});

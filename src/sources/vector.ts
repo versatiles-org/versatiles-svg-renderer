@@ -2,6 +2,7 @@ import { Point2D, Feature } from '../geometry.js';
 import type { RenderJob } from '../renderer/svg.js';
 import { calculateTileGrid, getTile } from './tiles.js';
 import type { LayerFeatures } from '../geometry.js';
+import type { Projection } from '../projection.js';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
 
@@ -23,19 +24,10 @@ export async function loadVectorSource(
 	if (!tiles) return;
 
 	const { width, height } = job.renderer;
-	const { zoom, center } = job.view;
-
-	const {
-		zoomLevel,
-		tileSize,
-		tiles: tileCoordinates,
-	} = calculateTileGrid(width, height, center, zoom, source.maxzoom);
 
 	await Promise.all(
-		tileCoordinates.map(async ({ x, y, offsetX, offsetY }): Promise<void> => {
-			const offset = new Point2D(offsetX, offsetY);
-
-			const tile = await getTile(tiles[0]!, zoomLevel, x, y);
+		getTileProjections(source, job).map(async ({ x, y, z, project }): Promise<void> => {
+			const tile = await getTile(tiles[0]!, z, x, y);
 			if (!tile) return;
 
 			const vectorTile = new VectorTile(new PbfReader(tile.buffer));
@@ -48,14 +40,6 @@ export async function loadVectorSource(
 
 				for (let i = 0; i < layer.length; i++) {
 					const featureSrc = layer.feature(i);
-					const geometry = featureSrc
-						.loadGeometry()
-						.map((ring) =>
-							ring.map((point) =>
-								new Point2D(point.x, point.y).scale(tileSize / TILE_EXTENT).translate(offset),
-							),
-						);
-
 					let type: 'LineString' | 'Point' | 'Polygon';
 					let list: Feature[];
 					switch (featureSrc.type) {
@@ -74,6 +58,9 @@ export async function loadVectorSource(
 							list = features.polygons;
 							break;
 					}
+
+					const geometry = project(type, featureSrc.loadGeometry());
+					if (geometry.length === 0) continue;
 
 					// Split MultiPoint into individual Point features
 					if (type === 'Point' && geometry.length > 1) {
@@ -99,4 +86,65 @@ export async function loadVectorSource(
 			}
 		}),
 	);
+}
+
+interface TileProjection {
+	x: number;
+	y: number;
+	z: number;
+	/** Converts geometry in tile coordinates (0..TILE_EXTENT) to screen pixels. */
+	project: (
+		type: 'LineString' | 'Point' | 'Polygon',
+		rings: { x: number; y: number }[][],
+	) => Point2D[][];
+}
+
+function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProjection[] {
+	const { width, height } = job.renderer;
+	const { zoom, center } = job.view;
+	const projection: Projection | undefined = job.projection;
+
+	if (projection?.isGlobe) {
+		// Never zoom level 0 on the globe: the left and right edge of its single tile coincide
+		// (the antimeridian), which the horizon clipping cannot tell apart.
+		const z = Math.max(1, Math.min(Math.floor(zoom), source.maxzoom ?? Infinity));
+		const scale = 1 / (TILE_EXTENT * 2 ** z);
+		return projection.coveringTiles(z).map(({ x, y }) => ({
+			x,
+			y,
+			z,
+			project: (type, rings) =>
+				projection.projectGeometry(
+					type,
+					rings.map((ring) =>
+						ring.map((p): [number, number] => [
+							(x * TILE_EXTENT + p.x) * scale,
+							(y * TILE_EXTENT + p.y) * scale,
+						]),
+					),
+				),
+		}));
+	}
+
+	const { zoomLevel, tileSize, tiles } = calculateTileGrid(
+		width,
+		height,
+		center,
+		zoom,
+		source.maxzoom,
+	);
+	return tiles.map(({ x, y, offsetX, offsetY }) => {
+		const offset = new Point2D(offsetX, offsetY);
+		return {
+			x,
+			y,
+			z: zoomLevel,
+			project: (_type, rings) =>
+				rings.map((ring) =>
+					ring.map((point) =>
+						new Point2D(point.x, point.y).scale(tileSize / TILE_EXTENT).translate(offset),
+					),
+				),
+		};
+	});
 }

@@ -132,6 +132,10 @@ When `renderLabels` is set to `true`, symbol layers are rendered, including text
 > - **No collision detection:** Text labels are rendered without collision detection, so labels may overlap.
 > - **Simplified text placement:** Labels can not be positioned along lines.
 
+### Projections
+
+The renderer follows the style's [`projection`](https://maplibre.org/maplibre-style-spec/projection/): `mercator` (the default), `vertical-perspective` and `globe`, which — like in MapLibre GL JS — shows the globe up to zoom 11 and blends into mercator between zoom 11 and 12. Zoom-dependent `step`/`interpolate` expressions are supported as well. On the globe, geometry is clipped at the horizon and the map is clipped to the globe's outline; everything outside of it stays transparent. Raster tiles are drawn as a mesh of small, individually transformed image cells.
+
 ## E2E Visual Comparison
 
 A visual comparison report between the SVG renderer and MapLibre GL JS is published to GitHub Pages:

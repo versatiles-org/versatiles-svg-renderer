@@ -9,6 +9,8 @@ export interface Region {
 	lat: number;
 	zoom: number;
 	type: 'vector' | 'satellite' | 'geojson';
+	/** Style projection; defaults to 'mercator'. */
+	projection?: 'mercator' | 'globe';
 }
 
 export const regions: Region[] = [
@@ -22,28 +24,51 @@ export const regions: Region[] = [
 	{ name: 'berlin', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite' },
 
 	{ name: 'berlin', lon: 13.388, lat: 52.514, zoom: 14, type: 'geojson' },
+
+	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
+	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.
+	// Note: at high zoom MapLibre's globe shader is visibly imprecise (GPU sin/cos on
+	// a globe with a radius of ~10^5 px): its rendering is shifted by a few pixels against
+	// its own `map.project()`, which the SVG matches. That dominates `tokyo-z11.5`.
+	{ name: 'world', lon: 10, lat: 20, zoom: 1, type: 'vector', projection: 'globe' },
+	{ name: 'europe', lon: 12, lat: 50, zoom: 3.5, type: 'vector', projection: 'globe' },
+	{ name: 'scandinavia', lon: 20, lat: 68, zoom: 5, type: 'vector', projection: 'globe' },
+	{ name: 'japan', lon: 138.5, lat: 36, zoom: 7, type: 'vector', projection: 'globe' },
+	{
+		name: 'tokyo-z11.5',
+		lon: 139.692,
+		lat: 35.69,
+		zoom: 11.5,
+		type: 'vector',
+		projection: 'globe',
+	},
+	{ name: 'europe', lon: 12, lat: 50, zoom: 3.5, type: 'satellite', projection: 'globe' },
 ];
 
 export function regionId(region: Region): string {
-	return `${region.name}-${region.type}`;
+	const id = `${region.name}-${region.type}`;
+	return region.projection === 'globe' ? `${id}-globe` : id;
 }
 
 const styleCache = new Map<string, StyleSpecification>();
-export async function getStyle(type: Region['type']): Promise<StyleSpecification> {
-	let style = styleCache.get(type);
+export async function getStyle(region: Region): Promise<StyleSpecification> {
+	const { type } = region;
+	const projection = region.projection ?? 'mercator';
+	const cacheKey = `${type}-${projection}`;
+	let style = styleCache.get(cacheKey);
 	if (!style) {
 		switch (type) {
 			case 'vector':
 				style = await inlineSources(
 					osm({
 						theme: 'colorful',
-						projection: 'mercator',
+						projection,
 						layers: { labels: false, icons: false },
 					}),
 				);
 				break;
 			case 'satellite':
-				style = await inlineSources(satellite({ projection: 'mercator', osmOverlay: false }));
+				style = await inlineSources(satellite({ projection, osmOverlay: false }));
 				break;
 			case 'geojson':
 				style = {
@@ -222,7 +247,7 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 				);
 				break;
 		}
-		styleCache.set(type, style);
+		styleCache.set(cacheKey, style);
 	}
 	return style;
 }

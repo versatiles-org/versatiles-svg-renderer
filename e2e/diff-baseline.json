@@ -1,10 +1,16 @@
 {
-	"berlin-vector": 0.02,
+	"berlin-vector": 0,
 	"paris-vector": 0.03,
-	"warsaw-vector": 0.02,
-	"tokyo-vector": 0.08,
-	"roma-vector": 0.04,
-	"sao-paulo-vector": 0.02,
+	"warsaw-vector": 0,
+	"tokyo-vector": 0.03,
+	"roma-vector": 0.01,
+	"sao-paulo-vector": 0.01,
 	"berlin-satellite": 0.57,
-	"berlin-geojson": 0.8
+	"berlin-geojson": 0.8,
+	"world-vector-globe": 0.06,
+	"europe-vector-globe": 0.05,
+	"scandinavia-vector-globe": 0.39,
+	"japan-vector-globe": 2.74,
+	"tokyo-z11.5-vector-globe": 15.57,
+	"europe-satellite-globe": 0.52
 }

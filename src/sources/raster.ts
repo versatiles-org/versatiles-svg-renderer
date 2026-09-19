@@ -15,6 +15,24 @@ export async function getRasterTiles(job: RenderJob, sourceName: string): Promis
 	}
 
 	const sourceUrl = source.tiles[0]!;
+
+	const projection = job.projection;
+	if (projection?.isGlobe) {
+		// Never zoom level 0 on the globe: the left and right edge of its single tile coincide
+		// (the antimeridian), which the horizon clipping cannot tell apart.
+		const z = Math.max(1, Math.min(Math.floor(zoom), source.maxzoom ?? Infinity));
+		const globeTiles = await Promise.all(
+			projection.coveringTiles(z).map(async (id): Promise<RasterTile | null> => {
+				const tile = await getTile(sourceUrl, id.z, id.x, id.y);
+				if (!tile) return null;
+				const cells = projection.rasterCells(id);
+				if (cells.length === 0) return null;
+				const dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;
+				return { x: 0, y: 0, width: 1, height: 1, dataUri, cells };
+			}),
+		);
+		return globeTiles.filter((tile): tile is RasterTile => tile !== null);
+	}
 	const { zoomLevel, tileSize, tiles } = calculateTileGrid(
 		width,
 		height,

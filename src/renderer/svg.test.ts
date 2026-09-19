@@ -83,6 +83,24 @@ describe('SVGRenderer', () => {
 				'<rect x="-1" y="-1" width="258" height="258" fill="#FF0000" fill-opacity="0.502" />',
 			);
 		});
+
+		test('clips the map to the globe', () => {
+			const r = makeRenderer();
+			r.setClipCircle({ x: 128, y: 128, radius: 100.5 });
+			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
+			const svg = r.getString();
+			expect(svg).toContain('<clipPath id="vb"><circle cx="128" cy="128" r="100.5"/></clipPath>');
+			expect(svg).toContain('<g id="map" clip-path="url(#vb)">');
+		});
+
+		test('a transparent background layer does not erase an earlier one', () => {
+			const r = makeRenderer();
+			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
+			r.drawBackgroundFill({ color: mc('#00FF00'), opacity: 0 });
+			const svg = r.getString();
+			expect(svg).toContain('<rect x="-1" y="-1" width="258" height="258" fill="#FF0000" />');
+			expect(svg).not.toContain('#00FF00');
+		});
 	});
 
 	describe('drawPolygons', () => {
@@ -571,6 +589,28 @@ describe('SVGRenderer', () => {
 				...overrides,
 			};
 		}
+
+		test('draws globe tiles as affine-mapped cells of one shared image', () => {
+			const r = makeRenderer();
+			const tile = makeTile({
+				cells: [
+					{ bounds: [0, 0, 0.5, 0.5], matrix: [100, 0, 0, 100, 10, 20] },
+					{ bounds: [0.5, 0, 1, 0.5], matrix: [100, 1, 0, 100, 10, 20] },
+				],
+			});
+			r.drawRasterTiles('raster-test', [tile], defaultRasterStyle());
+			const svg = r.getString();
+			// The image data is defined once, as a 1×1 tile.
+			expect(svg.match(/data:image\/png;base64,AAAA/g)).toHaveLength(1);
+			expect(svg).toContain(
+				'<image id="raster-0" width="1" height="1" preserveAspectRatio="none" xlink:href="data:image/png;base64,AAAA" />',
+			);
+			// Each cell shows its part of it (grown by 2% to overlap its neighbours).
+			expect(svg).toContain(
+				'<g transform="matrix(100,0,0,100,10,20)"><svg x="-0.01" y="-0.01" width="0.52" height="0.52" viewBox="-0.01 -0.01 0.52 0.52"><use xlink:href="#raster-0" /></svg></g>',
+			);
+			expect(svg).toContain('<g transform="matrix(100,1,0,100,10,20)">');
+		});
 
 		test('generates image elements', () => {
 			const r = makeRenderer();

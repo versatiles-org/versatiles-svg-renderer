@@ -220,7 +220,7 @@ let failed = false;
 // and report a single line (green improvement / red degradation vs the baseline).
 for (const region of regions) {
 	const id = regionId(region);
-	const style = await getStyle(region.type);
+	const style = await getStyle(region);
 
 	let svgPng: PNG;
 	let maplibrePng: PNG;

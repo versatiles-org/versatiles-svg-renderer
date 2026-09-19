@@ -9,11 +9,13 @@ import type {
 	IconStyle,
 	LineStyle,
 	RasterStyle,
+	RasterCell,
 	RasterTile,
 	RendererOptions,
 	SymbolStyle as LabelStyle,
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
+import type { ClipCircle } from '../projection.js';
 
 export type {
 	BackgroundStyle,
@@ -56,8 +58,6 @@ export class SVGRenderer {
 
 	readonly #svg: string[];
 
-	#backgroundColor: Color;
-
 	readonly #spriteSheetDefs = new Map<
 		string,
 		{ defId: string; width: number; height: number; href: string }
@@ -71,17 +71,29 @@ export class SVGRenderer {
 	readonly #sdfFilterDefs = new Map<string, { filterId: string; content: string }>();
 	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
 
+	readonly #rasterDefs: string[] = [];
+
+	#clipCircle: ClipCircle | undefined;
+
 	public constructor(opt: RendererOptions) {
 		this.width = opt.width;
 		this.height = opt.height;
 		this.#svg = [];
-		this.#backgroundColor = Color.transparent;
+	}
+
+	public setClipCircle(circle: ClipCircle): void {
+		this.#clipCircle = circle;
 	}
 
 	public drawBackgroundFill(style: BackgroundStyle): void {
+		// Every background layer paints over what is below it, like any other layer. (A
+		// transparent one, e.g. an empty "slot" layer, must not erase an earlier background.)
 		const color = new Color(style.color);
 		color.alpha *= style.opacity;
-		this.#backgroundColor = color;
+		if (color.alpha <= 0) return;
+		this.#svg.push(
+			`<rect x="-1" y="-1" width="${(this.width + 2).toFixed(0)}" height="${(this.height + 2).toFixed(0)}" ${fillAttr(color)} />`,
+		);
 	}
 
 	public drawPolygons(id: string, features: [Feature, FillStyle][]): void {
@@ -506,6 +518,10 @@ export class SVGRenderer {
 
 		const pixelated = style.resampling === 'nearest';
 		for (const tile of tiles) {
+			if (tile.cells) {
+				this.#drawRasterCells(tile, tile.cells, pixelated);
+				continue;
+			}
 			const overlap = Math.min(tile.width, tile.height) / 10000; // slight overlap to prevent sub-pixel gaps between tiles
 			let attrs = `x="${formatScaled(tile.x - overlap)}" y="${formatScaled(tile.y - overlap)}" width="${formatScaled(tile.width + overlap * 2)}" height="${formatScaled(tile.height + overlap * 2)}" xlink:href="${tile.dataUri}"`;
 			if (pixelated) attrs += ' style="image-rendering:pixelated"';
@@ -515,12 +531,42 @@ export class SVGRenderer {
 		this.#svg.push('</g>');
 	}
 
+	/**
+	 * Draws a raster tile as a mesh of cells (globe projection). The image is defined once,
+	 * scaled to 1×1 tile units; every cell shows its part of it through a nested <svg>
+	 * viewport, mapped to the screen by the cell's affine transform.
+	 */
+	#drawRasterCells(tile: RasterTile, cells: RasterCell[], pixelated: boolean): void {
+		const imageId = `raster-${String(this.#rasterDefs.length)}`;
+		let imageAttrs = `id="${imageId}" width="1" height="1" preserveAspectRatio="none" xlink:href="${tile.dataUri}"`;
+		if (pixelated) imageAttrs += ' style="image-rendering:pixelated"';
+		this.#rasterDefs.push(`<image ${imageAttrs} />`);
+
+		for (const { bounds, matrix } of cells) {
+			// Grow each cell a little, so neighbouring cells overlap instead of leaving hairline gaps.
+			const overlap = (bounds[2] - bounds[0]) * 0.02;
+			const x = bounds[0] - overlap;
+			const y = bounds[1] - overlap;
+			const w = bounds[2] - bounds[0] + overlap * 2;
+			const h = bounds[3] - bounds[1] + overlap * 2;
+			const [bx, by, bw, bh] = [x, y, w, h].map(formatUnit) as [string, string, string, string];
+			const transform = matrix.map(formatUnit).join(',');
+			this.#svg.push(
+				`<g transform="matrix(${transform})"><svg x="${bx}" y="${by}" width="${bw}" height="${bh}" viewBox="${bx} ${by} ${bw} ${bh}"><use xlink:href="#${imageId}" /></svg></g>`,
+			);
+		}
+	}
+
 	public getString(): string {
 		const w = this.width.toFixed(0);
 		const h = this.height.toFixed(0);
 
 		// Build defs content
-		const defsContent = [`<clipPath id="vb"><rect width="${w}" height="${h}"/></clipPath>`];
+		const clip = this.#clipCircle;
+		const clipShape = clip
+			? `<circle cx="${formatUnit(clip.x)}" cy="${formatUnit(clip.y)}" r="${formatUnit(clip.radius)}"/>`
+			: `<rect width="${w}" height="${h}"/>`;
+		const defsContent = [`<clipPath id="vb">${clipShape}</clipPath>`, ...this.#rasterDefs];
 		for (const sheet of this.#spriteSheetDefs.values()) {
 			defsContent.push(
 				`<image id="${escapeXml(sheet.defId)}" width="${formatNum(sheet.width)}" height="${formatNum(sheet.height)}" xlink:href="${escapeXml(sheet.href)}" />`,
@@ -555,11 +601,6 @@ export class SVGRenderer {
 			`<defs>\n  ${defsContent.join('\n  ')}\n</defs>`,
 			`<g id="map" clip-path="url(#vb)">`,
 		];
-		if (this.#backgroundColor.alpha > 0) {
-			parts.push(
-				`<rect x="-1" y="-1" width="${(this.width + 2).toFixed(0)}" height="${(this.height + 2).toFixed(0)}" ${fillAttr(this.#backgroundColor)} />`,
-			);
-		}
 		parts.push(...this.#svg, '</g>', '</svg>');
 		return parts.join('\n');
 	}
@@ -579,6 +620,10 @@ function strokeAttr(color: Color, width: string): string {
 
 function formatScaled(v: number): string {
 	return formatNum(Math.round(v * 10));
+}
+
+function formatUnit(v: number): string {
+	return (Math.round(v * 100000) / 100000).toString();
 }
 
 function formatScale(v: number): string {

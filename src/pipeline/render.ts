@@ -6,6 +6,7 @@ import { getLayerStyles } from './style_layer.js';
 import type { PossiblyEvaluatedPropertyValue, StyleLayer } from './style_layer.js';
 import type { RenderJob } from '../renderer/svg.js';
 import type { Features, LayerFeatures } from '../geometry.js';
+import { Projection } from '../projection.js';
 
 function resolveTokens(text: string, properties: Record<string, unknown>): string {
 	return text.replace(/\{([^}]+)\}/g, (_, key: string) => {
@@ -18,6 +19,15 @@ function resolveTokens(text: string, properties: Record<string, unknown>): strin
 }
 
 export async function renderMap(job: RenderJob): Promise<string> {
+	job.projection ??= Projection.fromStyle({
+		width: job.renderer.width,
+		height: job.renderer.height,
+		center: job.view.center,
+		zoom: job.view.zoom,
+		projection: job.style.projection,
+	});
+	const clipCircle = job.projection.clipCircle;
+	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
 	await render(job);
 	return job.renderer.getString();
 }

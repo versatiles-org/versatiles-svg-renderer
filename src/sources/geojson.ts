@@ -1,6 +1,7 @@
 import type { GeoJSON, Geometry } from 'geojson';
 import { Point2D, Feature } from '../geometry.js';
 import type { Features, LayerFeatures } from '../geometry.js';
+import type { Projection } from '../projection.js';
 
 type Coord = [number, number];
 
@@ -12,10 +13,11 @@ export interface GeoJSONLoadOptions {
 	zoom: number;
 	center: [number, number];
 	layerFeatures: LayerFeatures;
+	projection?: Projection;
 }
 
 export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
-	const { sourceName, data, width, height, zoom, center, layerFeatures } = options;
+	const { sourceName, data, width, height, zoom, center, layerFeatures, projection } = options;
 	const existing = layerFeatures.get(sourceName);
 	const features: Features = existing ?? {
 		points: [],
@@ -29,11 +31,24 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 	const worldSize = 512 * 2 ** zoom;
 	const centerMercator = new Point2D(center[0], center[1]).getProject2Pixel();
 
-	function projectCoord(coord: Coord): Point2D {
+	function toMercator(coord: Coord): Coord {
 		const mercator = new Point2D(coord[0], coord[1]).getProject2Pixel();
-		return new Point2D(
-			(mercator.x - centerMercator.x) * worldSize + width / 2,
-			(mercator.y - centerMercator.y) * worldSize + height / 2,
+		return [mercator.x, mercator.y];
+	}
+
+	function project(type: 'LineString' | 'Point' | 'Polygon', rings: Coord[][]): Point2D[][] {
+		if (projection?.isGlobe) {
+			if (type === 'Polygon') rings = orientRings(rings);
+			return projection.projectGeometry(type, rings);
+		}
+		return rings.map((ring) =>
+			ring.map(
+				([x, y]) =>
+					new Point2D(
+						(x - centerMercator.x) * worldSize + width / 2,
+						(y - centerMercator.y) * worldSize + height / 2,
+					),
+			),
 		);
 	}
 
@@ -54,10 +69,12 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 
 	function addFeature(
 		type: 'LineString' | 'Point' | 'Polygon',
-		geometry: Point2D[][],
+		rings: Coord[][],
 		id: unknown,
 		properties: Record<string, unknown>,
 	): void {
+		const geometry = project(type, rings);
+		if (geometry.length === 0) return;
 		switch (type) {
 			case 'Point': {
 				const f = makeFeature('Point', geometry, id, properties);
@@ -111,12 +128,12 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 	): void {
 		switch (geom.type) {
 			case 'Point':
-				addFeature('Point', [[projectCoord(geom.coordinates as Coord)]], id, properties);
+				addFeature('Point', [[toMercator(geom.coordinates as Coord)]], id, properties);
 				break;
 			case 'MultiPoint':
 				addFeature(
 					'Point',
-					geom.coordinates.map((c) => [projectCoord(c as Coord)]),
+					geom.coordinates.map((c) => [toMercator(c as Coord)]),
 					id,
 					properties,
 				);
@@ -124,7 +141,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 			case 'LineString':
 				addFeature(
 					'LineString',
-					[geom.coordinates.map((c) => projectCoord(c as Coord))],
+					[geom.coordinates.map((c) => toMercator(c as Coord))],
 					id,
 					properties,
 				);
@@ -132,7 +149,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 			case 'MultiLineString':
 				addFeature(
 					'LineString',
-					geom.coordinates.map((line) => line.map((c) => projectCoord(c as Coord))),
+					geom.coordinates.map((line) => line.map((c) => toMercator(c as Coord))),
 					id,
 					properties,
 				);
@@ -140,7 +157,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 			case 'Polygon':
 				addFeature(
 					'Polygon',
-					geom.coordinates.map((ring) => ring.map((c) => projectCoord(c as Coord))),
+					geom.coordinates.map((ring) => ring.map((c) => toMercator(c as Coord))),
 					id,
 					properties,
 				);
@@ -149,7 +166,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 				for (const polygon of geom.coordinates) {
 					addFeature(
 						'Polygon',
-						polygon.map((ring) => ring.map((c) => projectCoord(c as Coord))),
+						polygon.map((ring) => ring.map((c) => toMercator(c as Coord))),
 						id,
 						properties,
 					);
@@ -176,4 +193,21 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 			processGeometry(data, undefined, {});
 			break;
 	}
+}
+
+/**
+ * Orients polygon rings like vector tiles do (in mercator space, y pointing south: the
+ * exterior ring clockwise, holes counter-clockwise), as the globe clipping relies on it.
+ */
+function orientRings(rings: Coord[][]): Coord[][] {
+	return rings.map((ring, index) => {
+		let area = 0;
+		for (let i = 0; i < ring.length; i++) {
+			const [x0, y0] = ring[i]!;
+			const [x1, y1] = ring[(i + 1) % ring.length]!;
+			area += x0 * y1 - x1 * y0;
+		}
+		const isExterior = index === 0;
+		return area > 0 === isExterior ? ring : [...ring].reverse();
+	});
 }

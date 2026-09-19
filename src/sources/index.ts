@@ -39,6 +39,7 @@ export async function getLayerFeatures(job: RenderJob): Promise<LayerFeatures> {
 						zoom,
 						center,
 						layerFeatures,
+						projection: job.projection,
 					});
 				}
 				break;

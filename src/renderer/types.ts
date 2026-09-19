@@ -1,6 +1,7 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from '../geometry.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
+import type { ClipCircle, Projection } from '../projection.js';
 
 export interface View {
 	center: [number, number];
@@ -17,6 +18,8 @@ export interface Renderer {
 	drawLabels(id: string, features: [Feature, SymbolStyle][]): void;
 	drawIcons(id: string, features: [Feature, IconStyle][], spriteAtlas: SpriteAtlas): void;
 	drawRasterTiles(id: string, tiles: RasterTile[], style: RasterStyle): void;
+	/** Restricts all drawing to a circle (the silhouette of the globe). */
+	setClipCircle?(circle: ClipCircle): void;
 	getString(): string;
 }
 
@@ -25,6 +28,8 @@ export interface RenderJob {
 	view: View;
 	renderer: Renderer;
 	renderLabels?: boolean;
+	/** Derived from `view` and `style.projection` when not given. */
+	projection?: Projection;
 }
 
 export interface RendererOptions {
@@ -119,4 +124,16 @@ export interface RasterTile {
 	width: number;
 	height: number;
 	dataUri: string;
+	/**
+	 * On the globe a tile cannot be drawn as a rectangle. Instead it is split into cells,
+	 * each drawn with its own affine transform.
+	 */
+	cells?: RasterCell[];
+}
+
+export interface RasterCell {
+	/** The cell within the tile, in tile units (0..1): [left, top, right, bottom]. */
+	bounds: [number, number, number, number];
+	/** Affine transform from tile units to screen pixels: [a, b, c, d, e, f]. */
+	matrix: [number, number, number, number, number, number];
 }
