@@ -203,15 +203,27 @@ describe('Projection', () => {
 		expect(tiles.some((t) => t.x === 0 || t.x === 7)).toBe(false);
 	});
 
-	test('rasterCells map the tile onto the globe', () => {
+	test('rasterTriangles meet their projected corners exactly', () => {
 		const p = new Projection({ width: 800, height: 600, center: [0, 0], zoom: 1, globeness: 1 });
-		const cells = p.rasterCells({ x: 1, y: 1, z: 1 });
-		expect(cells.length).toBeGreaterThan(1);
-		// The cell at the map center maps its corner (tile units 0,0 of tile 1/1/1 = lng 0, lat 0)
-		// close to the screen center.
-		const cell = cells.find((c) => c.bounds[0] === 0 && c.bounds[1] === 0)!;
-		const [a, b, c, d, e, f] = cell.matrix;
-		expect(a * 0 + c * 0 + e).toBeCloseTo(400, 0);
-		expect(b * 0 + d * 0 + f).toBeCloseTo(300, 0);
+		const tile = { x: 1, y: 1, z: 1 };
+		const triangles = p.rasterTriangles(tile);
+		expect(triangles.length).toBeGreaterThan(2);
+		expect(triangles.length % 2).toBe(0);
+		for (const { source, target } of triangles) {
+			for (let k = 0; k < 3; k++) {
+				const [u, v] = source[k]!;
+				const mx = (tile.x + u) / 2;
+				const my = (tile.y + v) / 2;
+				const v3 = p.toSphere(mx, my);
+				if (!p.isVisible(v3)) continue; // corners behind the horizon are pulled onto it
+				const point = p.project(mx, my, v3);
+				expect(target[k]![0]).toBeCloseTo(point.x, 9);
+				expect(target[k]![1]).toBeCloseTo(point.y, 9);
+			}
+		}
+		// The corner at lng 0, lat 0 (tile units 0,0 of tile 1/1/1) is the screen center.
+		const first = triangles.find(({ source }) => source[0][0] === 0 && source[0][1] === 0)!;
+		expect(first.target[0][0]).toBeCloseTo(400, 6);
+		expect(first.target[0][1]).toBeCloseTo(300, 6);
 	});
 });

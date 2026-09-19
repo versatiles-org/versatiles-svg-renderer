@@ -125,15 +125,17 @@ export interface RasterTile {
 	height: number;
 	dataUri: string;
 	/**
-	 * On the globe a tile cannot be drawn as a rectangle. Instead it is split into cells,
-	 * each drawn with its own affine transform.
+	 * On the globe a tile cannot be drawn as a rectangle. Instead it is split into a mesh of
+	 * triangles, each drawn with its own affine transform.
 	 */
-	cells?: RasterCell[];
+	triangles?: RasterTriangle[];
 }
 
-export interface RasterCell {
-	/** The cell within the tile, in tile units (0..1): [left, top, right, bottom]. */
-	bounds: [number, number, number, number];
-	/** Affine transform from tile units to screen pixels: [a, b, c, d, e, f]. */
-	matrix: [number, number, number, number, number, number];
+type Triangle = [[number, number], [number, number], [number, number]];
+
+export interface RasterTriangle {
+	/** Corners of the triangle within the tile image, in tile units (0..1). */
+	source: Triangle;
+	/** The same corners on screen, in pixels. */
+	target: Triangle;
 }

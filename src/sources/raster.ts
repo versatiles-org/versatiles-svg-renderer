@@ -25,10 +25,10 @@ export async function getRasterTiles(job: RenderJob, sourceName: string): Promis
 			projection.coveringTiles(z).map(async (id): Promise<RasterTile | null> => {
 				const tile = await getTile(sourceUrl, id.z, id.x, id.y);
 				if (!tile) return null;
-				const cells = projection.rasterCells(id);
-				if (cells.length === 0) return null;
+				const triangles = projection.rasterTriangles(id);
+				if (triangles.length === 0) return null;
 				const dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;
-				return { x: 0, y: 0, width: 1, height: 1, dataUri, cells };
+				return { x: 0, y: 0, width: 1, height: 1, dataUri, triangles };
 			}),
 		);
 		return globeTiles.filter((tile): tile is RasterTile => tile !== null);

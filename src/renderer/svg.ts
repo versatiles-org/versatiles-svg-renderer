@@ -9,7 +9,7 @@ import type {
 	IconStyle,
 	LineStyle,
 	RasterStyle,
-	RasterCell,
+	RasterTriangle,
 	RasterTile,
 	RendererOptions,
 	SymbolStyle as LabelStyle,
@@ -72,6 +72,8 @@ export class SVGRenderer {
 	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
 
 	readonly #rasterDefs: string[] = [];
+
+	#rasterClipCount = 0;
 
 	#clipCircle: ClipCircle | undefined;
 
@@ -517,11 +519,9 @@ export class SVGRenderer {
 		this.#svg.push(`<g ${gAttrs}>`);
 
 		const pixelated = style.resampling === 'nearest';
+		this.#drawRasterMeshes(tiles, pixelated);
 		for (const tile of tiles) {
-			if (tile.cells) {
-				this.#drawRasterCells(tile, tile.cells, pixelated);
-				continue;
-			}
+			if (tile.triangles) continue;
 			const overlap = Math.min(tile.width, tile.height) / 10000; // slight overlap to prevent sub-pixel gaps between tiles
 			let attrs = `x="${formatScaled(tile.x - overlap)}" y="${formatScaled(tile.y - overlap)}" width="${formatScaled(tile.width + overlap * 2)}" height="${formatScaled(tile.height + overlap * 2)}" xlink:href="${tile.dataUri}"`;
 			if (pixelated) attrs += ' style="image-rendering:pixelated"';
@@ -532,29 +532,54 @@ export class SVGRenderer {
 	}
 
 	/**
-	 * Draws a raster tile as a mesh of cells (globe projection). The image is defined once,
-	 * scaled to 1×1 tile units; every cell shows its part of it through a nested <svg>
-	 * viewport, mapped to the screen by the cell's affine transform.
+	 * Draws raster tiles given as meshes of triangles (globe projection). Every tile image is
+	 * defined once (as a square of RASTER_TILE_UNITS); every triangle shows it through the affine
+	 * transform that maps its three source corners exactly onto its three screen corners, clipped
+	 * to the triangle on screen.
+	 *
+	 * Seams: within a tile, each clip triangle is grown by RASTER_TRIANGLE_OVERLAP_PX; the same
+	 * transform continues there, so the overlap shows (almost) the same pixels as the neighbour.
+	 * At tile borders that is not enough, as both images end on the same line and their anti-
+	 * aliased edges let a hairline of the background shine through. So first, as an underlay,
+	 * the triangles along the tile borders are drawn with their image reaching beyond the border
+	 * (see {@link bleedAtTileBorder}); then all triangles are drawn exactly on top of it. The
+	 * slightly shifted underlay only shows through the seam.
 	 */
-	#drawRasterCells(tile: RasterTile, cells: RasterCell[], pixelated: boolean): void {
-		const imageId = `raster-${String(this.#rasterDefs.length)}`;
-		let imageAttrs = `id="${imageId}" width="1" height="1" preserveAspectRatio="none" xlink:href="${tile.dataUri}"`;
-		if (pixelated) imageAttrs += ' style="image-rendering:pixelated"';
-		this.#rasterDefs.push(`<image ${imageAttrs} />`);
-
-		for (const { bounds, matrix } of cells) {
-			// Grow each cell a little, so neighbouring cells overlap instead of leaving hairline gaps.
-			const overlap = (bounds[2] - bounds[0]) * 0.02;
-			const x = bounds[0] - overlap;
-			const y = bounds[1] - overlap;
-			const w = bounds[2] - bounds[0] + overlap * 2;
-			const h = bounds[3] - bounds[1] + overlap * 2;
-			const [bx, by, bw, bh] = [x, y, w, h].map(formatUnit) as [string, string, string, string];
-			const transform = matrix.map(formatUnit).join(',');
-			this.#svg.push(
-				`<g transform="matrix(${transform})"><svg x="${bx}" y="${by}" width="${bw}" height="${bh}" viewBox="${bx} ${by} ${bw} ${bh}"><use xlink:href="#${imageId}" /></svg></g>`,
-			);
+	#drawRasterMeshes(tiles: RasterTile[], pixelated: boolean): void {
+		const meshes: { imageId: string; triangles: RasterTriangle[] }[] = [];
+		for (const tile of tiles) {
+			if (!tile.triangles) continue;
+			const imageId = `raster-${String(this.#rasterDefs.length)}`;
+			const size = String(RASTER_TILE_UNITS);
+			let imageAttrs = `id="${imageId}" width="${size}" height="${size}" preserveAspectRatio="none" xlink:href="${tile.dataUri}"`;
+			if (pixelated) imageAttrs += ' style="image-rendering:pixelated"';
+			this.#rasterDefs.push(`<image ${imageAttrs} />`);
+			meshes.push({ imageId, triangles: tile.triangles });
 		}
+
+		for (const { imageId, triangles } of meshes) {
+			for (const { source, target } of triangles) {
+				if (!isOnTileBorder(source)) continue;
+				this.#drawRasterTriangle(imageId, bleedAtTileBorder(source, target), target);
+			}
+		}
+		for (const { imageId, triangles } of meshes) {
+			for (const { source, target } of triangles) {
+				this.#drawRasterTriangle(imageId, source, target);
+			}
+		}
+	}
+
+	#drawRasterTriangle(imageId: string, source: Triangle, target: Triangle): void {
+		const matrix = affineFromTriangles(source, target);
+		if (!matrix) return;
+		const clip = growTriangle(target, RASTER_TRIANGLE_OVERLAP_PX);
+		const clipId = `raster-clip-${String(this.#rasterClipCount++)}`;
+		const d = segmentsToPath([clip.map(([x, y]) => roundXY(x, y))], true);
+		this.#svg.push(
+			`<clipPath id="${clipId}"><path d="${d}"/></clipPath>` +
+				`<g clip-path="url(#${clipId})"><use xlink:href="#${imageId}" transform="matrix(${matrix.map(formatUnit).join(',')})" /></g>`,
+		);
 	}
 
 	public getString(): string {
@@ -620,6 +645,90 @@ function strokeAttr(color: Color, width: string): string {
 
 function formatScaled(v: number): string {
 	return formatNum(Math.round(v * 10));
+}
+
+/** Size of a raster tile image in user units, when drawn as a mesh of triangles on the globe. */
+const RASTER_TILE_UNITS = 256;
+
+/** How far (pixels) a raster tile image reaches beyond the tile border in the seam underlay. */
+const RASTER_TILE_BLEED_PX = 1;
+
+/** How far (pixels) each raster triangle is grown beyond its edges to overlap its neighbours. */
+const RASTER_TRIANGLE_OVERLAP_PX = 0.5;
+
+type Triangle = RasterTriangle['source'];
+
+/**
+ * The affine transform [a, b, c, d, e, f] mapping the source triangle (in tile units 0..1,
+ * scaled to RASTER_TILE_UNITS) exactly onto the target triangle, or undefined if either is
+ * degenerate.
+ */
+function affineFromTriangles(
+	source: Triangle,
+	target: Triangle,
+): [number, number, number, number, number, number] | undefined {
+	const k = RASTER_TILE_UNITS;
+	const [[u0, v0], [u1, v1], [u2, v2]] = source.map(([u, v]) => [u * k, v * k]) as Triangle;
+	const [[x0, y0], [x1, y1], [x2, y2]] = target;
+	const du1 = u1 - u0;
+	const dv1 = v1 - v0;
+	const du2 = u2 - u0;
+	const dv2 = v2 - v0;
+	const det = du1 * dv2 - du2 * dv1;
+	if (Math.abs(det) < 1e-12) return undefined;
+	const dx1 = x1 - x0;
+	const dx2 = x2 - x0;
+	const dy1 = y1 - y0;
+	const dy2 = y2 - y0;
+	// Screen area below a hundredth of a pixel: nothing to draw.
+	if (Math.abs(dx1 * dy2 - dx2 * dy1) < 0.02) return undefined;
+	const a = (dx1 * dv2 - dx2 * dv1) / det;
+	const c = (du1 * dx2 - du2 * dx1) / det;
+	const b = (dy1 * dv2 - dy2 * dv1) / det;
+	const d = (du1 * dy2 - du2 * dy1) / det;
+	return [a, b, c, d, x0 - a * u0 - c * v0, y0 - b * u0 - d * v0];
+}
+
+function isOnTileBorder(source: Triangle): boolean {
+	return source.some(([u, v]) => u === 0 || u === 1 || v === 0 || v === 1);
+}
+
+/**
+ * Moves the source corners of a triangle that lie on the tile border inwards, by the
+ * equivalent of RASTER_TILE_BLEED_PX on screen, so that the image edge lies beyond the border.
+ * (Used for the underlay that closes the seams between tiles, see `#drawRasterMeshes`.)
+ */
+function bleedAtTileBorder(source: Triangle, target: Triangle): Triangle {
+	const [[u0, v0], [u1, v1], [u2, v2]] = source;
+	const [[x0, y0], [x1, y1], [x2, y2]] = target;
+	const sourceArea = Math.abs((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+	const targetArea = Math.abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0));
+	if (sourceArea === 0 || targetArea === 0) return source;
+	// Pixels per tile unit, and the bleed in tile units, kept within the triangle.
+	const scale = Math.sqrt(targetArea / sourceArea);
+	const size = Math.max(Math.abs(u1 - u0), Math.abs(u2 - u0), Math.abs(v1 - v0), Math.abs(v2 - v0));
+	const bleed = Math.min(RASTER_TILE_BLEED_PX / scale, size / 4);
+	const inset = (t: number): number => (t === 0 ? bleed : t === 1 ? 1 - bleed : t);
+	return source.map(([u, v]) => [inset(u), inset(v)]) as Triangle;
+}
+
+/**
+ * Moves every edge of a triangle outwards by `distance`, by scaling it around its incenter.
+ * Growth is limited for very thin triangles, whose corners would otherwise shoot far out.
+ */
+function growTriangle(triangle: Triangle, distance: number): Triangle {
+	const [[x0, y0], [x1, y1], [x2, y2]] = triangle;
+	const a = Math.hypot(x2 - x1, y2 - y1);
+	const b = Math.hypot(x2 - x0, y2 - y0);
+	const c = Math.hypot(x1 - x0, y1 - y0);
+	const perimeter = a + b + c;
+	const area = Math.abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2;
+	if (perimeter === 0 || area === 0) return triangle;
+	const inradius = (2 * area) / perimeter;
+	const cx = (a * x0 + b * x1 + c * x2) / perimeter;
+	const cy = (a * y0 + b * y1 + c * y2) / perimeter;
+	const scale = 1 + distance / Math.max(inradius, 2 * distance);
+	return triangle.map(([x, y]) => [cx + (x - cx) * scale, cy + (y - cy) * scale]) as Triangle;
 }
 
 function formatUnit(v: number): string {

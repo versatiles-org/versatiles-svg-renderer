@@ -590,26 +590,93 @@ describe('SVGRenderer', () => {
 			};
 		}
 
-		test('draws globe tiles as affine-mapped cells of one shared image', () => {
+		test('draws globe tiles as a mesh of affine-mapped triangles of one shared image', () => {
 			const r = makeRenderer();
 			const tile = makeTile({
-				cells: [
-					{ bounds: [0, 0, 0.5, 0.5], matrix: [100, 0, 0, 100, 10, 20] },
-					{ bounds: [0.5, 0, 1, 0.5], matrix: [100, 1, 0, 100, 10, 20] },
+				triangles: [
+					{
+						source: [
+							[0.25, 0.25],
+							[0.75, 0.25],
+							[0.25, 0.75],
+						],
+						target: [
+							[10, 20],
+							[110, 20],
+							[10, 220],
+						],
+					},
+					// Degenerate on screen: skipped.
+					{
+						source: [
+							[0, 0],
+							[1, 0],
+							[0, 1],
+						],
+						target: [
+							[10, 20],
+							[10, 20],
+							[10, 20],
+						],
+					},
 				],
 			});
 			r.drawRasterTiles('raster-test', [tile], defaultRasterStyle());
 			const svg = r.getString();
-			// The image data is defined once, as a 1×1 tile.
+			// The image data is defined once, as a 256×256 tile.
 			expect(svg.match(/data:image\/png;base64,AAAA/g)).toHaveLength(1);
 			expect(svg).toContain(
-				'<image id="raster-0" width="1" height="1" preserveAspectRatio="none" xlink:href="data:image/png;base64,AAAA" />',
+				'<image id="raster-0" width="256" height="256" preserveAspectRatio="none" xlink:href="data:image/png;base64,AAAA" />',
 			);
-			// Each cell shows its part of it (grown by 2% to overlap its neighbours).
+			// The transform maps the source corners exactly onto the target corners
+			// (100/128 = 0.78125 horizontally, 200/128 = 1.5625 vertically) …
 			expect(svg).toContain(
-				'<g transform="matrix(100,0,0,100,10,20)"><svg x="-0.01" y="-0.01" width="0.52" height="0.52" viewBox="-0.01 -0.01 0.52 0.52"><use xlink:href="#raster-0" /></svg></g>',
+				'<use xlink:href="#raster-0" transform="matrix(0.78125,0,0,1.5625,-40,-80)" />',
 			);
-			expect(svg).toContain('<g transform="matrix(100,1,0,100,10,20)">');
+			// … clipped to the (slightly grown) target triangle.
+			expect(svg).toContain(
+				'<clipPath id="raster-clip-0"><path d="M9.5,19.5h101.3L9.5,222.1z"/></clipPath>',
+			);
+			expect(svg).toContain('<g clip-path="url(#raster-clip-0)">');
+			expect(svg.match(/<use /g)).toHaveLength(1);
+		});
+
+		test('lets the image reach a pixel beyond the tile border', () => {
+			const r = makeRenderer();
+			const tile = makeTile({
+				triangles: [
+					{
+						source: [
+							[0, 0],
+							[0.5, 0],
+							[0, 0.5],
+						],
+						target: [
+							[0, 0],
+							[100, 0],
+							[0, 100],
+						],
+					},
+				],
+			});
+			r.drawRasterTiles('raster-test', [tile], defaultRasterStyle());
+			const matrices = [...r.getString().matchAll(/<use [^>]*transform="matrix\(([^)]*)\)"/g)].map(
+				(m) => m[1]!.split(',').map(Number),
+			);
+			// A triangle on the tile border is drawn twice: first as an underlay whose image
+			// reaches beyond the border …
+			expect(matrices).toHaveLength(2);
+			const [a, b, c, d, e, f] = matrices[0]!;
+			// … the tile corner (0, 0) lands a pixel outside of the triangle's corner …
+			expect(e).toBeCloseTo(-1.01, 2);
+			expect(f).toBeCloseTo(-1.01, 2);
+			// … at a scale within 1% of the exact 100/128 px per unit …
+			expect(a).toBeCloseTo(0.789, 3);
+			expect(d).toBeCloseTo(0.789, 3);
+			expect(b).toBe(0);
+			expect(c).toBe(0);
+			// … and then exactly, on top of it.
+			expect(matrices[1]).toEqual([0.78125, 0, 0, 0.78125, 0, 0]);
 		});
 
 		test('generates image elements', () => {

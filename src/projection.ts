@@ -1,6 +1,6 @@
 import type { ProjectionSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Point2D } from './geometry.js';
-import type { RasterCell } from './renderer/types.js';
+import type { RasterTriangle } from './renderer/types.js';
 
 /**
  * Map projection: web mercator, MapLibre's globe ("vertical-perspective") or a blend of both.
@@ -35,7 +35,7 @@ const CLIP_THRESHOLD = 0.2;
 /** Maximum distance (pixels) a straight segment may deviate from the curved globe surface. */
 const MAX_CURVE_ERROR_PX = 0.25;
 
-/** The same for the affine-mapped cells of raster tiles (a coarser mesh keeps the SVG small). */
+/** The same for the affine-mapped triangles of raster tiles (a coarser mesh keeps the SVG small). */
 const MAX_RASTER_ERROR_PX = 1;
 
 /** Upper bound for the number of cells per raster tile side. */
@@ -483,10 +483,12 @@ export class Projection {
 	}
 
 	/**
-	 * Splits a raster tile into cells that are small enough to be drawn with an affine
-	 * transform each (see {@link RasterCell}). Cells on the far side of the globe are dropped.
+	 * Splits a raster tile into a mesh of triangles, each small enough to be drawn with an
+	 * affine transform (see {@link RasterTriangle}). An affine transform is fully determined
+	 * by three points, so every triangle meets its projected corners exactly and neighbouring
+	 * triangles share their edges. Cells on the far side of the globe are dropped.
 	 */
-	public rasterCells(tile: TileID): RasterCell[] {
+	public rasterTriangles(tile: TileID): RasterTriangle[] {
 		const tileSize = 1 / 2 ** tile.z;
 		const maxLength = this.maxSegmentLength * Math.sqrt(MAX_RASTER_ERROR_PX / MAX_CURVE_ERROR_PX);
 		const n = Math.max(1, Math.min(MAX_RASTER_CELLS, Math.ceil(tileSize / maxLength)));
@@ -513,7 +515,7 @@ export class Projection {
 			}
 		}
 
-		const cells: RasterCell[] = [];
+		const triangles: RasterTriangle[] = [];
 		for (let j = 0; j < n; j++) {
 			for (let i = 0; i < n; i++) {
 				const p00 = corners[j * (n + 1) + i];
@@ -521,32 +523,46 @@ export class Projection {
 				const p01 = corners[(j + 1) * (n + 1) + i];
 				const p11 = corners[(j + 1) * (n + 1) + i + 1];
 				if (!p00 || !p10 || !p01 || !p11) continue;
-				if (!this.#isCellVisible(tile, n, i, j)) continue;
-
-				const u0 = i / n;
-				const v0 = j / n;
-				const size = 1 / n;
-				// Best-fit affine transform: the average edge vectors, anchored at the cell center.
-				const a = (p10.x - p00.x + p11.x - p01.x) / 2 / size;
-				const b = (p10.y - p00.y + p11.y - p01.y) / 2 / size;
-				const c = (p01.x - p00.x + p11.x - p10.x) / 2 / size;
-				const d = (p01.y - p00.y + p11.y - p10.y) / 2 / size;
-				const centerX = (p00.x + p10.x + p01.x + p11.x) / 4;
-				const centerY = (p00.y + p10.y + p01.y + p11.y) / 4;
-				const uc = u0 + size / 2;
-				const vc = v0 + size / 2;
 				const minX = Math.min(p00.x, p10.x, p01.x, p11.x);
 				const maxX = Math.max(p00.x, p10.x, p01.x, p11.x);
 				const minY = Math.min(p00.y, p10.y, p01.y, p11.y);
 				const maxY = Math.max(p00.y, p10.y, p01.y, p11.y);
 				if (maxX < 0 || minX > this.width || maxY < 0 || minY > this.height) continue;
-				cells.push({
-					bounds: [u0, v0, u0 + size, v0 + size],
-					matrix: [a, b, c, d, centerX - a * uc - c * vc, centerY - b * uc - d * vc],
-				});
+				if (!this.#isCellVisible(tile, n, i, j)) continue;
+
+				const u0 = i / n;
+				const v0 = j / n;
+				const u1 = (i + 1) / n;
+				const v1 = (j + 1) / n;
+				triangles.push(
+					{
+						source: [
+							[u0, v0],
+							[u1, v0],
+							[u1, v1],
+						],
+						target: [
+							[p00.x, p00.y],
+							[p10.x, p10.y],
+							[p11.x, p11.y],
+						],
+					},
+					{
+						source: [
+							[u0, v0],
+							[u1, v1],
+							[u0, v1],
+						],
+						target: [
+							[p00.x, p00.y],
+							[p11.x, p11.y],
+							[p01.x, p01.y],
+						],
+					},
+				);
 			}
 		}
-		return cells;
+		return triangles;
 	}
 
 	/** Whether any part of a raster cell is on the visible side of the globe. */
