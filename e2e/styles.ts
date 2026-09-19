@@ -1,4 +1,4 @@
-import { styles } from '@versatiles/style';
+import { inlineSources, osm, satellite } from '@versatiles/style';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Feature } from 'geojson';
 import { LineLayerSpecification } from 'maplibre-gl';
@@ -34,10 +34,16 @@ export async function getStyle(type: Region['type']): Promise<StyleSpecification
 	if (!style) {
 		switch (type) {
 			case 'vector':
-				style = styles.colorful({ hideLabels: true });
+				style = await inlineSources(
+					osm({
+						theme: 'colorful',
+						projection: 'mercator',
+						layers: { labels: false, icons: false },
+					}),
+				);
 				break;
 			case 'satellite':
-				style = await styles.satellite({ overlay: false });
+				style = await inlineSources(satellite({ projection: 'mercator', osmOverlay: false }));
 				break;
 			case 'geojson':
 				style = {

@@ -1,8 +1,8 @@
-import { styles } from '@versatiles/style';
+import { inlineSources, osm } from '@versatiles/style';
 import { renderToSVG } from './index.js';
 import { writeFileSync } from 'node:fs';
 
-const style = styles.colorful({});
+const style = await inlineSources(osm({ theme: 'colorful' }));
 
 const svgString = await renderToSVG({
 	width: 512,

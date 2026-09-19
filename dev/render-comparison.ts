@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { chromium, firefox, webkit } from 'playwright';
-import { styles } from '@versatiles/style';
+import { inlineSources, osm } from '@versatiles/style';
 import { renderToSVG } from '../src/index.js';
 import { ensureCacheDir, readCache, writeCache } from '../e2e/fetch-cache.js';
 import { installMapLibrePage } from '../e2e/maplibre-page.js';
@@ -21,7 +21,7 @@ mkdirSync(outDir, { recursive: true });
 
 // Render SVG with symbols (icons) but no labels
 console.log('Rendering SVG...');
-const style = styles.colorful({});
+const style = await inlineSources(osm({ theme: 'colorful', projection: 'mercator' }));
 
 // Remove all symbol layers that only have text (keep ones with icons)
 // Actually: renderLabels=true enables both icons and labels.
@@ -108,7 +108,7 @@ async function installPageCache(page: Page): Promise<void> {
 	});
 }
 
-const maplibreStyle = styles.colorful({});
+const maplibreStyle = await inlineSources(osm({ theme: 'colorful', projection: 'mercator' }));
 for (const layer of maplibreStyle.layers) {
 	if (layer.type === 'symbol' && 'layout' in layer && layer.layout) {
 		delete (layer.layout as Record<string, unknown>)['text-field'];
