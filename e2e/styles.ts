@@ -27,9 +27,8 @@ export const regions: Region[] = [
 
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.
-	// Note: at high zoom MapLibre's globe shader is visibly imprecise (GPU sin/cos on
-	// a globe with a radius of ~10^5 px): its rendering is shifted by a few pixels against
-	// its own `map.project()`, which the SVG matches. That dominates `tokyo-z11.5`.
+	// High zoom levels magnify any imprecision of the globe (radius ~10^5 px); the reference
+	// runs with a precise sin/cos in MapLibre's globe shader (see e2e/maplibre-page.ts).
 	{ name: 'world', lon: 10, lat: 20, zoom: 2, type: 'vector', projection: 'globe' },
 	{ name: 'europe', lon: 12, lat: 50, zoom: 3.5, type: 'vector', projection: 'globe' },
 	{ name: 'scandinavia', lon: 20, lat: 68, zoom: 5, type: 'vector', projection: 'globe' },
