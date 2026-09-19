@@ -23,7 +23,7 @@ function makeJob(
 	return {
 		style,
 		view: { center, zoom },
-		renderer: new SVGRenderer({ width: 256, height: 256, scale: 1 }),
+		renderer: new SVGRenderer({ width: 256, height: 256 }),
 	};
 }
 
