@@ -353,6 +353,35 @@ describe('CanvasRenderer', () => {
 			expect(at(blurred, 128, 128)[3]!).toBeLessThan(at(sharp, 128, 128)[3]!);
 		});
 
+		test('heavy blur fades a thin line out entirely, as MapLibre does', () => {
+			// The alpha curve clips the Gaussian's tails, so a blur far wider than the line
+			// leaves nothing rather than a faint smear across the map.
+			const r = makeRenderer();
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 2, blur: 40 })]]);
+			for (let y = 100; y < 156; y++) expect(at(r, 128, y)[3]).toBe(0);
+		});
+
+		test('the blur alpha curve does not reach what was already drawn', () => {
+			// The curve rewrites alpha, so it has to run on an isolated layer. Sample a point
+			// inside the blurred feature's region but far enough from the line that the line
+			// itself contributes nothing: only already-drawn pixels live there.
+			const r = makeRenderer();
+			const backdrop = makePolygonFeature([
+				[
+					[0, 0],
+					[256, 0],
+					[256, 256],
+					[0, 256],
+				],
+			]);
+			r.drawPolygons('bg', [[backdrop, fillStyle({ color: mc('#00FF00'), opacity: 0.5 })]]);
+			const before = at(r, 10, 122);
+			expect(before[3]).toBeCloseTo(128, -1); // the translucent backdrop
+
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, blur: 6 })]]);
+			expect(at(r, 10, 122)).toEqual(before);
+		});
+
 		test('an axis-aligned blurred line is still drawn', () => {
 			// The SVG backend needs an explicit userSpaceOnUse filter region here, because a
 			// horizontal path has a zero-area bounding box. Canvas has no such concept — this
@@ -548,6 +577,21 @@ describe('CanvasRenderer', () => {
 			expect(at(r, 40, 160).slice(0, 3)).toEqual([0, 0, 255]);
 			// ...and nothing is painted outside the mesh.
 			expect(at(r, 240, 240)[3]).toBe(0);
+		});
+
+		test('a translucent raster layer is flattened before its opacity is applied', async () => {
+			// Tiles overlap on purpose to hide the seams between them, so per-tile opacity
+			// would make every seam darker than the rest of the layer.
+			const r = makeRasterRenderer();
+			await r.drawRasterTiles(
+				'raster',
+				[tile({ x: 0, width: 100 }), tile({ x: 50, width: 100 })],
+				rasterStyle({ opacity: 0.5 }),
+			);
+			const single = at(r, 20, 30)[3];
+			const overlap = at(r, 70, 30)[3];
+			expect(single).toBeCloseTo(128, -1);
+			expect(overlap).toBe(single);
 		});
 
 		test('needs a loadImage to draw tiles at all', async () => {

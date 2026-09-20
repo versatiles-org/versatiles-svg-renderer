@@ -30,6 +30,11 @@ import {
 const FILL_OUTLINE_WIDTH_PX = 0.5;
 const BLUR_STD_FACTOR = 0.15;
 const BLUR_OPACITY_K = 1.5;
+// A Gaussian leaves soft, infinite tails; MapLibre's feather has a hard cutoff. The
+// blurred layer's alpha is steepened (slope > 1, intercept < 0) to clip those tails, the
+// same correction the SVG backend makes with feComponentTransfer.
+const BLUR_ALPHA_SLOPE = 1.5;
+const BLUR_ALPHA_INTERCEPT = -0.6;
 
 /**
  * Geometry is snapped to tenths of a pixel, exactly as the SVG backend does when it
@@ -70,7 +75,12 @@ export class CanvasRenderer implements Renderer {
 
 	public readonly ctx: SKRSContext2D;
 
+	readonly #createCanvas: (width: number, height: number) => Canvas;
+
 	readonly #loadImage: ((source: string) => Promise<Image>) | undefined;
+
+	/** Reused offscreen layer for effects that must not see what is already drawn. */
+	#scratch: { canvas: Canvas; ctx: SKRSContext2D } | undefined;
 
 	/** Decoded tile and sprite images, keyed by data URI: a tile may repeat within a layer. */
 	readonly #images = new Map<string, Image>();
@@ -83,6 +93,7 @@ export class CanvasRenderer implements Renderer {
 			Math.round(this.width * this.scale),
 			Math.round(this.height * this.scale),
 		);
+		this.#createCanvas = opt.createCanvas;
 		this.#loadImage = opt.loadImage;
 		this.ctx = this.canvas.getContext('2d');
 		// Draw in user units; the scale factor only changes how many device pixels each
@@ -131,10 +142,10 @@ export class CanvasRenderer implements Renderer {
 			const translucent = style.opacity < 1 || color.alpha < 255;
 
 			if (color.alpha > 0) {
-				this.#paint(style.translate, style.opacity, () => {
-					this.ctx.fillStyle = color.hex;
-					this.#trace(toSegments(feature.geometry), true);
-					this.ctx.fill();
+				this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
+					ctx.fillStyle = color.hex;
+					this.#trace(ctx, toSegments(feature.geometry), true);
+					ctx.fill();
 				});
 			}
 
@@ -151,16 +162,16 @@ export class CanvasRenderer implements Renderer {
 		}
 
 		for (const { feature, style, color } of outlines) {
-			this.#paint(style.translate, style.opacity, () => {
-				this.ctx.strokeStyle = color.hex;
-				this.ctx.lineWidth = FILL_OUTLINE_WIDTH_PX;
+			this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
+				ctx.strokeStyle = color.hex;
+				ctx.lineWidth = FILL_OUTLINE_WIDTH_PX;
 				// A polygon clipped to its tile has an outline without the clipped edges.
 				if (feature.outline) {
-					this.#trace(toSegments(feature.outline), false);
+					this.#trace(ctx, toSegments(feature.outline), false);
 				} else {
-					this.#trace(toSegments(feature.geometry), true);
+					this.#trace(ctx, toSegments(feature.geometry), true);
 				}
-				this.ctx.stroke();
+				ctx.stroke();
 			});
 		}
 	}
@@ -178,41 +189,54 @@ export class CanvasRenderer implements Renderer {
 			// is approximated with an extra opacity factor.
 			const blurOpacity =
 				style.blur > 0 ? style.width / (style.width + BLUR_OPACITY_K * style.blur) : 1;
+			const opacity = style.opacity * blurOpacity;
 
-			this.#paint(style.translate, style.opacity * blurOpacity, () => {
-				const { ctx } = this;
+			const segments = feature.geometry.map((line) =>
+				toSegment(style.offset === 0 ? line : offsetSegmentPoints(line, style.offset)),
+			);
+			// A translucent line is stroked part by part: MapLibre blends each separately, so
+			// where parts overlap their opacity adds up. Opaque lines are chained first, so
+			// joins are drawn between parts that share an endpoint.
+			const translucent = opacity < 1 || color.alpha < 255;
+			const stroke = (ctx: SKRSContext2D): void => {
 				ctx.strokeStyle = color.hex;
 				ctx.lineWidth = style.width;
 				ctx.lineCap = style.cap;
 				ctx.lineJoin = style.join;
 				ctx.miterLimit = style.miterLimit;
-				if (style.dasharray) {
-					ctx.setLineDash(style.dasharray.map((v) => v * style.width));
-				}
-				if (style.blur > 0) {
-					// A plain Gaussian, without the alpha steepening the SVG backend applies to
-					// clip its tails: that needs the layer to be isolated from what is already
-					// drawn, which arrives with layer compositing.
-					ctx.filter = `blur(${String(style.blur * BLUR_STD_FACTOR)}px)`;
-				}
-
-				const segments = feature.geometry.map((line) =>
-					toSegment(style.offset === 0 ? line : offsetSegmentPoints(line, style.offset)),
-				);
-				// A translucent line is stroked part by part: MapLibre blends each separately,
-				// so where parts overlap their opacity adds up. Opaque lines are chained first,
-				// so joins are drawn between parts that share an endpoint.
-				const translucent = style.opacity * blurOpacity < 1 || color.alpha < 255;
+				if (style.dasharray) ctx.setLineDash(style.dasharray.map((v) => v * style.width));
 				if (translucent) {
 					for (const segment of segments) {
-						this.#trace([segment], false);
+						this.#trace(ctx, [segment], false);
 						ctx.stroke();
 					}
 				} else {
-					this.#trace(chainSegments(segments), false);
+					this.#trace(ctx, chainSegments(segments), false);
 					ctx.stroke();
 				}
-			});
+			};
+
+			if (style.blur <= 0) {
+				this.#paint(this.ctx, style.translate, opacity, stroke);
+				continue;
+			}
+
+			// Blurred lines are drawn one feature at a time in an offscreen layer: the alpha
+			// curve that clips the Gaussian's tails has to see this feature alone. (The SVG
+			// backend isolates per path, which for a blurred line is per part; a feature's own
+			// parts rarely overlap, so the two stay close.)
+			const stdDeviation = style.blur * BLUR_STD_FACTOR;
+			const margin = style.width / 2 + 3 * stdDeviation + 2;
+			this.#isolate(
+				regionOf(segments, style.translate, margin),
+				opacity,
+				[BLUR_ALPHA_SLOPE, BLUR_ALPHA_INTERCEPT],
+				(ctx) => {
+					applyTranslate(ctx, style.translate);
+					ctx.filter = `blur(${String(stdDeviation)}px)`;
+					stroke(ctx);
+				},
+			);
 		}
 	}
 
@@ -232,8 +256,7 @@ export class CanvasRenderer implements Renderer {
 			// `radius` and the stroke lands on the same ring.
 			const radius = hasStroke ? style.radius + style.strokeWidth / 2 : style.radius;
 
-			this.#paint(style.translate, style.opacity, () => {
-				const { ctx } = this;
+			this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
 				ctx.fillStyle = color.hex;
 				for (const ring of feature.geometry) {
 					const point = ring[0];
@@ -269,9 +292,30 @@ export class CanvasRenderer implements Renderer {
 			}),
 		);
 
-		const { ctx } = this;
+		// A translucent raster layer is flattened first: its tiles overlap on purpose along
+		// the seams (and the globe mesh draws a bleeding underlay beneath them), so applying
+		// opacity per tile would let those overlaps show through.
+		if (style.opacity < 1) {
+			this.#isolate(
+				{ x: 0, y: 0, width: this.width, height: this.height },
+				style.opacity,
+				undefined,
+				(ctx) => {
+					this.#paintRaster(ctx, tiles, images, style);
+				},
+			);
+		} else {
+			this.#paintRaster(this.ctx, tiles, images, style);
+		}
+	}
+
+	#paintRaster(
+		ctx: SKRSContext2D,
+		tiles: RasterTile[],
+		images: Map<string, Image>,
+		style: RasterStyle,
+	): void {
 		ctx.save();
-		if (style.opacity < 1) ctx.globalAlpha = style.opacity;
 		// The same colour adjustments the SVG backend expresses as CSS filter functions.
 		const filters: string[] = [];
 		if (style.hueRotate !== 0) filters.push(`hue-rotate(${String(style.hueRotate)}deg)`);
@@ -283,7 +327,7 @@ export class CanvasRenderer implements Renderer {
 		if (filters.length > 0) ctx.filter = filters.join(' ');
 		if (style.resampling === 'nearest') ctx.imageSmoothingEnabled = false;
 
-		this.#drawRasterMeshes(tiles, images);
+		this.#drawRasterMeshes(ctx, tiles, images);
 
 		for (const tile of tiles) {
 			if (tile.triangles) continue;
@@ -314,7 +358,7 @@ export class CanvasRenderer implements Renderer {
 	 * through — so the border triangles are drawn first as an underlay with their image
 	 * reaching past the border, and the real triangles are drawn exactly on top.
 	 */
-	#drawRasterMeshes(tiles: RasterTile[], images: Map<string, Image>): void {
+	#drawRasterMeshes(ctx: SKRSContext2D, tiles: RasterTile[], images: Map<string, Image>): void {
 		const meshes = tiles.flatMap((tile) => {
 			const image = tile.triangles ? images.get(tile.dataUri) : undefined;
 			return image && tile.triangles ? [{ image, triangles: tile.triangles }] : [];
@@ -323,21 +367,20 @@ export class CanvasRenderer implements Renderer {
 		for (const { image, triangles } of meshes) {
 			for (const { source, target } of triangles) {
 				if (!isOnTileBorder(source)) continue;
-				this.#drawRasterTriangle(image, bleedAtTileBorder(source, target), target);
+				this.#drawRasterTriangle(ctx, image, bleedAtTileBorder(source, target), target);
 			}
 		}
 		for (const { image, triangles } of meshes) {
 			for (const { source, target } of triangles) {
-				this.#drawRasterTriangle(image, source, target);
+				this.#drawRasterTriangle(ctx, image, source, target);
 			}
 		}
 	}
 
-	#drawRasterTriangle(image: Image, source: Triangle, target: Triangle): void {
+	#drawRasterTriangle(ctx: SKRSContext2D, image: Image, source: Triangle, target: Triangle): void {
 		const matrix = affineFromTriangles(source, target);
 		if (!matrix) return;
 		const clip = growTriangle(target, RASTER_TRIANGLE_OVERLAP_PX);
-		const { ctx } = this;
 		ctx.save();
 		ctx.beginPath();
 		ctx.moveTo(clip[0][0], clip[0][1]);
@@ -379,20 +422,88 @@ export class CanvasRenderer implements Renderer {
 	}
 
 	/** Runs `draw` with the layer's translate and opacity applied, and nothing leaking out. */
-	#paint(translate: [number, number], opacity: number, draw: () => void): void {
-		this.ctx.save();
-		if (translate[0] !== 0 || translate[1] !== 0) {
-			const [x, y] = roundPoint(translate[0], translate[1]);
-			this.ctx.translate(x / UNITS_PER_PX, y / UNITS_PER_PX);
+	#paint(
+		ctx: SKRSContext2D,
+		translate: [number, number],
+		opacity: number,
+		draw: (ctx: SKRSContext2D) => void,
+	): void {
+		ctx.save();
+		applyTranslate(ctx, translate);
+		if (opacity < 1) ctx.globalAlpha = opacity;
+		draw(ctx);
+		ctx.restore();
+	}
+
+	/**
+	 * Draws into an offscreen layer and composites the result back at `opacity`, so an
+	 * effect sees only what `draw` puts there. Two things need it: the alpha curve that
+	 * clips a blur's Gaussian tails, which would otherwise rewrite every pixel underneath,
+	 * and a translucent raster layer, whose tiles deliberately overlap along their seams
+	 * and so must be flattened before the layer's opacity is applied.
+	 *
+	 * Only `region` (in user units) is cleared, transformed and copied, so the cost follows
+	 * the size of what is actually drawn rather than the size of the map.
+	 */
+	#isolate(
+		region: Region,
+		opacity: number,
+		alphaCurve: [number, number] | undefined,
+		draw: (ctx: SKRSContext2D) => void,
+	): void {
+		const scratch = this.#scratchLayer();
+		// The device-pixel window of the region, clamped to the canvas.
+		const x = Math.max(0, Math.floor(region.x * this.scale));
+		const y = Math.max(0, Math.floor(region.y * this.scale));
+		const width =
+			Math.min(this.canvas.width, Math.ceil((region.x + region.width) * this.scale)) - x;
+		const height =
+			Math.min(this.canvas.height, Math.ceil((region.y + region.height) * this.scale)) - y;
+		if (width <= 0 || height <= 0) return;
+
+		scratch.ctx.save();
+		scratch.ctx.setTransform(1, 0, 0, 1, 0, 0);
+		scratch.ctx.clearRect(x, y, width, height);
+		scratch.ctx.restore();
+
+		scratch.ctx.save();
+		draw(scratch.ctx);
+		scratch.ctx.restore();
+
+		if (alphaCurve) {
+			const [slope, intercept] = alphaCurve;
+			// getImageData/putImageData work in device pixels and in straight (un-premultiplied)
+			// alpha, which is what feComponentTransfer's feFuncA operates on too.
+			const image = scratch.ctx.getImageData(x, y, width, height);
+			const { data } = image;
+			for (let i = 3; i < data.length; i += 4) {
+				const alpha = data[i]! * slope + intercept * 255;
+				data[i] = alpha <= 0 ? 0 : alpha >= 255 ? 255 : Math.round(alpha);
+			}
+			scratch.ctx.putImageData(image, x, y);
 		}
-		if (opacity < 1) this.ctx.globalAlpha = opacity;
-		draw();
-		this.ctx.restore();
+
+		const { ctx } = this;
+		ctx.save();
+		// Composite in device pixels; any clip set earlier still applies.
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		if (opacity < 1) ctx.globalAlpha = opacity;
+		ctx.drawImage(scratch.canvas, x, y, width, height, x, y, width, height);
+		ctx.restore();
+	}
+
+	#scratchLayer(): { canvas: Canvas; ctx: SKRSContext2D } {
+		if (!this.#scratch) {
+			const canvas = this.#createCanvas(this.canvas.width, this.canvas.height);
+			const ctx = canvas.getContext('2d');
+			ctx.scale(this.scale, this.scale);
+			this.#scratch = { canvas, ctx };
+		}
+		return this.#scratch;
 	}
 
 	/** Starts a new path and traces every segment into it. */
-	#trace(segments: Segment[], close: boolean): void {
-		const { ctx } = this;
+	#trace(ctx: SKRSContext2D, segments: Segment[], close: boolean): void {
 		ctx.beginPath();
 		for (const segment of segments) {
 			const first = segment[0];
@@ -405,6 +516,43 @@ export class CanvasRenderer implements Renderer {
 			if (close) ctx.closePath();
 		}
 	}
+}
+
+/** A rectangle in user units. */
+interface Region {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+function applyTranslate(ctx: SKRSContext2D, translate: [number, number]): void {
+	if (translate[0] === 0 && translate[1] === 0) return;
+	const [x, y] = roundPoint(translate[0], translate[1]);
+	ctx.translate(x / UNITS_PER_PX, y / UNITS_PER_PX);
+}
+
+/** The bounding box of `segments`, shifted by `translate` and grown by `margin`. */
+function regionOf(segments: Segment[], translate: [number, number], margin: number): Region {
+	let minX = Infinity;
+	let minY = Infinity;
+	let maxX = -Infinity;
+	let maxY = -Infinity;
+	for (const segment of segments) {
+		for (const [x, y] of segment) {
+			if (x < minX) minX = x;
+			if (x > maxX) maxX = x;
+			if (y < minY) minY = y;
+			if (y > maxY) maxY = y;
+		}
+	}
+	if (minX > maxX) return { x: 0, y: 0, width: 0, height: 0 };
+	return {
+		x: minX / UNITS_PER_PX + translate[0] - margin,
+		y: minY / UNITS_PER_PX + translate[1] - margin,
+		width: (maxX - minX) / UNITS_PER_PX + 2 * margin,
+		height: (maxY - minY) / UNITS_PER_PX + 2 * margin,
+	};
 }
 
 function roundPoint(x: number, y: number): [number, number] {
