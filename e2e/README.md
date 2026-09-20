@@ -5,11 +5,11 @@ MapLibre GL. Run the whole suite with `npm run test:e2e`.
 
 ## Entry points
 
-| File                  | What it does                                                                                                                                                                                                     | Run                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                                                                                                             | `npm run test:e2e` (vitest)    |
-| `screenshots.ts`      | Renders each region with both the SVG renderer and MapLibre (at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff), pixel-diffs them, and writes an HTML report to `output/report.html`. | `npm run test:e2e:screenshots` |
-| `maplibre-control.ts` | Drives the MapLibre `SVGExportControl` plugin in a headless browser and checks the export flow.                                                                                                                  | `npm run test:e2e:maplibre`    |
+| File                  | What it does                                                                                                                                                                                                                                 | Run                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                                                                                                                                         | `npm run test:e2e` (vitest)    |
+| `screenshots.ts`      | Renders each region three ways — SVG renderer, PNG (canvas) renderer, and MapLibre (all at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff) — pixel-diffs them, and writes an HTML report to `output/report.html`. | `npm run test:e2e:screenshots` |
+| `maplibre-control.ts` | Drives the MapLibre `SVGExportControl` plugin in a headless browser and checks the export flow.                                                                                                                                              | `npm run test:e2e:maplibre`    |
 
 ## Shared helpers
 
@@ -22,10 +22,30 @@ Generated screenshots, diffs, and the report land in `output/` (gitignored).
 
 A manual, open-in-a-browser demo of the export control lives in `../demo/`.
 
+## What is measured
+
+MapLibre is the reference. Each region yields three numbers:
+
+| Metric  | Compares                     | Catches                                                      |
+| ------- | ---------------------------- | ------------------------------------------------------------ |
+| `svg`   | SVG renderer vs MapLibre     | the SVG backend drifting from the reference                  |
+| `png`   | PNG renderer vs MapLibre     | the canvas backend drifting from the reference               |
+| `drift` | SVG renderer vs PNG renderer | one backend diverging even while both stay close to MapLibre |
+
+The PNG renderer runs in process (no browser), and its output is flattened onto
+white before diffing: it leaves unpainted areas transparent — most visibly around
+the globe — while both screenshots come off a white page, so an unflattened diff
+would report every unpainted pixel as a mismatch.
+
+Labels and icons are switched off in every region but `berlin-labels-vector`.
+MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
+difference is large and inherent; confining it to one region keeps it measured
+without letting it dominate every other diff.
+
 ## Regression gate (`screenshots.ts`)
 
-Each region's SVG-vs-MapLibre diff is compared to `diff-baseline.json` (the
-last-blessed diff per region), and the run **exits non-zero** (failing CI) on:
+Each of the three metrics is compared to `diff-baseline.json` (the last-blessed
+value per region and metric), and the run **exits non-zero** (failing CI) on:
 
 - **degradation** — the diff rose beyond both 5% relative and a 0.1% absolute
   floor (below that is MapLibre AA/GPU noise). Shown in red.
@@ -45,3 +65,7 @@ UPDATE_BASELINE=1 npm run test:e2e:screenshots
 ```
 
 then commit the updated `diff-baseline.json`.
+
+A baseline entry may be a bare number, which is read as the `svg` metric alone —
+the form the file used before the PNG renderer existed. Re-blessing rewrites it as
+`{ "svg": …, "png": …, "drift": … }`.

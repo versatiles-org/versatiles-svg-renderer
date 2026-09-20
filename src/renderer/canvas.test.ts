@@ -744,6 +744,19 @@ describe('CanvasRenderer', () => {
 			expect(at(r, 34, 34)[3]).toBe(0); // beyond the halo
 		});
 
+		test('icon-rotate turns the icon about its point', async () => {
+			const r = makeIconRenderer();
+			await r.drawIcons(
+				'icons',
+				[[makePointFeature([[32, 32]]), iconStyle({ anchor: 'top-left', rotate: 90 })]],
+				atlas(),
+			);
+			// Unrotated the icon covers x 32..40; a quarter turn about (32,32) swings it to
+			// x 24..32, keeping y 32..40.
+			expect(at(r, 28, 36).slice(0, 3)).toEqual([0, 255, 0]);
+			expect(at(r, 36, 36)[3]).toBe(0);
+		});
+
 		test('needs a loadImage to draw icons at all', async () => {
 			const r = makeRenderer();
 			await expect(
@@ -806,6 +819,33 @@ describe('CanvasRenderer', () => {
 			};
 			// 'left' anchors the text's start at the point; 'right' ends it there.
 			expect(leftOf('left')).toBeGreaterThan(leftOf('right'));
+		});
+
+		test('text-rotate turns the label about its point', () => {
+			const boundsOf = (rotate: number): { width: number; height: number } => {
+				const r = makeRenderer();
+				r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ rotate })]]);
+				const { data } = r.ctx.getImageData(0, 0, 256, 256);
+				let minX = 256,
+					maxX = -1,
+					minY = 256,
+					maxY = -1;
+				for (let y = 0; y < 256; y++) {
+					for (let x = 0; x < 256; x++) {
+						if (data[(y * 256 + x) * 4 + 3]! > 128) {
+							if (x < minX) minX = x;
+							if (x > maxX) maxX = x;
+							if (y < minY) minY = y;
+							if (y > maxY) maxY = y;
+						}
+					}
+				}
+				return { width: maxX - minX, height: maxY - minY };
+			};
+			const flat = boundsOf(0);
+			const turned = boundsOf(90);
+			expect(flat.width).toBeGreaterThan(flat.height); // a wide line of text
+			expect(turned.height).toBeGreaterThan(turned.width); // stood on end
 		});
 
 		test('the halo is drawn behind the glyph, not over it', () => {

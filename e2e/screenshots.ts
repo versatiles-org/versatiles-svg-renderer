@@ -5,6 +5,7 @@ import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { renderToSVG } from '../src/index.js';
+import { renderToPNG } from '../src/png.js';
 import type { Page } from 'playwright';
 import { ensureCacheDir, installFetchCache, readCache, writeCache } from './fetch-cache.js';
 import { installMapLibrePage } from './maplibre-page.js';
@@ -37,9 +38,12 @@ const PIXELMATCH_THRESHOLD: Record<Region['type'], number> = {
 const outputDir = resolve(import.meta.dirname, 'output');
 const maplibreDir = resolve(outputDir, 'maplibre');
 const svgDir = resolve(outputDir, 'svg');
+const pngDir = resolve(outputDir, 'png');
 const diffDir = resolve(outputDir, 'diff');
+const diffPngDir = resolve(outputDir, 'diff-png');
+const driftDir = resolve(outputDir, 'drift');
 
-for (const dir of [outputDir, maplibreDir, svgDir, diffDir]) {
+for (const dir of [outputDir, maplibreDir, svgDir, pngDir, diffDir, diffPngDir, driftDir]) {
 	mkdirSync(dir, { recursive: true });
 }
 
@@ -102,6 +106,7 @@ async function renderSvgShot(
 		lon: region.lon,
 		lat: region.lat,
 		zoom: region.zoom,
+		renderLabels: region.labels ?? false,
 	});
 	writeFileSync(resolve(svgDir, `${id}.svg`), svg);
 
@@ -119,6 +124,46 @@ async function renderSvgShot(
 	} finally {
 		await page.close();
 	}
+}
+
+/**
+ * Render the region with the canvas (PNG) backend. No browser is involved — it renders in
+ * process — so this costs a fraction of the two screenshot passes.
+ *
+ * The returned pixels are flattened onto white: the canvas backend leaves anything it does
+ * not paint transparent (the area around the globe, most obviously), while the two
+ * screenshots come off a white page. Diffing them unflattened reports every unpainted
+ * pixel as a mismatch, which on a globe region is most of the image.
+ */
+async function renderPngShot(
+	region: Region,
+	style: StyleSpecification,
+): Promise<{ png: PNG; sizeKB: number }> {
+	const id = regionId(region);
+	const buffer = await renderToPNG({
+		width: WIDTH,
+		height: HEIGHT,
+		scale: SCALE,
+		style,
+		lon: region.lon,
+		lat: region.lat,
+		zoom: region.zoom,
+		renderLabels: region.labels ?? false,
+	});
+	writeFileSync(resolve(pngDir, `${id}.png`), buffer);
+	return { png: flattenOnWhite(PNG.sync.read(buffer)), sizeKB: buffer.byteLength / 1024 };
+}
+
+function flattenOnWhite(png: PNG): PNG {
+	const out = new PNG({ width: png.width, height: png.height });
+	for (let i = 0; i < png.data.length; i += 4) {
+		const alpha = png.data[i + 3]! / 255;
+		for (let channel = 0; channel < 3; channel++) {
+			out.data[i + channel] = Math.round(png.data[i + channel]! * alpha + 255 * (1 - alpha));
+		}
+		out.data[i + 3] = 255;
+	}
+	return out;
 }
 
 // Render the same region with MapLibre GL in a headless page.
@@ -184,10 +229,32 @@ const red = (s: string): string => paint(31, s);
 const green = (s: string): string => paint(32, s);
 const dim = (s: string): string => paint(90, s);
 
+/**
+ * What is measured per region: each renderer against the MapLibre reference, plus the
+ * drift between the two renderers (which catches a backend diverging even while both stay
+ * near MapLibre).
+ */
+interface Metrics {
+	svg: number;
+	png: number;
+	drift: number;
+}
+
+type MetricName = keyof Metrics;
+const METRICS: MetricName[] = ['svg', 'png', 'drift'];
+
 const baselinePath = resolve(import.meta.dirname, 'diff-baseline.json');
-const baseline: Record<string, number> = existsSync(baselinePath)
-	? (JSON.parse(readFileSync(baselinePath, 'utf8')) as Record<string, number>)
+// A baseline entry used to be a single number: the SVG-vs-MapLibre diff. Those are still
+// read, so the blessed values survive; the next `UPDATE_BASELINE=1` writes the newer form.
+const rawBaseline: Record<string, number | Partial<Metrics>> = existsSync(baselinePath)
+	? (JSON.parse(readFileSync(baselinePath, 'utf8')) as Record<string, number | Partial<Metrics>>)
 	: {};
+const baseline: Record<string, Partial<Metrics>> = Object.fromEntries(
+	Object.entries(rawBaseline).map(([id, value]) => [
+		id,
+		typeof value === 'number' ? { svg: value } : value,
+	]),
+);
 
 // A change counts as degradation/improvement only if it clears both a 5% relative
 // move and a 0.1% absolute floor (anything smaller is MapLibre AA/GPU render noise).
@@ -197,6 +264,32 @@ const ABS_FLOOR = 0.01;
 // must stay under max(baseline * 1.5, baseline + 0.3%). It's the backstop above the
 // (stricter) degradation check.
 const ceilingFor = (base: number): number => Math.max(base * 1.5, base + 0.3);
+
+/**
+ * Compares one measurement against its blessed baseline, with the same rules for every
+ * metric: a hard ceiling derived from the baseline, and a degradation/improvement band.
+ */
+function gate(
+	value: number,
+	base: number | undefined,
+): { note: string; color: (s: string) => string; failed: boolean } {
+	if (base === undefined) {
+		return { note: dim(' (no baseline)'), color: (t) => t, failed: false };
+	}
+	const ceiling = ceilingFor(base);
+	const delta = value - base;
+	const significant = Math.abs(delta) > Math.max(base * REL_TOLERANCE, ABS_FLOOR);
+	if (value > ceiling) {
+		return { note: red(` ✗ over ${ceiling.toFixed(2)}%`), color: red, failed: true };
+	}
+	if (significant && delta > 0) {
+		return { note: red(` ▲ was ${base.toFixed(2)}%`), color: red, failed: true };
+	}
+	if (significant && delta < 0) {
+		return { note: green(` ▼ was ${base.toFixed(2)}%`), color: green, failed: false };
+	}
+	return { note: '', color: (t) => t, failed: false };
+}
 
 // Chromium occasionally refuses to capture a frame on a loaded CI runner
 // ("Page.captureScreenshot: Unable to capture screenshot"), which has nothing to do
@@ -219,29 +312,38 @@ async function withRetry<T>(id: string, render: () => Promise<T>, attempts = 3):
 interface Result {
 	region: Region;
 	id: string;
-	diffPercent: number;
+	metrics: Metrics;
 	svgSizeKB: number;
+	pngSizeKB: number;
 }
 
 const results: Result[] = [];
-const updatedBaseline: Record<string, number> = {};
+const updatedBaseline: Record<string, Metrics> = {};
 let failed = false;
 
-// For each region: render the SVG and MapLibre screenshots in parallel, diff them,
-// and report a single line (green improvement / red degradation vs the baseline).
+// For each region: render all three ways, diff each renderer against MapLibre and the two
+// renderers against each other, and report one line per region.
 for (const region of regions) {
 	const id = regionId(region);
 	const style = await getStyle(region);
 
 	let svgPng: PNG;
+	let pngPng: PNG;
 	let maplibrePng: PNG;
 	let svgSizeKB: number;
+	let pngSizeKB: number;
 	try {
-		const [svgShot, maplibre] = await withRetry(id, () =>
-			Promise.all([renderSvgShot(region, style), renderMapLibreShot(region, style)]),
+		const [svgShot, pngShot, maplibre] = await withRetry(id, () =>
+			Promise.all([
+				renderSvgShot(region, style),
+				renderPngShot(region, style),
+				renderMapLibreShot(region, style),
+			]),
 		);
 		svgPng = svgShot.png;
 		svgSizeKB = svgShot.sizeKB;
+		pngPng = pngShot.png;
+		pngSizeKB = pngShot.sizeKB;
 		maplibrePng = maplibre;
 	} catch (error) {
 		console.log(red(`  ${id}: render failed — ${String(error)}`));
@@ -249,61 +351,78 @@ for (const region of regions) {
 		continue;
 	}
 
-	const diff = new PNG({ width: SW, height: SH });
-	const mismatch = pixelmatch(maplibrePng.data, svgPng.data, diff.data, SW, SH, {
-		threshold: PIXELMATCH_THRESHOLD[region.type],
+	const threshold = PIXELMATCH_THRESHOLD[region.type];
+	const compare = (a: PNG, b: PNG, file: string): number => {
+		const diff = new PNG({ width: SW, height: SH });
+		const mismatch = pixelmatch(a.data, b.data, diff.data, SW, SH, { threshold });
+		writeFileSync(file, PNG.sync.write(diff));
+		return (mismatch / (SW * SH)) * 100;
+	};
+
+	const metrics: Metrics = {
+		svg: compare(maplibrePng, svgPng, resolve(diffDir, `${id}.png`)),
+		png: compare(maplibrePng, pngPng, resolve(diffPngDir, `${id}.png`)),
+		drift: compare(svgPng, pngPng, resolve(driftDir, `${id}.png`)),
+	};
+	updatedBaseline[id] = {
+		svg: Math.round(metrics.svg * 100) / 100,
+		png: Math.round(metrics.png * 100) / 100,
+		drift: Math.round(metrics.drift * 100) / 100,
+	};
+
+	const parts = METRICS.map((name) => {
+		const { note, color, failed: regressed } = gate(metrics[name], baseline[id]?.[name]);
+		if (regressed) failed = true;
+		return `${color(`${name} ${metrics[name].toFixed(2)}%`)}${note}`;
 	});
-	const diffPercent = (mismatch / (SW * SH)) * 100;
-	writeFileSync(resolve(diffDir, `${id}.png`), PNG.sync.write(diff));
-	updatedBaseline[id] = Math.round(diffPercent * 100) / 100;
+	console.log(`  ${id}: ${parts.join('  ')}`);
 
-	const base = baseline[id];
-	let color: (s: string) => string = (s) => s;
-	let note = '';
-	if (base === undefined) {
-		note = dim(' (no baseline — bless with UPDATE_BASELINE=1)');
-	} else {
-		const ceiling = ceilingFor(base);
-		const delta = diffPercent - base;
-		const significant = Math.abs(delta) > Math.max(base * REL_TOLERANCE, ABS_FLOOR);
-		if (diffPercent > ceiling) {
-			color = red;
-			note = red(` ✗ exceeds ceiling ${ceiling.toFixed(2)}%`);
-			failed = true;
-		} else if (significant && delta > 0) {
-			color = red;
-			note = red(` ▲ degradation (was ${base.toFixed(2)}%)`);
-			failed = true;
-		} else if (significant && delta < 0) {
-			color = green;
-			note = green(` ▼ improvement (was ${base.toFixed(2)}%) — update baseline`);
-		}
-	}
-	console.log(`  ${color(`${id}: ${diffPercent.toFixed(2)}%`)}${note}`);
-
-	results.push({ region, id, diffPercent, svgSizeKB });
+	results.push({ region, id, metrics, svgSizeKB, pngSizeKB });
 }
 
 await browser.close();
 
 // --- HTML report ---
+// Six image columns, so they are sized to stay readable side by side rather than at the
+// half-width a three-column table allowed.
+const THUMB = Math.round(WIDTH / 3);
+
+const metricCell = (label: string, value: number, base: number | undefined): string => {
+	// Grade against the baseline, exactly as the console does, so a regression cannot read
+	// as green here just because its absolute value happens to be small.
+	const { failed: regressed, note } = gate(value, base);
+	const improved = note.includes('▼');
+	const color = regressed ? 'red' : improved ? 'green' : value > 20 ? 'orange' : '#333';
+	const mark = regressed ? ' ▲' : improved ? ' ▼' : '';
+	const was =
+		base === undefined ? '' : ` <span style="color:#888">(was ${base.toFixed(2)}%)</span>`;
+	return `<div><strong>${label}:</strong> <span style="color:${color}">${value.toFixed(2)}%${mark}</span>${was}</div>`;
+};
+
 const rows = results
 	.map((r) => {
+		const base = baseline[r.id];
+		const thumb = (dir: string, file: string, link: string): string =>
+			`<td><a href="${link}"><img src="${dir}/${file}" width="${THUMB}" height="${Math.round((THUMB * HEIGHT) / WIDTH)}"></a></td>`;
 		return `<tr>
 	<td>
 		<strong>${r.id}</strong><br>
 		lon: ${r.region.lon}<br>
 		lat: ${r.region.lat}<br>
 		zoom: ${r.region.zoom}<br>
-		type: ${r.region.type}<br>
-		SVG size: ${r.svgSizeKB.toFixed(0)} KB<br>
-		<span style="color:${r.diffPercent > 50 ? 'red' : r.diffPercent > 20 ? 'orange' : 'green'}">
-			diff: ${r.diffPercent.toFixed(2)}%
-		</span>
+		type: ${r.region.type}${r.region.labels ? ' + labels' : ''}<br>
+		SVG: ${r.svgSizeKB.toFixed(0)} KB<br>
+		PNG: ${r.pngSizeKB.toFixed(0)} KB<br>
+		${metricCell('SVG vs ML', r.metrics.svg, base?.svg)}
+		${metricCell('PNG vs ML', r.metrics.png, base?.png)}
+		${metricCell('drift', r.metrics.drift, base?.drift)}
 	</td>
-	<td><a href="svg/${r.id}.svg"><img src="svg/${r.id}.png" width="${WIDTH / 2}" height="${HEIGHT / 2}"></a></td>
-	<td><a href="maplibre/${r.id}.png"><img src="maplibre/${r.id}.png" width="${WIDTH / 2}" height="${HEIGHT / 2}"></a></td>
-	<td><a href="diff/${r.id}.png"><img src="diff/${r.id}.png" width="${WIDTH / 2}" height="${HEIGHT / 2}"></a></td>
+	${thumb('maplibre', `${r.id}.png`, `maplibre/${r.id}.png`)}
+	${thumb('svg', `${r.id}.png`, `svg/${r.id}.svg`)}
+	${thumb('png', `${r.id}.png`, `png/${r.id}.png`)}
+	${thumb('diff', `${r.id}.png`, `diff/${r.id}.png`)}
+	${thumb('diff-png', `${r.id}.png`, `diff-png/${r.id}.png`)}
+	${thumb('drift', `${r.id}.png`, `drift/${r.id}.png`)}
 </tr>`;
 	})
 	.join('\n');
@@ -317,14 +436,31 @@ const html = `<!DOCTYPE html>
 	h1 { margin-bottom: 20px; }
 	table { border-collapse: collapse; }
 	th, td { border: 1px solid #ccc; padding: 8px; vertical-align: top; background: white; }
-	th { background: #eee; position: sticky; top: 0; }
+	th { background: #eee; position: sticky; top: 0; z-index: 2; }
+	/* The table is wider than most screens; keep each region and its numbers in view. */
+	td:first-child, th:first-child { position: sticky; left: 0; }
+	th:first-child { z-index: 3; }
 	img { display: block; }
+	td div { margin-top: 4px; white-space: nowrap; }
 </style>
 </head><body>
 <h1>E2E Visual Comparison Report</h1>
 <p>Generated: ${new Date().toISOString()}</p>
+<p>
+	MapLibre is the reference. <em>SVG vs ML</em> and <em>PNG vs ML</em> grade each renderer
+	against it; <em>drift</em> is the two renderers against each other, which catches one
+	backend diverging even while both stay close to MapLibre.
+</p>
 <table>
-<tr><th>Region</th><th>SVG Renderer</th><th>MapLibre screenshot</th><th>Diff</th></tr>
+<tr>
+	<th>Region</th>
+	<th>MapLibre (reference)</th>
+	<th>SVG renderer</th>
+	<th>PNG renderer</th>
+	<th>Diff: SVG vs ML</th>
+	<th>Diff: PNG vs ML</th>
+	<th>Drift: SVG vs PNG</th>
+</tr>
 ${rows}
 </table>
 </body></html>`;

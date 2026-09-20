@@ -11,6 +11,12 @@ export interface Region {
 	type: 'vector' | 'satellite' | 'geojson';
 	/** Style projection; defaults to 'mercator'. */
 	projection?: 'mercator' | 'globe';
+	/**
+	 * Draw labels and icons. Off everywhere else, because text rendering differs between
+	 * MapLibre's SDF glyphs and the renderers' system fonts and would otherwise dominate
+	 * every region's diff. One region turns it on so the symbol path stays measured.
+	 */
+	labels?: boolean;
 }
 
 export const regions: Region[] = [
@@ -20,6 +26,8 @@ export const regions: Region[] = [
 	{ name: 'tokyo', lon: 139.692, lat: 35.69, zoom: 10, type: 'vector' },
 	{ name: 'roma', lon: 12.489, lat: 41.89, zoom: 14.9, type: 'vector' },
 	{ name: 'sao-paulo', lon: -46.635, lat: -23.548, zoom: 14, type: 'vector' },
+
+	{ name: 'berlin-labels', lon: 13.357, lat: 52.515, zoom: 14.2, type: 'vector', labels: true },
 
 	{ name: 'berlin', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite' },
 
@@ -54,7 +62,8 @@ const styleCache = new Map<string, StyleSpecification>();
 export async function getStyle(region: Region): Promise<StyleSpecification> {
 	const { type } = region;
 	const projection = region.projection ?? 'mercator';
-	const cacheKey = `${type}-${projection}`;
+	const labels = region.labels ?? false;
+	const cacheKey = `${type}-${projection}-${String(labels)}`;
 	let style = styleCache.get(cacheKey);
 	if (!style) {
 		switch (type) {
@@ -63,7 +72,7 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 					osm({
 						theme: 'colorful',
 						projection,
-						layers: { labels: false, icons: false },
+						layers: { labels, icons: labels },
 					}),
 				);
 				break;
