@@ -96,6 +96,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@fontsource/noto-sans": "^5.3.0",
     "@mapbox/vector-tile": "^3.0.0",
     "@maplibre/maplibre-gl-style-spec": "^26.4.4",
     "@napi-rs/canvas": "^1.0.9",

@@ -9,7 +9,7 @@ import { renderToPNG } from '../src/png.js';
 import type { Page } from 'playwright';
 import { ensureCacheDir, installFetchCache, readCache, writeCache } from './fetch-cache.js';
 import { installMapLibrePage } from './maplibre-page.js';
-import { getStyle, regionId, regions, type Region } from './styles.js';
+import { fonts, getStyle, regionId, regions, type Region } from './styles.js';
 
 installFetchCache();
 
@@ -93,6 +93,18 @@ async function installPageCache(page: Page): Promise<void> {
 	});
 }
 
+/**
+ * `@font-face` rules for the same fonts the PNG backend registers. The SVG only *names*
+ * its fonts — resolving them is the viewer's job — so the page that rasterizes it has to
+ * supply them, or the two renderers would be compared drawing different typefaces.
+ */
+const fontFaces = Object.entries(fonts)
+	.map(([name, file]) => {
+		const data = readFileSync(file).toString('base64');
+		return `@font-face { font-family: "${name}"; src: url(data:font/woff2;base64,${data}) format("woff2"); }`;
+	})
+	.join('\n');
+
 // Render the region's SVG and rasterize it; returns the screenshot + SVG size (KB).
 async function renderSvgShot(
 	region: Region,
@@ -117,7 +129,8 @@ async function renderSvgShot(
 	page.on('crash', () => console.log(`  ${id}: SVG page crashed`));
 	try {
 		await page.setContent(`<!DOCTYPE html>
-<html><head><style>* { margin: 0; padding: 0; }</style></head>
+<html><head><style>* { margin: 0; padding: 0; }
+${fontFaces}</style></head>
 <body>${svg}</body></html>`);
 		const buffer = await page.screenshot({ path: resolve(svgDir, `${id}.png`) });
 		return { png: PNG.sync.read(buffer), sizeKB: Buffer.byteLength(svg, 'utf8') / 1024 };
@@ -149,6 +162,7 @@ async function renderPngShot(
 		lat: region.lat,
 		zoom: region.zoom,
 		renderLabels: region.labels ?? false,
+		fonts,
 	});
 	writeFileSync(resolve(pngDir, `${id}.png`), buffer);
 	return { png: flattenOnWhite(PNG.sync.read(buffer)), sizeKB: buffer.byteLength / 1024 };

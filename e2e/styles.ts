@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { inlineSources, osm, satellite } from '@versatiles/style';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Feature } from 'geojson';
@@ -52,6 +53,20 @@ export const regions: Region[] = [
 	{ name: 'world', lon: 10, lat: 20, zoom: 2, type: 'satellite', projection: 'globe' },
 	{ name: 'europe', lon: 12, lat: 50, zoom: 3.5, type: 'satellite', projection: 'globe' },
 ];
+
+/**
+ * The fonts the styles name in `text-font`, mapped to real files.
+ *
+ * A style only names its fonts; MapLibre then fetches pre-rendered SDF glyphs from its
+ * glyph server, which a renderer drawing real text cannot use. Without these, both
+ * renderers fall back to whatever the machine has installed and every label is measured
+ * against the wrong typeface.
+ */
+const fontDir = resolve(import.meta.dirname, '../node_modules/@fontsource/noto-sans/files');
+export const fonts: Record<string, string> = {
+	noto_sans_regular: resolve(fontDir, 'noto-sans-latin-400-normal.woff2'),
+	noto_sans_bold: resolve(fontDir, 'noto-sans-latin-700-normal.woff2'),
+};
 
 export function regionId(region: Region): string {
 	const id = `${region.name}-${region.type}`;

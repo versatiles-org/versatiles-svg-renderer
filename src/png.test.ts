@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
+import { resolve } from 'node:path';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { loadCanvasBackend, renderToPNG } from './png.js';
 
@@ -67,6 +68,35 @@ describe('renderToPNG', () => {
 		const ctx = canvas.getContext('2d');
 		ctx.drawImage(await loadImage(png), 0, 0);
 		expect([...ctx.getImageData(8, 8, 1, 1).data]).toEqual([0, 0, 255, 255]);
+	});
+
+	describe('fonts', () => {
+		const notoSans = resolve(
+			import.meta.dirname,
+			'../node_modules/@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff2',
+		);
+
+		test('registers a font under the name the style uses', async () => {
+			await renderToPNG({
+				style: minimalStyle,
+				width: 8,
+				height: 8,
+				fonts: { a_style_font_name: notoSans },
+			});
+			const { GlobalFonts } = await loadCanvasBackend();
+			expect(GlobalFonts.has('a_style_font_name')).toBe(true);
+		});
+
+		test('reports which font file could not be registered', async () => {
+			await expect(
+				renderToPNG({
+					style: minimalStyle,
+					width: 8,
+					height: 8,
+					fonts: { broken: '/no/such/font.ttf' },
+				}),
+			).rejects.toThrow(/"broken" from \/no\/such\/font\.ttf/);
+		});
 	});
 
 	test('renders a symbol layer when labels are enabled', async () => {
