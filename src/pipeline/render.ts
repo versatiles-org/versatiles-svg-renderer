@@ -170,7 +170,7 @@ async function render(job: RenderJob): Promise<void> {
 			case 'raster':
 				{
 					const tiles = await getRasterTiles(job, layerStyle.source);
-					renderer.drawRasterTiles(layerId, tiles, {
+					await renderer.drawRasterTiles(layerId, tiles, {
 						opacity: getPaint('raster-opacity') as number,
 						hueRotate: getPaint('raster-hue-rotate') as number,
 						brightnessMin: getPaint('raster-brightness-min') as number,
@@ -224,7 +224,7 @@ async function render(job: RenderJob): Promise<void> {
 					if (symbolFeatures.length === 0) continue;
 
 					// Render icons first (underneath text)
-					renderer.drawIcons(
+					await renderer.drawIcons(
 						`${layerId}-icons`,
 						symbolFeatures.flatMap((feature) => {
 							const iconImage = getLayout('icon-image', feature);

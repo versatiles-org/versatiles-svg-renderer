@@ -51,8 +51,8 @@ export async function renderToPNG(options: RenderToPNGOptions): Promise<Buffer> 
 	if (height <= 0) throw new Error('height must be positive');
 	if (scale <= 0) throw new Error('scale must be positive');
 
-	const { createCanvas } = await loadCanvasBackend();
-	const renderer = new CanvasRenderer({ width, height, scale, createCanvas });
+	const { createCanvas, loadImage } = await loadCanvasBackend();
+	const renderer = new CanvasRenderer({ width, height, scale, createCanvas, loadImage });
 
 	await drawMap({
 		renderer,

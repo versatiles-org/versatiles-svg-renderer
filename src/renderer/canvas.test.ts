@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { CanvasRenderer } from './canvas.js';
 import { Feature, Point2D } from '../geometry.js';
-import type { CircleStyle, FillStyle, LineStyle } from './types.js';
+import type { CircleStyle, FillStyle, LineStyle, RasterStyle, RasterTile } from './types.js';
 
 function mc(hex: string, alpha = 1): Color {
 	const r = (parseInt(hex.slice(1, 3), 16) / 255) * alpha;
@@ -401,14 +401,170 @@ describe('CanvasRenderer', () => {
 		});
 	});
 
+	describe('drawRasterTiles', () => {
+		// A 2x2 image: red, green / blue, white — big enough to tell orientation and
+		// resampling apart, small enough to write inline.
+		const tileUri = (() => {
+			const canvas = createCanvas(2, 2);
+			const ctx = canvas.getContext('2d');
+			ctx.fillStyle = '#FF0000';
+			ctx.fillRect(0, 0, 1, 1);
+			ctx.fillStyle = '#00FF00';
+			ctx.fillRect(1, 0, 1, 1);
+			ctx.fillStyle = '#0000FF';
+			ctx.fillRect(0, 1, 1, 1);
+			ctx.fillStyle = '#FFFFFF';
+			ctx.fillRect(1, 1, 1, 1);
+			return canvas.toDataURL('image/png');
+		})();
+
+		function rasterStyle(overrides: Partial<RasterStyle> = {}): RasterStyle {
+			return {
+				opacity: 1,
+				hueRotate: 0,
+				brightnessMin: 0,
+				brightnessMax: 1,
+				saturation: 0,
+				contrast: 0,
+				resampling: 'linear',
+				...overrides,
+			};
+		}
+
+		const makeRasterRenderer = () =>
+			new CanvasRenderer({ width: 256, height: 256, createCanvas, loadImage });
+
+		const tile = (overrides: Partial<RasterTile> = {}): RasterTile => ({
+			x: 0,
+			y: 0,
+			width: 128,
+			height: 128,
+			dataUri: tileUri,
+			...overrides,
+		});
+
+		test('draws a tile at its position and size', async () => {
+			const r = makeRasterRenderer();
+			await r.drawRasterTiles('raster', [tile()], rasterStyle());
+			expect(at(r, 30, 30).slice(0, 3)).toEqual([255, 0, 0]); // top-left quadrant
+			expect(at(r, 100, 30).slice(0, 3)).toEqual([0, 255, 0]); // top-right
+			expect(at(r, 30, 100).slice(0, 3)).toEqual([0, 0, 255]); // bottom-left
+			expect(at(r, 200, 200)[3]).toBe(0); // beyond the tile
+		});
+
+		test('places each tile of a grid at its own offset', async () => {
+			const r = makeRasterRenderer();
+			await r.drawRasterTiles(
+				'raster',
+				[tile(), tile({ x: 128 }), tile({ y: 128 }), tile({ x: 128, y: 128 })],
+				rasterStyle(),
+			);
+			for (const [x, y] of [
+				[30, 30],
+				[158, 30],
+				[30, 158],
+				[158, 158],
+			]) {
+				expect(at(r, x!, y!).slice(0, 3)).toEqual([255, 0, 0]);
+			}
+		});
+
+		test('skips drawing entirely at zero opacity', async () => {
+			const r = makeRasterRenderer();
+			await r.drawRasterTiles('raster', [tile()], rasterStyle({ opacity: 0 }));
+			expect(at(r, 30, 30)[3]).toBe(0);
+		});
+
+		test('applies raster-opacity', async () => {
+			const r = makeRasterRenderer();
+			await r.drawRasterTiles('raster', [tile()], rasterStyle({ opacity: 0.5 }));
+			expect(at(r, 30, 30)[3]).toBeCloseTo(128, -1);
+		});
+
+		test('applies the raster colour adjustments', async () => {
+			const plain = makeRasterRenderer();
+			await plain.drawRasterTiles('raster', [tile()], rasterStyle());
+			const dimmed = makeRasterRenderer();
+			await dimmed.drawRasterTiles(
+				'raster',
+				[tile()],
+				rasterStyle({ brightnessMin: 0, brightnessMax: 0.5 }),
+			);
+			expect(at(dimmed, 30, 30)[0]!).toBeLessThan(at(plain, 30, 30)[0]!);
+		});
+
+		test('nearest resampling keeps hard pixel edges', async () => {
+			const linear = makeRasterRenderer();
+			await linear.drawRasterTiles('raster', [tile()], rasterStyle({ resampling: 'linear' }));
+			const nearest = makeRasterRenderer();
+			await nearest.drawRasterTiles('raster', [tile()], rasterStyle({ resampling: 'nearest' }));
+			// Right at the quadrant boundary, linear blends the two colours; nearest does not.
+			expect(at(nearest, 64, 30).slice(0, 3)).toEqual([0, 255, 0]);
+			expect(at(linear, 64, 30)[0]!).toBeGreaterThan(0);
+		});
+
+		test('draws a globe tile as a mesh of clipped triangles', async () => {
+			const r = makeRasterRenderer();
+			// Two triangles covering the square (0,0)-(200,200) on screen.
+			await r.drawRasterTiles(
+				'raster',
+				[
+					tile({
+						width: 1,
+						height: 1,
+						triangles: [
+							{
+								source: [
+									[0, 0],
+									[1, 0],
+									[0, 1],
+								],
+								target: [
+									[0, 0],
+									[200, 0],
+									[0, 200],
+								],
+							},
+							{
+								source: [
+									[1, 0],
+									[1, 1],
+									[0, 1],
+								],
+								target: [
+									[200, 0],
+									[200, 200],
+									[0, 200],
+								],
+							},
+						],
+					}),
+				],
+				rasterStyle(),
+			);
+			// The image is mapped across both triangles, so its quadrants land in order...
+			expect(at(r, 40, 40).slice(0, 3)).toEqual([255, 0, 0]);
+			expect(at(r, 160, 40).slice(0, 3)).toEqual([0, 255, 0]);
+			expect(at(r, 40, 160).slice(0, 3)).toEqual([0, 0, 255]);
+			// ...and nothing is painted outside the mesh.
+			expect(at(r, 240, 240)[3]).toBe(0);
+		});
+
+		test('needs a loadImage to draw tiles at all', async () => {
+			const r = makeRenderer(); // constructed without `loadImage`
+			await expect(r.drawRasterTiles('raster', [tile()], rasterStyle())).rejects.toThrow(
+				/loadImage/,
+			);
+		});
+	});
+
 	describe('not implemented yet', () => {
 		test.each([
-			['drawRasterTiles', 'raster tiles'],
 			['drawIcons', 'icons'],
 			['drawLabels', 'labels'],
 		])('%s throws rather than silently drawing nothing', (method, subject) => {
 			const r = makeRenderer();
-			expect(() => r[method as 'drawRasterTiles']()).toThrow(subject);
+			expect(() => r[method as 'drawIcons']()).toThrow(subject);
 		});
 	});
 

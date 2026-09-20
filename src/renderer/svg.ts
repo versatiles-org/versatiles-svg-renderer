@@ -16,6 +16,15 @@ import type {
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import type { ClipCircle } from '../projection.js';
+import {
+	affineFromTriangles,
+	bleedAtTileBorder,
+	growTriangle,
+	isOnTileBorder,
+	RASTER_TILE_UNITS,
+	RASTER_TRIANGLE_OVERLAP_PX,
+	type Triangle,
+} from './raster_mesh.js';
 
 export type {
 	BackgroundStyle,
@@ -673,90 +682,6 @@ function strokeAttr(color: Color, width: string): string {
 
 function formatScaled(v: number): string {
 	return formatNum(Math.round(v * 10));
-}
-
-/** Size of a raster tile image in user units, when drawn as a mesh of triangles on the globe. */
-const RASTER_TILE_UNITS = 256;
-
-/** How far (pixels) a raster tile image reaches beyond the tile border in the seam underlay. */
-const RASTER_TILE_BLEED_PX = 1;
-
-/** How far (pixels) each raster triangle is grown beyond its edges to overlap its neighbours. */
-const RASTER_TRIANGLE_OVERLAP_PX = 0.5;
-
-type Triangle = RasterTriangle['source'];
-
-/**
- * The affine transform [a, b, c, d, e, f] mapping the source triangle (in tile units 0..1,
- * scaled to RASTER_TILE_UNITS) exactly onto the target triangle, or undefined if either is
- * degenerate.
- */
-function affineFromTriangles(
-	source: Triangle,
-	target: Triangle,
-): [number, number, number, number, number, number] | undefined {
-	const k = RASTER_TILE_UNITS;
-	const [[u0, v0], [u1, v1], [u2, v2]] = source.map(([u, v]) => [u * k, v * k]) as Triangle;
-	const [[x0, y0], [x1, y1], [x2, y2]] = target;
-	const du1 = u1 - u0;
-	const dv1 = v1 - v0;
-	const du2 = u2 - u0;
-	const dv2 = v2 - v0;
-	const det = du1 * dv2 - du2 * dv1;
-	if (Math.abs(det) < 1e-12) return undefined;
-	const dx1 = x1 - x0;
-	const dx2 = x2 - x0;
-	const dy1 = y1 - y0;
-	const dy2 = y2 - y0;
-	// Screen area below a hundredth of a pixel: nothing to draw.
-	if (Math.abs(dx1 * dy2 - dx2 * dy1) < 0.02) return undefined;
-	const a = (dx1 * dv2 - dx2 * dv1) / det;
-	const c = (du1 * dx2 - du2 * dx1) / det;
-	const b = (dy1 * dv2 - dy2 * dv1) / det;
-	const d = (du1 * dy2 - du2 * dy1) / det;
-	return [a, b, c, d, x0 - a * u0 - c * v0, y0 - b * u0 - d * v0];
-}
-
-function isOnTileBorder(source: Triangle): boolean {
-	return source.some(([u, v]) => u === 0 || u === 1 || v === 0 || v === 1);
-}
-
-/**
- * Moves the source corners of a triangle that lie on the tile border inwards, by the
- * equivalent of RASTER_TILE_BLEED_PX on screen, so that the image edge lies beyond the border.
- * (Used for the underlay that closes the seams between tiles, see `#drawRasterMeshes`.)
- */
-function bleedAtTileBorder(source: Triangle, target: Triangle): Triangle {
-	const [[u0, v0], [u1, v1], [u2, v2]] = source;
-	const [[x0, y0], [x1, y1], [x2, y2]] = target;
-	const sourceArea = Math.abs((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
-	const targetArea = Math.abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0));
-	if (sourceArea === 0 || targetArea === 0) return source;
-	// Pixels per tile unit, and the bleed in tile units, kept within the triangle.
-	const scale = Math.sqrt(targetArea / sourceArea);
-	const size = Math.max(Math.abs(u1 - u0), Math.abs(u2 - u0), Math.abs(v1 - v0), Math.abs(v2 - v0));
-	const bleed = Math.min(RASTER_TILE_BLEED_PX / scale, size / 4);
-	const inset = (t: number): number => (t === 0 ? bleed : t === 1 ? 1 - bleed : t);
-	return source.map(([u, v]) => [inset(u), inset(v)]) as Triangle;
-}
-
-/**
- * Moves every edge of a triangle outwards by `distance`, by scaling it around its incenter.
- * Growth is limited for very thin triangles, whose corners would otherwise shoot far out.
- */
-function growTriangle(triangle: Triangle, distance: number): Triangle {
-	const [[x0, y0], [x1, y1], [x2, y2]] = triangle;
-	const a = Math.hypot(x2 - x1, y2 - y1);
-	const b = Math.hypot(x2 - x0, y2 - y0);
-	const c = Math.hypot(x1 - x0, y1 - y0);
-	const perimeter = a + b + c;
-	const area = Math.abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2;
-	if (perimeter === 0 || area === 0) return triangle;
-	const inradius = (2 * area) / perimeter;
-	const cx = (a * x0 + b * x1 + c * x2) / perimeter;
-	const cy = (a * y0 + b * y1 + c * y2) / perimeter;
-	const scale = 1 + distance / Math.max(inradius, 2 * distance);
-	return triangle.map(([x, y]) => [cx + (x - cx) * scale, cy + (y - cy) * scale]) as Triangle;
 }
 
 function formatUnit(v: number): string {

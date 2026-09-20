@@ -22,8 +22,18 @@ export interface Renderer {
 	drawLineStrings(id: string, features: [Feature, LineStyle][]): void;
 	drawCircles(id: string, features: [Feature, CircleStyle][]): void;
 	drawLabels(id: string, features: [Feature, SymbolStyle][]): void;
-	drawIcons(id: string, features: [Feature, IconStyle][], spriteAtlas: SpriteAtlas): void;
-	drawRasterTiles(id: string, tiles: RasterTile[], style: RasterStyle): void;
+	/**
+	 * These two may be asynchronous. Their images arrive as data URIs, which a raster
+	 * backend has to decode before it can paint them, while the SVG backend simply embeds
+	 * the URI and stays synchronous. The pipeline awaits both, so layers keep their order
+	 * either way.
+	 */
+	drawIcons(
+		id: string,
+		features: [Feature, IconStyle][],
+		spriteAtlas: SpriteAtlas,
+	): void | Promise<void>;
+	drawRasterTiles(id: string, tiles: RasterTile[], style: RasterStyle): void | Promise<void>;
 	/** Restricts all drawing to a circle (the silhouette of the globe). */
 	setClipCircle?(circle: ClipCircle): void;
 }

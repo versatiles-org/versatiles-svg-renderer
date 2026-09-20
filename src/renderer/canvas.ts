@@ -1,4 +1,4 @@
-import type { Canvas, SKRSContext2D } from '@napi-rs/canvas';
+import type { Canvas, Image, SKRSContext2D } from '@napi-rs/canvas';
 import type { Feature } from '../geometry.js';
 import type { ClipCircle } from '../projection.js';
 import { Color } from './color.js';
@@ -9,9 +9,20 @@ import type {
 	CircleStyle,
 	FillStyle,
 	LineStyle,
+	RasterStyle,
+	RasterTile,
 	Renderer,
 	RendererOptions,
 } from './types.js';
+import {
+	affineFromTriangles,
+	bleedAtTileBorder,
+	growTriangle,
+	isOnTileBorder,
+	RASTER_TILE_UNITS,
+	RASTER_TRIANGLE_OVERLAP_PX,
+	type Triangle,
+} from './raster_mesh.js';
 
 // These mirror the SVG backend's constants but are deliberately *separate*: they are
 // calibrated per backend against MapLibre in the e2e comparison, and Skia's rasterizer
@@ -41,6 +52,11 @@ export interface CanvasRendererOptions extends RendererOptions {
 	 * it (and reports a helpful error if it is missing).
 	 */
 	createCanvas: (width: number, height: number) => Canvas;
+	/**
+	 * `loadImage` from the same backend, used to decode the data URIs that carry raster
+	 * tiles and sprite sheets. Required only for styles that use them.
+	 */
+	loadImage?: (source: string) => Promise<Image>;
 }
 
 export class CanvasRenderer implements Renderer {
@@ -54,6 +70,11 @@ export class CanvasRenderer implements Renderer {
 
 	public readonly ctx: SKRSContext2D;
 
+	readonly #loadImage: ((source: string) => Promise<Image>) | undefined;
+
+	/** Decoded tile and sprite images, keyed by data URI: a tile may repeat within a layer. */
+	readonly #images = new Map<string, Image>();
+
 	public constructor(opt: CanvasRendererOptions) {
 		this.width = opt.width;
 		this.height = opt.height;
@@ -62,6 +83,7 @@ export class CanvasRenderer implements Renderer {
 			Math.round(this.width * this.scale),
 			Math.round(this.height * this.scale),
 		);
+		this.#loadImage = opt.loadImage;
 		this.ctx = this.canvas.getContext('2d');
 		// Draw in user units; the scale factor only changes how many device pixels each
 		// unit covers.
@@ -230,13 +252,120 @@ export class CanvasRenderer implements Renderer {
 		}
 	}
 
-	// Still to come. They throw rather than no-op so a style that needs them fails loudly
-	// instead of silently rendering without its raster tiles, icons or labels. (Parameters
-	// are omitted: TypeScript still satisfies the wider `Renderer` signatures.)
-	public drawRasterTiles(): void {
-		throw new Error('CanvasRenderer: raster tiles are not implemented yet');
+	public async drawRasterTiles(
+		_id: string,
+		tiles: RasterTile[],
+		style: RasterStyle,
+	): Promise<void> {
+		if (tiles.length === 0 || style.opacity <= 0) return;
+
+		// Decode every distinct tile image once. `loadImage` is asynchronous on purpose:
+		// setting `Image.src` from a buffer reports `complete === true` straight away, but
+		// the pixels only land on the next tick, so drawing it right away paints nothing.
+		const images = new Map<string, Image>();
+		await Promise.all(
+			[...new Set(tiles.map((tile) => tile.dataUri))].map(async (uri) => {
+				images.set(uri, await this.#decode(uri));
+			}),
+		);
+
+		const { ctx } = this;
+		ctx.save();
+		if (style.opacity < 1) ctx.globalAlpha = style.opacity;
+		// The same colour adjustments the SVG backend expresses as CSS filter functions.
+		const filters: string[] = [];
+		if (style.hueRotate !== 0) filters.push(`hue-rotate(${String(style.hueRotate)}deg)`);
+		if (style.saturation !== 0) filters.push(`saturate(${String(style.saturation + 1)})`);
+		if (style.contrast !== 0) filters.push(`contrast(${String(style.contrast + 1)})`);
+		if (style.brightnessMin !== 0 || style.brightnessMax !== 1) {
+			filters.push(`brightness(${String((style.brightnessMin + style.brightnessMax) / 2)})`);
+		}
+		if (filters.length > 0) ctx.filter = filters.join(' ');
+		if (style.resampling === 'nearest') ctx.imageSmoothingEnabled = false;
+
+		this.#drawRasterMeshes(tiles, images);
+
+		for (const tile of tiles) {
+			if (tile.triangles) continue;
+			const image = images.get(tile.dataUri);
+			if (!image) continue;
+			// A slight overlap prevents sub-pixel gaps between neighbouring tiles.
+			const overlap = Math.min(tile.width, tile.height) / 10000;
+			ctx.drawImage(
+				image,
+				tile.x - overlap,
+				tile.y - overlap,
+				tile.width + overlap * 2,
+				tile.height + overlap * 2,
+			);
+		}
+
+		ctx.restore();
 	}
 
+	/**
+	 * Draws the tiles given as triangle meshes (globe projection). Each triangle shows its
+	 * tile image through the affine transform mapping its three source corners onto its
+	 * three screen corners, clipped to the triangle.
+	 *
+	 * Seams: every clip triangle is grown by RASTER_TRIANGLE_OVERLAP_PX, so it overlaps its
+	 * neighbour with (almost) the same pixels. At tile borders that is not enough, as both
+	 * images end on the same line and their antialiased edges let the background show
+	 * through — so the border triangles are drawn first as an underlay with their image
+	 * reaching past the border, and the real triangles are drawn exactly on top.
+	 */
+	#drawRasterMeshes(tiles: RasterTile[], images: Map<string, Image>): void {
+		const meshes = tiles.flatMap((tile) => {
+			const image = tile.triangles ? images.get(tile.dataUri) : undefined;
+			return image && tile.triangles ? [{ image, triangles: tile.triangles }] : [];
+		});
+
+		for (const { image, triangles } of meshes) {
+			for (const { source, target } of triangles) {
+				if (!isOnTileBorder(source)) continue;
+				this.#drawRasterTriangle(image, bleedAtTileBorder(source, target), target);
+			}
+		}
+		for (const { image, triangles } of meshes) {
+			for (const { source, target } of triangles) {
+				this.#drawRasterTriangle(image, source, target);
+			}
+		}
+	}
+
+	#drawRasterTriangle(image: Image, source: Triangle, target: Triangle): void {
+		const matrix = affineFromTriangles(source, target);
+		if (!matrix) return;
+		const clip = growTriangle(target, RASTER_TRIANGLE_OVERLAP_PX);
+		const { ctx } = this;
+		ctx.save();
+		ctx.beginPath();
+		ctx.moveTo(clip[0][0], clip[0][1]);
+		ctx.lineTo(clip[1][0], clip[1][1]);
+		ctx.lineTo(clip[2][0], clip[2][1]);
+		ctx.closePath();
+		ctx.clip();
+		// The affine maps the tile's source square (RASTER_TILE_UNITS on a side) onto the
+		// screen, so the image is drawn into exactly that square.
+		ctx.transform(...matrix);
+		ctx.drawImage(image, 0, 0, RASTER_TILE_UNITS, RASTER_TILE_UNITS);
+		ctx.restore();
+	}
+
+	async #decode(dataUri: string): Promise<Image> {
+		const cached = this.#images.get(dataUri);
+		if (cached) return cached;
+		if (!this.#loadImage) {
+			throw new Error('CanvasRenderer: drawing images needs a `loadImage` in its options');
+		}
+		const image = await this.#loadImage(dataUri);
+		this.#images.set(dataUri, image);
+		return image;
+	}
+
+	// Still to come. They throw rather than no-op so a style that needs them fails loudly
+	// instead of silently rendering without its icons or labels. (Parameters are omitted:
+	// TypeScript still satisfies the wider `Renderer` signatures.)
 	public drawIcons(): void {
 		throw new Error('CanvasRenderer: icons are not implemented yet');
 	}
