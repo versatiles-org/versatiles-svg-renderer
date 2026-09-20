@@ -8,12 +8,16 @@ import type {
 	BackgroundStyle,
 	CircleStyle,
 	FillStyle,
+	IconStyle,
 	LineStyle,
 	RasterStyle,
 	RasterTile,
 	Renderer,
 	RendererOptions,
+	SymbolStyle,
 } from './types.js';
+import type { SpriteAtlas } from '../sources/sprite.js';
+import { mapIconAnchor, mapTextAnchor } from './anchors.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -406,15 +410,181 @@ export class CanvasRenderer implements Renderer {
 		return image;
 	}
 
-	// Still to come. They throw rather than no-op so a style that needs them fails loudly
-	// instead of silently rendering without its icons or labels. (Parameters are omitted:
-	// TypeScript still satisfies the wider `Renderer` signatures.)
-	public drawIcons(): void {
-		throw new Error('CanvasRenderer: icons are not implemented yet');
+	public async drawIcons(
+		_id: string,
+		features: [Feature, IconStyle][],
+		spriteAtlas: SpriteAtlas,
+	): Promise<void> {
+		if (features.length === 0) return;
+
+		const drawable = features.filter(([, style]) => {
+			const sprite = spriteAtlas.get(style.image);
+			return style.opacity > 0 && sprite !== undefined;
+		});
+		if (drawable.length === 0) return;
+
+		// Decode each sprite sheet once, up front, so the drawing itself stays synchronous
+		// and keeps the features in order.
+		const sheets = new Map<string, Image>();
+		await Promise.all(
+			[...new Set(drawable.map(([, style]) => spriteAtlas.get(style.image)!.sheetDataUri))].map(
+				async (uri) => {
+					sheets.set(uri, await this.#decode(uri));
+				},
+			),
+		);
+
+		for (const [feature, style] of drawable) {
+			const sprite = spriteAtlas.get(style.image)!;
+			const sheet = sheets.get(sprite.sheetDataUri);
+			if (!sheet) continue;
+
+			const ring = feature.geometry[0];
+			if (!ring || ring.length === 0) continue;
+			const point = ring[Math.floor(ring.length / 2)]!;
+
+			const scale = style.size / sprite.pixelRatio;
+			const width = sprite.width * scale;
+			const height = sprite.height * scale;
+			const [anchorX, anchorY] = mapIconAnchor(style.anchor, width, height);
+			const [x, y] = roundPoint(
+				point.x + style.offset[0] * style.size + anchorX,
+				point.y + style.offset[1] * style.size + anchorY,
+			);
+			const box = {
+				x: x / UNITS_PER_PX,
+				y: y / UNITS_PER_PX,
+				width,
+				height,
+			};
+			// The SVG backend rotates about the point plus its offset, before the anchor is
+			// applied; mirror that so both backends place a rotated icon identically.
+			const [pivotX, pivotY] = roundPoint(
+				point.x + style.offset[0] * style.size,
+				point.y + style.offset[1] * style.size,
+			);
+			const pivot: [number, number] = [pivotX / UNITS_PER_PX, pivotY / UNITS_PER_PX];
+
+			const blit = (ctx: SKRSContext2D): void => {
+				ctx.save();
+				if (style.rotate !== 0) {
+					ctx.translate(pivot[0], pivot[1]);
+					ctx.rotate((style.rotate * Math.PI) / 180);
+					ctx.translate(-pivot[0], -pivot[1]);
+				}
+				ctx.drawImage(
+					sheet,
+					sprite.x,
+					sprite.y,
+					sprite.width,
+					sprite.height,
+					box.x,
+					box.y,
+					box.width,
+					box.height,
+				);
+				ctx.restore();
+			};
+
+			if (!style.sdf) {
+				this.#paint(this.ctx, [0, 0], style.opacity, blit);
+				continue;
+			}
+			this.#drawSdfIcon(box, pivot, style, blit);
+		}
 	}
 
-	public drawLabels(): void {
-		throw new Error('CanvasRenderer: labels are not implemented yet');
+	/**
+	 * Recolours an SDF sprite and gives it a halo. MapLibre treats the sprite's alpha as a
+	 * signed distance field: everything at or above 0.75 is inside the glyph. So the mask is
+	 * thresholded there, dilated by the halo width, and the two regions are filled with the
+	 * icon and halo colours — the same result the SVG backend gets from feComponentTransfer,
+	 * feMorphology and feFlood, computed directly on the pixels.
+	 */
+	#drawSdfIcon(
+		box: Region,
+		pivot: [number, number],
+		style: IconStyle,
+		blit: (ctx: SKRSContext2D) => void,
+	): void {
+		const color = new Color(style.color);
+		const haloColor = new Color(style.haloColor);
+		const halo = style.haloWidth > 0 && haloColor.alpha > 0 ? Math.round(style.haloWidth) : 0;
+
+		// A rotated icon sweeps out at most its diagonal; add the halo on top.
+		const reach = style.rotate !== 0 ? Math.hypot(box.width, box.height) : 0;
+		const margin = halo + 1 + reach;
+		const region: Region = {
+			x: Math.min(box.x, pivot[0]) - margin,
+			y: Math.min(box.y, pivot[1]) - margin,
+			width: box.width + 2 * margin + Math.abs(box.x - pivot[0]),
+			height: box.height + 2 * margin + Math.abs(box.y - pivot[1]),
+		};
+
+		const haloPixels = Math.round(halo * this.scale);
+		this.#isolateRaw(region, style.opacity, blit, (data, width, height) => {
+			// MapLibre's SDF edge: alpha >= 0.75 is inside the glyph.
+			const inside = new Uint8Array(width * height);
+			for (let i = 0; i < inside.length; i++) inside[i] = data[i * 4 + 3]! >= 191 ? 1 : 0;
+			const dilated = haloPixels > 0 ? dilate(inside, width, height, haloPixels) : inside;
+
+			for (let i = 0; i < inside.length; i++) {
+				const paint = inside[i] ? color : dilated[i] ? haloColor : undefined;
+				const at = i * 4;
+				if (!paint) {
+					data[at + 3] = 0;
+					continue;
+				}
+				const [r, g, b] = paint.rgbBytes;
+				data[at] = r;
+				data[at + 1] = g;
+				data[at + 2] = b;
+				data[at + 3] = paint.alpha;
+			}
+		});
+	}
+
+	public drawLabels(_id: string, features: [Feature, SymbolStyle][]): void {
+		if (features.length === 0) return;
+
+		for (const [feature, style] of features) {
+			if (style.opacity <= 0 || !style.text) continue;
+			const color = new Color(style.color);
+			if (color.alpha <= 0) continue;
+
+			const ring = feature.geometry[0];
+			if (!ring || ring.length === 0) continue;
+			const point = ring[Math.floor(ring.length / 2)]!;
+			const [px, py] = roundPoint(point.x, point.y);
+			const x = px / UNITS_PER_PX;
+			const y = py / UNITS_PER_PX;
+			const [dx, dy] = roundPoint(style.offset[0] * style.size, style.offset[1] * style.size);
+
+			const [align, baseline] = mapTextAnchor(style.anchor);
+
+			this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
+				if (style.rotate !== 0) {
+					ctx.translate(x, y);
+					ctx.rotate((style.rotate * Math.PI) / 180);
+					ctx.translate(-x, -y);
+				}
+				ctx.font = `${String(roundToTenths(style.size))}px ${style.font.join(', ')}, Helvetica, Arial, sans-serif`;
+				ctx.textAlign = CANVAS_TEXT_ALIGN[align];
+				ctx.textBaseline = CANVAS_TEXT_BASELINE[baseline];
+
+				const haloColor = new Color(style.haloColor);
+				// Stroke first, then fill: the same order `paint-order="stroke fill"` gives the
+				// SVG backend, so the halo stays behind the glyph.
+				if (style.haloWidth > 0 && haloColor.alpha > 0) {
+					ctx.strokeStyle = haloColor.hex;
+					ctx.lineWidth = roundToTenths(style.haloWidth);
+					ctx.lineJoin = 'round';
+					ctx.strokeText(style.text, x + dx / UNITS_PER_PX, y + dy / UNITS_PER_PX);
+				}
+				ctx.fillStyle = color.hex;
+				ctx.fillText(style.text, x + dx / UNITS_PER_PX, y + dy / UNITS_PER_PX);
+			});
+		}
 	}
 
 	public toBuffer(): Buffer {
@@ -451,6 +621,31 @@ export class CanvasRenderer implements Renderer {
 		alphaCurve: [number, number] | undefined,
 		draw: (ctx: SKRSContext2D) => void,
 	): void {
+		this.#isolateRaw(
+			region,
+			opacity,
+			draw,
+			alphaCurve &&
+				((data): void => {
+					const [slope, intercept] = alphaCurve;
+					for (let i = 3; i < data.length; i += 4) {
+						const alpha = data[i]! * slope + intercept * 255;
+						data[i] = alpha <= 0 ? 0 : alpha >= 255 ? 255 : Math.round(alpha);
+					}
+				}),
+		);
+	}
+
+	/**
+	 * The general form of {@link #isolate}: `pixels` may rewrite the layer's device pixels
+	 * however it likes (straight, un-premultiplied RGBA) before it is composited.
+	 */
+	#isolateRaw(
+		region: Region,
+		opacity: number,
+		draw: (ctx: SKRSContext2D) => void,
+		pixels?: (data: Uint8ClampedArray, width: number, height: number) => void,
+	): void {
 		const scratch = this.#scratchLayer();
 		// The device-pixel window of the region, clamped to the canvas.
 		const x = Math.max(0, Math.floor(region.x * this.scale));
@@ -470,16 +665,11 @@ export class CanvasRenderer implements Renderer {
 		draw(scratch.ctx);
 		scratch.ctx.restore();
 
-		if (alphaCurve) {
-			const [slope, intercept] = alphaCurve;
+		if (pixels) {
 			// getImageData/putImageData work in device pixels and in straight (un-premultiplied)
-			// alpha, which is what feComponentTransfer's feFuncA operates on too.
+			// alpha, which is what an SVG filter primitive operates on too.
 			const image = scratch.ctx.getImageData(x, y, width, height);
-			const { data } = image;
-			for (let i = 3; i < data.length; i += 4) {
-				const alpha = data[i]! * slope + intercept * 255;
-				data[i] = alpha <= 0 ? 0 : alpha >= 255 ? 255 : Math.round(alpha);
-			}
+			pixels(image.data, width, height);
 			scratch.ctx.putImageData(image, x, y);
 		}
 
@@ -516,6 +706,46 @@ export class CanvasRenderer implements Renderer {
 			if (close) ctx.closePath();
 		}
 	}
+}
+
+const CANVAS_TEXT_ALIGN = {
+	start: 'start',
+	middle: 'center',
+	end: 'end',
+} as const satisfies Record<string, CanvasTextAlign>;
+
+const CANVAS_TEXT_BASELINE = {
+	central: 'middle',
+	'text-before-edge': 'top',
+	'text-after-edge': 'bottom',
+} as const satisfies Record<string, CanvasTextBaseline>;
+
+/**
+ * Grows a binary mask by `radius` pixels, the way feMorphology's dilate does: with a
+ * rectangular structuring element, applied separably so the cost is O(pixels x radius)
+ * rather than O(pixels x radius^2).
+ */
+function dilate(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
+	const pass = (source: Uint8Array, horizontal: boolean): Uint8Array => {
+		const out = new Uint8Array(source.length);
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				let on = 0;
+				for (let d = -radius; d <= radius && !on; d++) {
+					const sx = horizontal ? x + d : x;
+					const sy = horizontal ? y : y + d;
+					if (sx >= 0 && sx < width && sy >= 0 && sy < height && source[sy * width + sx]) on = 1;
+				}
+				out[y * width + x] = on;
+			}
+		}
+		return out;
+	};
+	return pass(pass(mask, true), false);
+}
+
+function roundToTenths(v: number): number {
+	return Math.round(v * UNITS_PER_PX) / UNITS_PER_PX;
 }
 
 /** A rectangle in user units. */

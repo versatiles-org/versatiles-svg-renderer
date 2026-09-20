@@ -16,6 +16,7 @@ import type {
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import type { ClipCircle } from '../projection.js';
+import { mapIconAnchor, mapTextAnchor } from './anchors.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -699,52 +700,6 @@ function roundXY(x: number, y: number): [number, number] {
 function formatPoint(p: [number, number]): string {
 	const [x, y] = roundXY(p[0], p[1]);
 	return formatNum(x) + ',' + formatNum(y);
-}
-
-function mapTextAnchor(anchor: string): [string, string] {
-	switch (anchor) {
-		case 'left':
-			return ['start', 'central'];
-		case 'right':
-			return ['end', 'central'];
-		case 'top':
-			return ['middle', 'text-before-edge'];
-		case 'bottom':
-			return ['middle', 'text-after-edge'];
-		case 'top-left':
-			return ['start', 'text-before-edge'];
-		case 'top-right':
-			return ['end', 'text-before-edge'];
-		case 'bottom-left':
-			return ['start', 'text-after-edge'];
-		case 'bottom-right':
-			return ['end', 'text-after-edge'];
-		default:
-			return ['middle', 'central'];
-	}
-}
-
-function mapIconAnchor(anchor: string, w: number, h: number): [number, number] {
-	switch (anchor) {
-		case 'left':
-			return [0, -h / 2];
-		case 'right':
-			return [-w, -h / 2];
-		case 'top':
-			return [-w / 2, 0];
-		case 'bottom':
-			return [-w / 2, -h];
-		case 'top-left':
-			return [0, 0];
-		case 'top-right':
-			return [-w, 0];
-		case 'bottom-left':
-			return [0, -h];
-		case 'bottom-right':
-			return [-w, -h];
-		default:
-			return [-w / 2, -h / 2];
-	}
 }
 
 function escapeXml(s: string): string {

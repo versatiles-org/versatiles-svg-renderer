@@ -3,7 +3,16 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { CanvasRenderer } from './canvas.js';
 import { Feature, Point2D } from '../geometry.js';
-import type { CircleStyle, FillStyle, LineStyle, RasterStyle, RasterTile } from './types.js';
+import type {
+	CircleStyle,
+	FillStyle,
+	IconStyle,
+	LineStyle,
+	RasterStyle,
+	RasterTile,
+	SymbolStyle,
+} from './types.js';
+import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {
 	const r = (parseInt(hex.slice(1, 3), 16) / 255) * alpha;
@@ -602,13 +611,210 @@ describe('CanvasRenderer', () => {
 		});
 	});
 
-	describe('not implemented yet', () => {
-		test.each([
-			['drawIcons', 'icons'],
-			['drawLabels', 'labels'],
-		])('%s throws rather than silently drawing nothing', (method, subject) => {
+	describe('drawIcons', () => {
+		// A sprite sheet with one opaque green 8x8 sprite at (8, 0), and one soft-edged
+		// sprite at (0, 0) standing in for an SDF glyph (alpha ramps across it).
+		const sheet = (() => {
+			const canvas = createCanvas(16, 8);
+			const ctx = canvas.getContext('2d');
+			for (let x = 0; x < 8; x++) {
+				// alpha 0 at the left edge, 1 at the right: the 0.75 threshold falls at x = 6.
+				ctx.fillStyle = `rgba(0,0,0,${String(x / 7)})`;
+				ctx.fillRect(x, 0, 1, 8);
+			}
+			ctx.fillStyle = '#00FF00';
+			ctx.fillRect(8, 0, 8, 8);
+			return canvas.toDataURL('image/png');
+		})();
+
+		function atlas(overrides: Partial<SpriteEntry> = {}): SpriteAtlas {
+			return new Map([
+				[
+					'pin',
+					{
+						width: 8,
+						height: 8,
+						x: 8,
+						y: 0,
+						pixelRatio: 1,
+						sdf: false,
+						sheetDataUri: sheet,
+						sheetWidth: 16,
+						sheetHeight: 8,
+						...overrides,
+					},
+				],
+			]);
+		}
+
+		function iconStyle(overrides: Partial<IconStyle> = {}): IconStyle {
+			return {
+				image: 'pin',
+				size: 1,
+				anchor: 'center',
+				offset: [0, 0],
+				rotate: 0,
+				opacity: 1,
+				sdf: false,
+				color: mc('#FF0000'),
+				haloColor: mc('#0000FF'),
+				haloWidth: 0,
+				...overrides,
+			};
+		}
+
+		const makeIconRenderer = () =>
+			new CanvasRenderer({ width: 64, height: 64, createCanvas, loadImage });
+
+		test('blits the sprite, centred on its point by default', async () => {
+			const r = makeIconRenderer();
+			await r.drawIcons('icons', [[makePointFeature([[32, 32]]), iconStyle()]], atlas());
+			expect(at(r, 32, 32).slice(0, 3)).toEqual([0, 255, 0]);
+			// 8x8 centred on (32,32) spans 28..36, so 26 is outside.
+			expect(at(r, 26, 32)[3]).toBe(0);
+		});
+
+		test('honours icon-anchor', async () => {
+			const r = makeIconRenderer();
+			await r.drawIcons(
+				'icons',
+				[[makePointFeature([[32, 32]]), iconStyle({ anchor: 'top-left' })]],
+				atlas(),
+			);
+			expect(at(r, 35, 35).slice(0, 3)).toEqual([0, 255, 0]); // down-right of the point
+			expect(at(r, 29, 29)[3]).toBe(0);
+		});
+
+		test('skips an unknown sprite and zero opacity', async () => {
+			const r = makeIconRenderer();
+			await r.drawIcons(
+				'icons',
+				[[makePointFeature([[32, 32]]), iconStyle({ image: 'nope' })]],
+				atlas(),
+			);
+			await r.drawIcons(
+				'icons',
+				[[makePointFeature([[32, 32]]), iconStyle({ opacity: 0 })]],
+				atlas(),
+			);
+			expect(at(r, 32, 32)[3]).toBe(0);
+		});
+
+		test('an SDF icon is recoloured at the 0.75 alpha edge', async () => {
+			const r = makeIconRenderer();
+			await r.drawIcons(
+				'icons',
+				[
+					[
+						makePointFeature([[32, 32]]),
+						iconStyle({ sdf: true, anchor: 'top-left', color: mc('#FF0000') }),
+					],
+				],
+				// the soft-edged sprite: alpha ramps 0..1 across its 8 columns
+				atlas({ x: 0, sdf: true }),
+			);
+			// Inside the glyph (alpha >= 0.75) the icon colour replaces the sprite's own.
+			expect(at(r, 39, 34).slice(0, 3)).toEqual([255, 0, 0]);
+			// Outside it, nothing is painted at all — the soft ramp is cut, not faded.
+			expect(at(r, 33, 34)[3]).toBe(0);
+		});
+
+		test('an SDF halo surrounds the glyph in the halo colour', async () => {
+			const r = makeIconRenderer();
+			await r.drawIcons(
+				'icons',
+				[
+					[
+						makePointFeature([[32, 32]]),
+						iconStyle({
+							sdf: true,
+							anchor: 'top-left',
+							color: mc('#FF0000'),
+							haloColor: mc('#0000FF'),
+							haloWidth: 2,
+						}),
+					],
+				],
+				atlas({ x: 0, sdf: true }),
+			);
+			// The sprite's alpha only crosses 0.75 in its last two columns, so the glyph lands
+			// at x = 38..39 and a halo of 2 dilates it out to x = 36.
+			expect(at(r, 39, 34).slice(0, 3)).toEqual([255, 0, 0]); // glyph
+			expect(at(r, 36, 34).slice(0, 3)).toEqual([0, 0, 255]); // dilated halo
+			expect(at(r, 34, 34)[3]).toBe(0); // beyond the halo
+		});
+
+		test('needs a loadImage to draw icons at all', async () => {
 			const r = makeRenderer();
-			expect(() => r[method as 'drawIcons']()).toThrow(subject);
+			await expect(
+				r.drawIcons('icons', [[makePointFeature([[32, 32]]), iconStyle()]], atlas()),
+			).rejects.toThrow(/loadImage/);
+		});
+	});
+
+	describe('drawLabels', () => {
+		function symbolStyle(overrides: Partial<SymbolStyle> = {}): SymbolStyle {
+			return {
+				text: 'Berlin',
+				size: 32,
+				font: ['Helvetica'],
+				anchor: 'center',
+				offset: [0, 0],
+				rotate: 0,
+				color: mc('#FF0000'),
+				opacity: 1,
+				haloColor: mc('#0000FF'),
+				haloWidth: 0,
+				...overrides,
+			};
+		}
+
+		const paintedPixels = (r: CanvasRenderer, match: (px: number[]) => boolean): number => {
+			const { data } = r.ctx.getImageData(0, 0, 256, 256);
+			let count = 0;
+			for (let i = 0; i < data.length; i += 4) {
+				if (match([data[i]!, data[i + 1]!, data[i + 2]!, data[i + 3]!])) count++;
+			}
+			return count;
+		};
+
+		test('draws the label text', () => {
+			const r = makeRenderer();
+			r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle()]]);
+			expect(paintedPixels(r, (p) => p[3]! > 128)).toBeGreaterThan(50);
+		});
+
+		test('skips empty text, zero opacity and transparent colours', () => {
+			const r = makeRenderer();
+			r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ text: '' })]]);
+			r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ opacity: 0 })]]);
+			r.drawLabels('labels', [
+				[makePointFeature([[128, 128]]), symbolStyle({ color: mc('#FF0000', 0) })],
+			]);
+			expect(paintedPixels(r, (p) => p[3]! > 0)).toBe(0);
+		});
+
+		test('text-anchor moves the label relative to its point', () => {
+			const leftOf = (anchor: string): number => {
+				const r = makeRenderer();
+				r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ anchor })]]);
+				const { data } = r.ctx.getImageData(0, 0, 256, 256);
+				for (let x = 0; x < 256; x++) {
+					for (let y = 0; y < 256; y++) if (data[(y * 256 + x) * 4 + 3]! > 128) return x;
+				}
+				return -1;
+			};
+			// 'left' anchors the text's start at the point; 'right' ends it there.
+			expect(leftOf('left')).toBeGreaterThan(leftOf('right'));
+		});
+
+		test('the halo is drawn behind the glyph, not over it', () => {
+			const r = makeRenderer();
+			r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ haloWidth: 4 })]]);
+			const glyph = paintedPixels(r, (p) => p[0]! > 200 && p[2]! < 60);
+			const halo = paintedPixels(r, (p) => p[2]! > 200 && p[0]! < 60);
+			expect(glyph).toBeGreaterThan(50);
+			expect(halo).toBeGreaterThan(50);
 		});
 	});
 

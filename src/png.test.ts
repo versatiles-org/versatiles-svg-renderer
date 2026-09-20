@@ -69,9 +69,7 @@ describe('renderToPNG', () => {
 		expect([...ctx.getImageData(8, 8, 1, 1).data]).toEqual([0, 0, 255, 255]);
 	});
 
-	// Labels, icons and raster tiles are still to come on the canvas backend. A style that
-	// needs them must fail loudly rather than quietly render without them.
-	test('fails loudly for a symbol layer the canvas backend cannot draw yet', async () => {
+	test('renders a symbol layer when labels are enabled', async () => {
 		const symbolStyle = {
 			version: 8 as const,
 			sources: {
@@ -90,12 +88,25 @@ describe('renderToPNG', () => {
 					id: 'labels',
 					type: 'symbol' as const,
 					source: 'points',
-					layout: { 'text-field': 'X' },
+					layout: { 'text-field': 'X', 'text-size': 32 },
+					paint: { 'text-color': '#ff0000' },
 				},
 			],
 		};
-		await expect(
-			renderToPNG({ style: symbolStyle, renderLabels: true, width: 16, height: 16 }),
-		).rejects.toThrow(/not implemented yet/);
+
+		const png = await renderToPNG({
+			style: symbolStyle,
+			renderLabels: true,
+			width: 64,
+			height: 64,
+		});
+		const { createCanvas, loadImage } = await loadCanvasBackend();
+		const canvas = createCanvas(64, 64);
+		const ctx = canvas.getContext('2d');
+		ctx.drawImage(await loadImage(png), 0, 0);
+		const { data } = ctx.getImageData(0, 0, 64, 64);
+		let painted = 0;
+		for (let i = 3; i < data.length; i += 4) if (data[i]! > 0) painted++;
+		expect(painted).toBeGreaterThan(0);
 	});
 });

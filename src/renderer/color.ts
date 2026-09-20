@@ -78,6 +78,11 @@ export class Color {
 		return `#${d2h(this.values[0])}${d2h(this.values[1])}${d2h(this.values[2])}`;
 	}
 
+	/** The red, green and blue components as bytes, for painting pixels directly. */
+	public get rgbBytes(): [number, number, number] {
+		return [this.values[0], this.values[1], this.values[2]];
+	}
+
 	public get opacity(): number {
 		return this.values[3] / 255;
 	}
