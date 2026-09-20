@@ -565,6 +565,37 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('opacity="0.308"');
 		});
 
+		test('blur filter region spans the canvas, so axis-aligned lines survive', () => {
+			// A perfectly horizontal or vertical path has a zero-area bounding box, so with
+			// the SVG default (filterUnits="objectBoundingBox") the filter region collapses
+			// to nothing and the line is dropped entirely -- both Chromium and resvg do this,
+			// per spec. The region must therefore be given in user space over the whole canvas.
+			const r = makeRenderer();
+			const horizontal = makeLineFeature([
+				[
+					[0, 50],
+					[256, 50],
+				],
+			]);
+			const vertical = makeLineFeature([
+				[
+					[50, 0],
+					[50, 256],
+				],
+			]);
+			r.drawLineStrings('line-test', [
+				[horizontal, lineStyle({ blur: 3 })],
+				[vertical, lineStyle({ blur: 3 })],
+			]);
+			const svg = r.getString();
+			expect(svg).toContain(
+				'<filter id="line-blur-0" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">',
+			);
+			expect(svg).not.toContain('objectBoundingBox');
+			// Both axis-aligned lines must still reference the filter.
+			expect((svg.match(/filter="url\(#line-blur-0\)"/g) ?? []).length).toBe(2);
+		});
+
 		test('does not emit a blur filter when line-blur is 0', () => {
 			const r = makeRenderer();
 			const feature = makeLineFeature([
