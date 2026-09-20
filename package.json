@@ -83,6 +83,9 @@
   "engines": {
     "node": ">= 22"
   },
+  "dependencies": {
+    "@types/geojson": "^7946.0.16"
+  },
   "peerDependencies": {
     "@napi-rs/canvas": ">=1.0.0",
     "maplibre-gl": ">=3.0.0"

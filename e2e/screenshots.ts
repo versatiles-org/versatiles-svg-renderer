@@ -165,7 +165,10 @@ async function renderPngShot(
 		fonts,
 	});
 	writeFileSync(resolve(pngDir, `${id}.png`), buffer);
-	return { png: flattenOnWhite(PNG.sync.read(buffer)), sizeKB: buffer.byteLength / 1024 };
+	// `renderToPNG` returns a Uint8Array (its public type carries no Node globals); pngjs
+	// wants a Buffer, which wraps the same memory without copying it.
+	const asBuffer = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+	return { png: flattenOnWhite(PNG.sync.read(asBuffer)), sizeKB: buffer.byteLength / 1024 };
 }
 
 function flattenOnWhite(png: PNG): PNG {

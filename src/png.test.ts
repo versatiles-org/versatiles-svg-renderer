@@ -49,7 +49,10 @@ describe('renderToPNG', () => {
 	};
 
 	// PNG dimensions live in the IHDR chunk, right after the 8-byte signature.
-	const pngSize = (png: Buffer): [number, number] => [png.readUInt32BE(16), png.readUInt32BE(20)];
+	const pngSize = (png: Uint8Array): [number, number] => {
+		const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+		return [view.getUint32(16), view.getUint32(20)];
+	};
 
 	test('renders a PNG at the requested size', async () => {
 		const png = await renderToPNG({ style: minimalStyle, width: 64, height: 32 });

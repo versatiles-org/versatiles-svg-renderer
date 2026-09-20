@@ -39,10 +39,14 @@ function check(name: string, run: () => string): void {
 		console.log(`  ${green('✓')} ${name}${detail ? dim(` — ${detail}`) : ''}`);
 	} catch (error) {
 		failures++;
+		// A failed child process keeps the interesting part (tsc's diagnostics) in stdout,
+		// not in the message.
+		const output = ((error as { stdout?: string }).stdout ?? '').trim();
+		const message = String(error instanceof Error ? error.message : error).split('\n')[0] ?? '';
 		console.log(`  ${red('✗')} ${name}`);
-		console.log(
-			red(`      ${String(error instanceof Error ? error.message : error).split('\n')[0]}`),
-		);
+		for (const line of (output || message).split('\n').slice(0, 6)) {
+			console.log(red(`      ${line}`));
+		}
 	}
 }
 
@@ -212,7 +216,8 @@ try {
 				const png = await m.renderToPNG({ style: ${BACKGROUND_STYLE}, width: 32, height: 16 });
 				const signature = [...png.subarray(0, 4)].join(',');
 				if (signature !== '137,80,78,71') throw new Error('not a PNG: ' + signature);
-				const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+				const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+				const width = view.getUint32(16), height = view.getUint32(20);
 				if (width !== 32 || height !== 16) throw new Error('wrong size: ' + width + 'x' + height);
 				console.log(png.length + ' bytes, ' + width + 'x' + height);
 			}).catch((e) => { console.error(e.message); process.exit(1); })`,
@@ -222,7 +227,11 @@ try {
 
 	// --- Types ---------------------------------------------------------------
 	check('a consumer typechecks against the published types', () => {
-		for (const pkg of ['typescript', '@types/node']) {
+		// Only the compiler is provided. No `@types/node`: the published types must not
+		// depend on Node's ambient globals (which is why `renderToPNG` returns a
+		// `Uint8Array` rather than a `Buffer`), and no `@types/geojson` either — the
+		// package declares that itself, so installing the tarball brings it along.
+		for (const pkg of ['typescript']) {
 			const link = resolve(consumer, 'node_modules', pkg);
 			// A scoped package needs its scope directory to exist before the link is made.
 			mkdirSync(dirname(link), { recursive: true });
@@ -246,13 +255,38 @@ try {
 					lib: ['ESNext'],
 					strict: true,
 					noEmit: true,
-					skipLibCheck: true,
+					// Deliberately off: the published .d.ts files must stand on their own. With
+					// it on, a type this package cannot resolve silently degrades to `any`
+					// instead of failing, which is exactly the bug this guards against.
+					skipLibCheck: false,
 				},
 				include: ['consumer.ts'],
 			}),
 		);
 		execFileSync(resolve(repo, 'node_modules/.bin/tsc'), ['-p', consumer], { encoding: 'utf8' });
-		return 'node16 resolution, strict';
+		return 'node16 resolution, strict, skipLibCheck off';
+	});
+
+	check('the style argument is really typed, not `any`', () => {
+		// If `StyleSpecification` cannot be resolved it becomes `any` and every style is
+		// accepted — the failure mode that makes the previous check pass for the wrong
+		// reason. A style missing a required field must be rejected.
+		writeFileSync(
+			resolve(consumer, 'consumer.ts'),
+			`import { renderToSVG } from '@versatiles/svg-renderer';\n` +
+				`export const svg = renderToSVG({ style: { version: 8, sources: {} } });\n`,
+		);
+		let output = '';
+		try {
+			execFileSync(resolve(repo, 'node_modules/.bin/tsc'), ['-p', consumer], { encoding: 'utf8' });
+		} catch (error) {
+			output = (error as { stdout?: string }).stdout ?? '';
+		}
+		assert(
+			output.includes('layers'),
+			`a style without "layers" was accepted: ${output || 'no error'}`,
+		);
+		return 'a style missing "layers" is rejected';
 	});
 } finally {
 	rmSync(work, { recursive: true, force: true });

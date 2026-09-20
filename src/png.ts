@@ -47,7 +47,15 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
 	}
 }
 
-export async function renderToPNG(options: RenderToPNGOptions): Promise<Buffer> {
+/**
+ * Renders the map to an encoded PNG.
+ *
+ * The result is a `Uint8Array` rather than a Node `Buffer`: `Buffer` is an ambient type
+ * from `@types/node`, and naming it here would make every consumer of this entry point
+ * install those types just to typecheck. (The value returned at runtime is a `Buffer`,
+ * which is a `Uint8Array`, so passing it straight to `writeFile` still works.)
+ */
+export async function renderToPNG(options: RenderToPNGOptions): Promise<Uint8Array> {
 	const width = options.width ?? 1024;
 	const height = options.height ?? 1024;
 	const scale = options.scale ?? 1;

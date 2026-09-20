@@ -5,6 +5,21 @@ import dts from 'rollup-plugin-dts';
 
 const maplibreOnly = process.env.BUILD_TARGET === 'maplibre';
 
+/**
+ * The public `.d.ts` files carry the MapLibre style spec's types inline rather than
+ * importing them. `@maplibre/maplibre-gl-style-spec` is only a devDependency — its code is
+ * bundled, so there is nothing to install at runtime — which left consumers unable to
+ * resolve `StyleSpecification`: with `skipLibCheck` on, `style` silently degraded to `any`
+ * and lost all checking; with it off, the build failed outright.
+ *
+ * Those inlined types refer to the ambient `GeoJSON` namespace, which the style spec uses
+ * but does not declare a dependency on, so each bundle also references `@types/geojson`
+ * (a real dependency of this package, types only).
+ */
+const dtsPlugin = (): ReturnType<typeof dts> =>
+	dts({ includeExternal: ['@maplibre/maplibre-gl-style-spec'] });
+const dtsBanner = '/// <reference types="geojson" />';
+
 const allConfigs: RollupOptions[] = [
 	{
 		input: 'src/index.ts',
@@ -16,8 +31,8 @@ const allConfigs: RollupOptions[] = [
 	},
 	{
 		input: 'dist/types/index.d.ts',
-		output: { file: 'dist/index.d.ts', format: 'es' },
-		plugins: [dts()],
+		output: { file: 'dist/index.d.ts', format: 'es', banner: dtsBanner },
+		plugins: [dtsPlugin()],
 	},
 	{
 		// PNG rendering is Node-only: it needs a native canvas backend, so it gets its own
@@ -35,9 +50,9 @@ const allConfigs: RollupOptions[] = [
 	},
 	{
 		input: 'dist/types/png.d.ts',
-		output: { file: 'dist/png.d.ts', format: 'es' },
+		output: { file: 'dist/png.d.ts', format: 'es', banner: dtsBanner },
 		external: ['@napi-rs/canvas'],
-		plugins: [dts()],
+		plugins: [dtsPlugin()],
 	},
 	{
 		input: 'src/maplibre/index.ts',
@@ -59,8 +74,8 @@ const allConfigs: RollupOptions[] = [
 	},
 	{
 		input: 'dist/types/maplibre/index.d.ts',
-		output: { file: 'dist/maplibre-svg-export.d.ts', format: 'es' },
-		plugins: [dts()],
+		output: { file: 'dist/maplibre-svg-export.d.ts', format: 'es', banner: dtsBanner },
+		plugins: [dtsPlugin()],
 	},
 ];
 
