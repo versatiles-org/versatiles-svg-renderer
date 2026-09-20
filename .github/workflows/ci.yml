@@ -50,6 +50,11 @@ jobs:
       - name: Run tests
         run: npm run test
 
+      # Packs the built package and consumes it from a throwaway project: a green build
+      # says the bundles compile, not that the published artifact is usable.
+      - name: Test the packaged release
+        run: npm run test:pack
+
       - name: Run MapLibre plugin E2E test
         run: npm run test:e2e
 

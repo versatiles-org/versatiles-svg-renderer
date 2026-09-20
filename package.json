@@ -55,7 +55,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript && rm -rf dist/types",
-    "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm run test && npm run test:e2e",
+    "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm run test && npm run test:pack && npm run test:e2e",
     "demo": "tsx src/demo.ts",
     "dev": "tsx dev/serve.ts",
     "dev:render-comparison": "tsx dev/render-comparison.ts",
@@ -72,6 +72,7 @@
     "test:e2e:maplibre": "tsx e2e/maplibre-control.ts",
     "test:e2e:screenshots": "tsx e2e/screenshots.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts && npm run test:e2e:maplibre && npm run test:e2e:screenshots",
+    "test:pack": "tsx scripts/test-pack.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json",
     "upgrade": "vrt deps-upgrade"
   },

@@ -1,30 +1,7 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { drawMap } from './pipeline/render.js';
 import { CanvasRenderer } from './renderer/canvas.js';
-
-/**
- * The canvas backend is an *optional* peer dependency, so it is imported dynamically:
- * installing this package for SVG output alone must not pull in a 27 MB native binary,
- * and the browser bundle must never reach this module at all (see rollup.config.ts).
- */
-type CanvasBackend = typeof import('@napi-rs/canvas');
-
-let backend: Promise<CanvasBackend> | undefined;
-
-export async function loadCanvasBackend(): Promise<CanvasBackend> {
-	backend ??= import('@napi-rs/canvas');
-	try {
-		return await backend;
-	} catch (cause: unknown) {
-		// Don't cache the failure: the caller may install the package and retry.
-		backend = undefined;
-		throw new Error(
-			'PNG rendering needs the optional peer dependency "@napi-rs/canvas". ' +
-				'Install it with `npm install @napi-rs/canvas`.',
-			{ cause },
-		);
-	}
-}
+import { type CanvasBackend, loadCanvasBackend } from './renderer/canvas_backend.js';
 
 export interface RenderToPNGOptions {
 	width?: number;

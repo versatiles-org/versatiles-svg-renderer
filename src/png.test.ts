@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from 'vitest';
 import { resolve } from 'node:path';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { loadCanvasBackend, renderToPNG } from './png.js';
+import { loadCanvasBackend } from './renderer/canvas_backend.js';
+import { renderToPNG } from './png.js';
 
 const minimalStyle = {
 	version: 8 as const,
@@ -25,8 +26,8 @@ describe('loadCanvasBackend', () => {
 		vi.doMock('@napi-rs/canvas', () => {
 			throw new Error("Cannot find package '@napi-rs/canvas'");
 		});
-		const png = await import('./png.js');
-		await expect(png.loadCanvasBackend()).rejects.toThrow(/npm install @napi-rs\/canvas/);
+		const backend = await import('./renderer/canvas_backend.js');
+		await expect(backend.loadCanvasBackend()).rejects.toThrow(/npm install @napi-rs\/canvas/);
 		vi.doUnmock('@napi-rs/canvas');
 		vi.resetModules();
 	});
