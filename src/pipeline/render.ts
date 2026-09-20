@@ -4,7 +4,7 @@ import { loadSpriteAtlas } from '../sources/sprite.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { getLayerStyles } from './style_layer.js';
 import type { PossiblyEvaluatedPropertyValue, StyleLayer } from './style_layer.js';
-import type { RenderJob } from '../renderer/svg.js';
+import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
 import type { Features, LayerFeatures } from '../geometry.js';
 import { Projection } from '../projection.js';
 
@@ -18,7 +18,12 @@ function resolveTokens(text: string, properties: Record<string, unknown>): strin
 	});
 }
 
-export async function renderMap(job: RenderJob): Promise<string> {
+/**
+ * Draws the map described by `job` onto its renderer and returns that renderer, so a
+ * caller can take the result in whatever form the backend provides (see
+ * {@link renderMap} for the SVG string, or the PNG entry point for an image buffer).
+ */
+export async function drawMap<R extends Renderer>(job: RenderJob<R>): Promise<R> {
 	job.projection ??= Projection.fromStyle({
 		width: job.renderer.width,
 		height: job.renderer.height,
@@ -29,7 +34,11 @@ export async function renderMap(job: RenderJob): Promise<string> {
 	const clipCircle = job.projection.clipCircle;
 	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
 	await render(job);
-	return job.renderer.getString();
+	return job.renderer;
+}
+
+export async function renderMap(job: RenderJob<StringRenderer>): Promise<string> {
+	return (await drawMap(job)).getString();
 }
 
 function getFeatures(layerFeatures: LayerFeatures, layerStyle: StyleLayer): Features | undefined {

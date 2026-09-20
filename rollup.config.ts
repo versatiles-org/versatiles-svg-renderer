@@ -20,6 +20,26 @@ const allConfigs: RollupOptions[] = [
 		plugins: [dts()],
 	},
 	{
+		// PNG rendering is Node-only: it needs a native canvas backend, so it gets its own
+		// entry instead of living in `src/index.ts` — which `src/maplibre/index.ts`
+		// re-exports, and which therefore ends up in the browser bundle. `@napi-rs/canvas`
+		// stays external: it is an optional peer dependency, loaded at runtime only when
+		// PNG output is actually used.
+		input: 'src/png.ts',
+		output: [
+			{ file: 'dist/png.js', format: 'es', sourcemap: true },
+			{ file: 'dist/png.cjs', format: 'cjs', sourcemap: true },
+		],
+		external: ['@napi-rs/canvas'],
+		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],
+	},
+	{
+		input: 'dist/types/png.d.ts',
+		output: { file: 'dist/png.d.ts', format: 'es' },
+		external: ['@napi-rs/canvas'],
+		plugins: [dts()],
+	},
+	{
 		input: 'src/maplibre/index.ts',
 		output: [
 			// The MapLibre control is browser-only (needs the DOM + maplibre-gl), so it

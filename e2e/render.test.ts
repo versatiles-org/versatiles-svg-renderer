@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { renderMap } from '../src/pipeline/render.js';
 import { SVGRenderer } from '../src/renderer/svg.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import type { RenderJob } from '../src/renderer/svg.js';
+import type { RenderJob, StringRenderer } from '../src/renderer/svg.js';
 import { installFetchCache, uninstallFetchCache } from './fetch-cache.js';
 
 beforeAll(() => {
@@ -19,7 +19,7 @@ function makeJob(
 	style: StyleSpecification,
 	center: [number, number] = [0, 0],
 	zoom = 2,
-): RenderJob {
+): RenderJob<StringRenderer> {
 	return {
 		style,
 		view: { center, zoom },

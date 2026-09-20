@@ -28,6 +28,7 @@ export type {
 	Renderer,
 	RenderJob,
 	RendererOptions,
+	StringRenderer,
 	SymbolStyle,
 	View,
 } from './types.js';

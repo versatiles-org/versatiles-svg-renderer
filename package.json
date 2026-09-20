@@ -31,6 +31,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./png": {
+      "import": {
+        "types": "./dist/png.d.ts",
+        "default": "./dist/png.js"
+      },
+      "require": {
+        "types": "./dist/png.d.ts",
+        "default": "./dist/png.cjs"
+      }
+    },
     "./maplibre": {
       "script": "./dist/maplibre-svg-export.umd.js",
       "import": {
@@ -73,9 +83,13 @@
     "node": ">= 22"
   },
   "peerDependencies": {
+    "@napi-rs/canvas": ">=1.0.0",
     "maplibre-gl": ">=3.0.0"
   },
   "peerDependenciesMeta": {
+    "@napi-rs/canvas": {
+      "optional": true
+    },
     "maplibre-gl": {
       "optional": true
     }
@@ -84,6 +98,7 @@
     "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^3.0.0",
     "@maplibre/maplibre-gl-style-spec": "^26.4.4",
+    "@napi-rs/canvas": "^1.0.9",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/node": "^26.6.2",

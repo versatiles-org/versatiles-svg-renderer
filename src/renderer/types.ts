@@ -8,6 +8,12 @@ export interface View {
 	zoom: number;
 }
 
+/**
+ * A drawing surface the render pipeline paints a map onto. It only describes *how* to
+ * draw; how the result is handed back is up to the backend, because those differ in
+ * kind: the SVG backend serializes to a string ({@link StringRenderer}), while a raster
+ * backend produces an encoded image buffer.
+ */
 export interface Renderer {
 	readonly width: number;
 	readonly height: number;
@@ -20,13 +26,17 @@ export interface Renderer {
 	drawRasterTiles(id: string, tiles: RasterTile[], style: RasterStyle): void;
 	/** Restricts all drawing to a circle (the silhouette of the globe). */
 	setClipCircle?(circle: ClipCircle): void;
+}
+
+/** A {@link Renderer} whose result is text, such as the SVG backend. */
+export interface StringRenderer extends Renderer {
 	getString(): string;
 }
 
-export interface RenderJob {
+export interface RenderJob<R extends Renderer = Renderer> {
 	style: StyleSpecification;
 	view: View;
-	renderer: Renderer;
+	renderer: R;
 	renderLabels?: boolean;
 	/** Derived from `view` and `style.projection` when not given. */
 	projection?: Projection;
