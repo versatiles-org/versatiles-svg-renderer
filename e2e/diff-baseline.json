@@ -1,17 +1,82 @@
 {
-	"berlin-geojson": 1.48,
-	"berlin-satellite": 0.57,
-	"berlin-vector": 0.29,
-	"europe-satellite-globe": 0.55,
-	"europe-vector-globe": 0.22,
-	"japan-vector-globe": 1.34,
-	"paris-vector": 0.35,
-	"roma-vector": 0.52,
-	"sao-paulo-vector": 0.57,
-	"scandinavia-vector-globe": 0.37,
-	"tokyo-vector": 1.12,
-	"tokyo-z11.5-vector-globe": 2.36,
-	"warsaw-vector": 0.29,
-	"world-satellite-globe": 0.5,
-	"world-vector-globe": 0.35
+	"berlin-vector": {
+		"svg": 0.3,
+		"png": 0.21,
+		"drift": 0.25
+	},
+	"paris-vector": {
+		"svg": 0.35,
+		"png": 0.2,
+		"drift": 0.29
+	},
+	"warsaw-vector": {
+		"svg": 0.59,
+		"png": 0.44,
+		"drift": 0.21
+	},
+	"tokyo-vector": {
+		"svg": 1.12,
+		"png": 0.6,
+		"drift": 0.87
+	},
+	"roma-vector": {
+		"svg": 0.55,
+		"png": 0.25,
+		"drift": 0.29
+	},
+	"sao-paulo-vector": {
+		"svg": 0.57,
+		"png": 0.15,
+		"drift": 0.58
+	},
+	"berlin-labels-vector": {
+		"svg": 8.88,
+		"png": 9.5,
+		"drift": 6.17
+	},
+	"berlin-satellite": {
+		"svg": 0.58,
+		"png": 0.49,
+		"drift": 0
+	},
+	"berlin-geojson": {
+		"svg": 1.48,
+		"png": 1.65,
+		"drift": 0.84
+	},
+	"world-vector-globe": {
+		"svg": 0.35,
+		"png": 0.61,
+		"drift": 0.27
+	},
+	"europe-vector-globe": {
+		"svg": 0.22,
+		"png": 0.19,
+		"drift": 0.04
+	},
+	"scandinavia-vector-globe": {
+		"svg": 0.37,
+		"png": 0.21,
+		"drift": 0.05
+	},
+	"japan-vector-globe": {
+		"svg": 1.34,
+		"png": 0.71,
+		"drift": 0.99
+	},
+	"tokyo-z11.5-vector-globe": {
+		"svg": 2.36,
+		"png": 1.72,
+		"drift": 1.34
+	},
+	"world-satellite-globe": {
+		"svg": 0.5,
+		"png": 0.61,
+		"drift": 0.06
+	},
+	"europe-satellite-globe": {
+		"svg": 0.55,
+		"png": 0.55,
+		"drift": 0
+	}
 }
