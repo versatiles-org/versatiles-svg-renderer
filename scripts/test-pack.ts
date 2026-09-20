@@ -124,8 +124,14 @@ try {
 	check('public types do not leak the optional peer dependency', () => {
 		// `./png` must typecheck for consumers who have not installed @napi-rs/canvas, so
 		// no exported signature may mention it.
+		// Match module references only. The documentation rightly names the package in
+		// prose ("install @napi-rs/canvas"), which a plain substring search mistakes for a
+		// dependency.
 		const types = readFileSync(resolve(repo, 'dist/png.d.ts'), 'utf8');
-		assert(!types.includes('@napi-rs/canvas'), 'dist/png.d.ts imports @napi-rs/canvas');
+		const reference =
+			/(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*)['"]@napi-rs\/canvas['"]|reference\s+types=["']@napi-rs\/canvas["']/;
+		const match = reference.exec(types);
+		assert(!match, `dist/png.d.ts references @napi-rs/canvas: ${match?.[0] ?? ''}`);
 		return 'dist/png.d.ts is clean';
 	});
 

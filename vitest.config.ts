@@ -6,7 +6,7 @@ export default defineConfig({
 		passWithNoTests: true,
 		coverage: {
 			include: ['src/**/*.ts'],
-			exclude: ['src/demo.ts'],
+			exclude: ['src/demo.ts', 'src/docs.ts'],
 			reporter: ['text', 'lcov'],
 		},
 	},

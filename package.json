@@ -61,7 +61,7 @@
     "dev:render-comparison": "tsx dev/render-comparison.ts",
     "doc:bundle": "vrt bundle-treemap dist/index.js --depth 3 --min-size 4000 --svg docs/bundle-treemap.svg | vrt doc-insert README.md '## Bundle Composition'",
     "doc:graph": "vrt deps-graph | vrt doc-insert README.md '## Dependency Graph'",
-    "doc:typescript": "npx vrt doc-typescript -f html -o ./doc-typescript",
+    "doc:typescript": "npx vrt doc-typescript -f html -i ./src/docs.ts -o ./doc-typescript",
     "format": "prettier --write --log-level warn .",
     "lint": "eslint --color .",
     "prepack": "npm run doc:graph && npm run build && npm run doc:bundle",

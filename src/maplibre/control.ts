@@ -2,10 +2,17 @@ import type { Map, IControl } from 'maplibre-gl';
 import { PANEL_CSS } from './panel_css.js';
 import { renderToSVG } from '../index.js';
 
+/** Options for {@link SVGExportControl}. */
 export interface SVGExportControlOptions {
-	/** Initial export width in px. Defaults to the current map viewport width. */
+	/**
+	 * Width, in pixels, that the export panel starts with. The user can change it.
+	 * @defaultValue the width of the map's container (or `1024` if that reports zero)
+	 */
 	defaultWidth?: number;
-	/** Initial export height in px. Defaults to the current map viewport height. */
+	/**
+	 * Height, in pixels, that the export panel starts with. The user can change it.
+	 * @defaultValue the height of the map's container (or `1024` if that reports zero)
+	 */
 	defaultHeight?: number;
 }
 
@@ -54,6 +61,48 @@ function sanitizeNode(node: Node): Node {
 	return document.createTextNode('');
 }
 
+/**
+ * A MapLibre GL JS control that exports the current map view as an SVG image.
+ *
+ * Adds a button to the map. Clicking it opens a panel with a live preview of the view as
+ * SVG, where the user can set the image size, choose whether to include labels and icons,
+ * and then download the file or open it in a new tab. The map stops responding to
+ * panning and zooming while the panel is open, so the preview matches what is exported.
+ *
+ * The preview is rendered with {@link renderToSVG} from the map's current style, centre
+ * and zoom, and the panel shows the attribution of the style's sources.
+ *
+ * @example With a bundler
+ * ```ts
+ * import maplibregl from 'maplibre-gl';
+ * import { SVGExportControl } from '@versatiles/svg-renderer/maplibre';
+ *
+ * const map = new maplibregl.Map({
+ *   container: 'map',
+ *   style: 'https://tiles.versatiles.org/assets/styles/colorful/style.json',
+ *   center: [13.4, 52.52],
+ *   zoom: 10,
+ * });
+ *
+ * map.addControl(new SVGExportControl(), 'top-right');
+ * ```
+ *
+ * @example With a script tag
+ * The UMD bundle exposes everything on a global `VersaTilesSVG`:
+ * ```html
+ * <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+ * <script src="https://unpkg.com/@versatiles/svg-renderer/dist/maplibre-svg-export.umd.js"></script>
+ * <script>
+ *   const map = new maplibregl.Map({ container: 'map', style: '…', center: [13.4, 52.52], zoom: 10 });
+ *   map.addControl(new VersaTilesSVG.SVGExportControl(), 'top-right');
+ * </script>
+ * ```
+ *
+ * @example Start the panel at a fixed size
+ * ```ts
+ * map.addControl(new SVGExportControl({ defaultWidth: 1920, defaultHeight: 1080 }));
+ * ```
+ */
 export class SVGExportControl implements IControl {
 	private map: Map | undefined;
 	private container: HTMLDivElement | undefined;
@@ -64,10 +113,15 @@ export class SVGExportControl implements IControl {
 	private renderGeneration = 0;
 	private options: SVGExportControlOptions;
 
+	/** @param options - The panel's initial image size. Both default to the map's size. */
 	constructor(options?: SVGExportControlOptions) {
 		this.options = { ...options };
 	}
 
+	/**
+	 * Called by MapLibre when the control is added with `map.addControl()`; not meant to be
+	 * called directly. Returns the button to place on the map.
+	 */
 	onAdd(map: Map): HTMLElement {
 		this.map = map;
 
@@ -91,6 +145,10 @@ export class SVGExportControl implements IControl {
 		return this.container;
 	}
 
+	/**
+	 * Called by MapLibre when the control is removed with `map.removeControl()`; not meant
+	 * to be called directly. Closes the panel and cleans up.
+	 */
 	onRemove(): void {
 		this.closePanel();
 		this.container?.remove();

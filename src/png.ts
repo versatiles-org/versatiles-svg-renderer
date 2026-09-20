@@ -1,32 +1,32 @@
-import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { RenderToSVGOptions } from './index.js';
 import { drawMap } from './pipeline/render.js';
 import { CanvasRenderer } from './renderer/canvas.js';
 import { type CanvasBackend, loadCanvasBackend } from './renderer/canvas_backend.js';
 
-export interface RenderToPNGOptions {
-	width?: number;
-	height?: number;
-	style: StyleSpecification;
-	lon?: number;
-	lat?: number;
-	zoom?: number;
-	renderLabels?: boolean;
+/**
+ * Options for {@link renderToPNG}: everything {@link RenderToSVGOptions} takes, plus the
+ * pixel density of the image and the fonts to draw labels with.
+ */
+export interface RenderToPNGOptions extends RenderToSVGOptions {
 	/**
-	 * Device pixel ratio. The image is `width * scale` by `height * scale` pixels, while
-	 * the map is laid out as if it were `width` by `height` — so strokes, text and icons
-	 * keep their size and simply gain detail, like a 2× screenshot.
+	 * Pixel density, like a device pixel ratio. The image is `width * scale` by
+	 * `height * scale` pixels, while the map is laid out as if it were `width` by `height`
+	 * — so lines, text and icons keep their size and gain detail, as in a 2× screenshot.
+	 * Use `2` for a sharp image on high-resolution screens.
+	 * @defaultValue `1`
 	 */
 	scale?: number;
 	/**
-	 * Fonts to make available to labels, as `{ "<text-font name>": "<path to a font file>" }`.
-	 * A style names its fonts (`text-font: ["noto_sans_regular"]`) but does not ship them,
-	 * and MapLibre's own glyph server serves pre-rendered SDF bitmaps that a canvas cannot
-	 * use — so to draw labels in the intended typeface, point each name at a real font file
-	 * (TTF, OTF, WOFF or WOFF2). Names left unregistered fall back to whatever the machine
-	 * has installed, which is usually not the font the style asked for.
+	 * Font files to draw labels with, as `{ "<text-font name>": "<path to a font file>" }`.
 	 *
-	 * Registration is process-wide (the backend keeps one font registry), so a name
-	 * registered by one render is visible to every later one.
+	 * A style only *names* its fonts (`"text-font": ["noto_sans_regular"]`). MapLibre
+	 * draws them from pre-rendered glyphs on the style's glyph server, which this renderer
+	 * does not use: it draws text with real font files instead. Map each name the style
+	 * uses to a TTF, OTF, WOFF or WOFF2 file. A name left unmapped falls back to a font
+	 * installed on the machine, which is usually not the one the style asked for.
+	 *
+	 * Fonts are registered process-wide, so a name registered by one call stays available
+	 * to every later call. Only matters when {@link RenderToSVGOptions.renderLabels} is on.
 	 */
 	fonts?: Record<string, string>;
 }
@@ -48,12 +48,63 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
 }
 
 /**
- * Renders the map to an encoded PNG.
+ * Renders a MapLibre style to a PNG image.
  *
- * The result is a `Uint8Array` rather than a Node `Buffer`: `Buffer` is an ambient type
- * from `@types/node`, and naming it here would make every consumer of this entry point
- * install those types just to typecheck. (The value returned at runtime is a `Buffer`,
- * which is a `Uint8Array`, so passing it straight to `writeFile` still works.)
+ * Takes the same options as {@link renderToSVG} and draws the same map, but rasterizes it
+ * directly instead of producing SVG — no browser or SVG rasterizer needed. Satellite and
+ * other raster tiles in WebP work too, which many SVG rasterizers cannot decode.
+ *
+ * **Node.js only.** It needs the native canvas backend `@napi-rs/canvas`, an optional peer
+ * dependency: install it next to this package (`npm install @napi-rs/canvas`). Without it,
+ * this function throws an error saying so. The browser bundle does not include it.
+ *
+ * @example Render a map to a file
+ * ```ts
+ * import { renderToPNG } from '@versatiles/svg-renderer/png';
+ * import { inlineSources, osm } from '@versatiles/style';
+ * import { writeFile } from 'node:fs/promises';
+ *
+ * // As with renderToSVG, the style's sources must list their tile URLs.
+ * const style = await inlineSources(osm({ theme: 'colorful' }));
+ *
+ * const png = await renderToPNG({
+ *   style,
+ *   width: 800,
+ *   height: 600,
+ *   lon: 13.4, // Berlin
+ *   lat: 52.52,
+ *   zoom: 12,
+ *   scale: 2, // 1600 × 1200 pixels, for high-resolution screens
+ * });
+ *
+ * await writeFile('berlin.png', png);
+ * ```
+ *
+ * @example Draw labels in the style's own fonts
+ * ```ts
+ * // The VersaTiles styles use Noto Sans. One source is `npm install @fontsource/noto-sans`
+ * // (its "latin" files cover Western European scripts; it ships others alongside).
+ * const files = 'node_modules/@fontsource/noto-sans/files';
+ * const png = await renderToPNG({
+ *   style,
+ *   lon: 13.4,
+ *   lat: 52.52,
+ *   zoom: 14,
+ *   renderLabels: true,
+ *   fonts: {
+ *     noto_sans_regular: `${files}/noto-sans-latin-400-normal.woff2`,
+ *     noto_sans_bold: `${files}/noto-sans-latin-700-normal.woff2`,
+ *   },
+ * });
+ * ```
+ *
+ * @param options - What to render, how large, and at what pixel density. Only `style` is
+ *   required.
+ * @returns The encoded PNG file. It is typed as a `Uint8Array` so that using this package
+ *   does not require Node's type definitions; at runtime it is a Node `Buffer`, and either
+ *   way it can be written with `fs.writeFile` as is.
+ * @throws If `@napi-rs/canvas` is not installed, if `width`, `height` or `scale` is not
+ *   positive, or if a font in `fonts` cannot be loaded.
  */
 export async function renderToPNG(options: RenderToPNGOptions): Promise<Uint8Array> {
 	const width = options.width ?? 1024;
