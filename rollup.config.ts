@@ -2,7 +2,6 @@ import { defineConfig, type RollupOptions } from 'rollup';
 import resolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
 import dts from 'rollup-plugin-dts';
-import { visualizer } from 'rollup-plugin-visualizer';
 
 const maplibreOnly = process.env.BUILD_TARGET === 'maplibre';
 
@@ -13,11 +12,7 @@ const allConfigs: RollupOptions[] = [
 			{ file: 'dist/index.js', format: 'es', sourcemap: true },
 			{ file: 'dist/index.cjs', format: 'cjs', sourcemap: true },
 		],
-		plugins: [
-			resolve(),
-			typescript({ tsconfig: './tsconfig.build.json' }),
-			visualizer({ filename: 'bundle-stats.html', template: 'treemap' }),
-		],
+		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],
 	},
 	{
 		input: 'dist/types/index.d.ts',

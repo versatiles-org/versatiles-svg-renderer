@@ -142,6 +142,14 @@ A visual comparison report between the SVG renderer and MapLibre GL JS is publis
 
 [View Report](https://versatiles-org.github.io/versatiles-svg-renderer/report.html)
 
+## Bundle Composition
+
+<!--- This chapter is generated automatically --->
+
+[![Bundle composition](docs/bundle-treemap.svg)](docs/bundle-treemap.svg?raw=true)
+
+Sized by the bundle's own source map: **351.8 KB** raw, **73.7 KB** gzipped, across 80 modules.
+
 ## Dependency Graph
 
 <!--- This chapter is generated automatically --->

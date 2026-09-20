@@ -2,7 +2,6 @@
 *.png
 *.tmp
 coverage/
-bundle-stats.html
 dist
 lib/maplibre-gl-js/node_modules
 node_modules
