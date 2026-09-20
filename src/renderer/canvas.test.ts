@@ -1,0 +1,423 @@
+import { describe, expect, test } from 'vitest';
+import { createCanvas } from '@napi-rs/canvas';
+import { Color } from '@maplibre/maplibre-gl-style-spec';
+import { CanvasRenderer } from './canvas.js';
+import { Feature, Point2D } from '../geometry.js';
+import type { CircleStyle, FillStyle, LineStyle } from './types.js';
+
+function mc(hex: string, alpha = 1): Color {
+	const r = (parseInt(hex.slice(1, 3), 16) / 255) * alpha;
+	const g = (parseInt(hex.slice(3, 5), 16) / 255) * alpha;
+	const b = (parseInt(hex.slice(5, 7), 16) / 255) * alpha;
+	return new Color(r, g, b, alpha);
+}
+
+function makeRenderer(overrides: { width?: number; height?: number; scale?: number } = {}) {
+	return new CanvasRenderer({ width: 256, height: 256, createCanvas, ...overrides });
+}
+
+function makePolygonFeature(points: [number, number][][]): Feature {
+	return new Feature({
+		type: 'Polygon',
+		properties: {},
+		geometry: points.map((ring) => ring.map(([x, y]) => new Point2D(x, y))),
+	});
+}
+
+function makeLineFeature(points: [number, number][][]): Feature {
+	return new Feature({
+		type: 'LineString',
+		properties: {},
+		geometry: points.map((line) => line.map(([x, y]) => new Point2D(x, y))),
+	});
+}
+
+function makePointFeature(points: [number, number][]): Feature {
+	return new Feature({
+		type: 'Point',
+		properties: {},
+		geometry: points.map(([x, y]) => [new Point2D(x, y)]),
+	});
+}
+
+function fillStyle(overrides: Partial<FillStyle> = {}): FillStyle {
+	return { color: mc('#FF0000'), opacity: 1, translate: [0, 0], ...overrides };
+}
+
+function lineStyle(overrides: Partial<LineStyle> = {}): LineStyle {
+	return {
+		blur: 0,
+		cap: 'butt',
+		color: mc('#FF0000'),
+		join: 'miter',
+		miterLimit: 2,
+		offset: 0,
+		opacity: 1,
+		translate: [0, 0],
+		width: 2,
+		...overrides,
+	};
+}
+
+function circleStyle(overrides: Partial<CircleStyle> = {}): CircleStyle {
+	return {
+		color: mc('#FF0000'),
+		opacity: 1,
+		radius: 10,
+		translate: [0, 0],
+		strokeWidth: 0,
+		strokeColor: mc('#00FF00'),
+		...overrides,
+	};
+}
+
+/** Device-pixel colour at (x, y) as [r, g, b, a]. */
+function at(r: CanvasRenderer, x: number, y: number): number[] {
+	return [...r.ctx.getImageData(x, y, 1, 1).data];
+}
+
+/** How many separate runs of opaque pixels lie along a horizontal scanline. */
+function runsAlongRow(r: CanvasRenderer, y: number, width: number): number {
+	let runs = 0;
+	let previous = false;
+	for (let x = 0; x < width; x++) {
+		const on = at(r, x, y)[3]! > 128;
+		if (on && !previous) runs++;
+		previous = on;
+	}
+	return runs;
+}
+
+describe('CanvasRenderer', () => {
+	describe('construction', () => {
+		test('bitmap is the map size at scale 1', () => {
+			const r = makeRenderer();
+			expect([r.canvas.width, r.canvas.height]).toEqual([256, 256]);
+		});
+
+		test('scale multiplies the bitmap but not the map units', () => {
+			const r = makeRenderer({ width: 100, height: 50, scale: 2 });
+			expect([r.canvas.width, r.canvas.height]).toEqual([200, 100]);
+			expect([r.width, r.height]).toEqual([100, 50]);
+			// A 10-unit square drawn at the origin covers 20 device pixels.
+			r.drawPolygons('p', [
+				[
+					makePolygonFeature([
+						[
+							[0, 0],
+							[10, 0],
+							[10, 10],
+							[0, 10],
+						],
+					]),
+					fillStyle(),
+				],
+			]);
+			expect(at(r, 18, 18)[0]).toBeGreaterThan(200);
+			expect(at(r, 22, 22)[3]).toBe(0);
+		});
+	});
+
+	describe('drawBackgroundFill', () => {
+		test('covers the whole canvas', () => {
+			const r = makeRenderer();
+			r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 1 });
+			expect(at(r, 0, 0)).toEqual([0, 0, 255, 255]);
+			expect(at(r, 255, 255)).toEqual([0, 0, 255, 255]);
+		});
+
+		test('applies layer opacity', () => {
+			const r = makeRenderer();
+			r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 0.5 });
+			expect(at(r, 128, 128)[3]).toBeCloseTo(128, -1);
+		});
+
+		test('a fully transparent background does not erase what is below', () => {
+			const r = makeRenderer();
+			r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 1 });
+			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 0 });
+			expect(at(r, 128, 128)).toEqual([0, 0, 255, 255]);
+		});
+	});
+
+	describe('drawPolygons', () => {
+		const square = (): Feature =>
+			makePolygonFeature([
+				[
+					[50, 50],
+					[200, 50],
+					[200, 200],
+					[50, 200],
+				],
+			]);
+
+		test('fills the polygon and nothing outside it', () => {
+			const r = makeRenderer();
+			r.drawPolygons('fill-test', [[square(), fillStyle()]]);
+			expect(at(r, 128, 128)).toEqual([255, 0, 0, 255]);
+			expect(at(r, 20, 20)[3]).toBe(0);
+		});
+
+		test('an inner ring is a hole (nonzero fill rule, as in SVG)', () => {
+			const r = makeRenderer();
+			const donut = makePolygonFeature([
+				[
+					[50, 50],
+					[200, 50],
+					[200, 200],
+					[50, 200],
+				],
+				[
+					[100, 150],
+					[150, 150],
+					[150, 100],
+					[100, 100],
+				],
+			]);
+			r.drawPolygons('fill-test', [[donut, fillStyle()]]);
+			expect(at(r, 60, 128)[0]).toBeGreaterThan(200); // ring
+			expect(at(r, 125, 125)[3]).toBe(0); // hole
+		});
+
+		test('applies fill-translate', () => {
+			const r = makeRenderer();
+			r.drawPolygons('fill-test', [[square(), fillStyle({ translate: [20, 0] })]]);
+			expect(at(r, 55, 128)[3]).toBe(0); // vacated by the shift
+			expect(at(r, 210, 128)[0]).toBeGreaterThan(200); // newly covered
+		});
+
+		test('skips zero opacity and fully transparent colours', () => {
+			const r = makeRenderer();
+			r.drawPolygons('fill-test', [[square(), fillStyle({ opacity: 0 })]]);
+			r.drawPolygons('fill-test', [[square(), fillStyle({ color: mc('#FF0000', 0) })]]);
+			expect(at(r, 128, 128)[3]).toBe(0);
+		});
+
+		test('draws no antialias outline for an opaque fill without fill-outline-color', () => {
+			// The rasterizer already antialiases the fill edge, so redrawing it is redundant.
+			const r = makeRenderer();
+			r.drawPolygons('fill-test', [[square(), fillStyle({ antialias: true })]]);
+			// Just outside the edge stays empty — an outline would straddle it.
+			expect(at(r, 50 - 1, 128)[3]).toBe(0);
+		});
+
+		test('draws the outline in fill-outline-color', () => {
+			// The outline is a hairline (half a pixel wide, centred on the edge), so it tints
+			// the edge pixel rather than replacing it. Compare against the same fill without
+			// an outline instead of guessing an absolute threshold.
+			const plain = makeRenderer();
+			plain.drawPolygons('fill-test', [[square(), fillStyle()]]);
+			const outlined = makeRenderer();
+			outlined.drawPolygons('fill-test', [
+				[square(), fillStyle({ antialias: true, outlineColor: mc('#FFFFFF') })],
+			]);
+			expect(at(plain, 50, 128)[1]).toBe(0);
+			expect(at(outlined, 50, 128)[1]).toBeGreaterThan(30);
+		});
+
+		test('a tile-clipped polygon is outlined along its outline, not its clipped edges', () => {
+			// `feature.outline` carries the boundary as open polylines, leaving out the edges
+			// that only exist because the polygon was clipped to its tile.
+			const clipped = new Feature({
+				type: 'Polygon',
+				properties: {},
+				geometry: [
+					[
+						[50, 50],
+						[200, 50],
+						[200, 200],
+						[50, 200],
+					].map(([x, y]) => new Point2D(x!, y!)),
+				],
+				// Only the top edge is a real boundary; the rest follow the tile border.
+				outline: [
+					[
+						[50, 50],
+						[200, 50],
+					].map(([x, y]) => new Point2D(x!, y!)),
+				],
+			});
+			const r = makeRenderer();
+			r.drawPolygons('fill-test', [
+				[clipped, fillStyle({ antialias: true, outlineColor: mc('#FFFFFF') })],
+			]);
+			expect(at(r, 128, 50)[1]).toBeGreaterThan(30); // outlined top edge
+			expect(at(r, 128, 200)[1]).toBe(0); // clipped bottom edge, left bare
+		});
+
+		test('every fill is drawn before any outline', () => {
+			// MapLibre draws all fills, then all outlines, so a lower feature's border
+			// composites on top of a later overlapping fill.
+			const r = makeRenderer();
+			const lower = makePolygonFeature([
+				[
+					[50, 50],
+					[150, 50],
+					[150, 150],
+					[50, 150],
+				],
+			]);
+			const upper = makePolygonFeature([
+				[
+					[100, 40],
+					[220, 40],
+					[220, 220],
+					[100, 220],
+				],
+			]);
+			r.drawPolygons('fill-test', [
+				[lower, fillStyle({ antialias: true, outlineColor: mc('#FFFFFF') })],
+				[upper, fillStyle({ color: mc('#0000FF') })],
+			]);
+			// Without the outline the same pixel is pure upper-square blue...
+			const control = makeRenderer();
+			control.drawPolygons('fill-test', [
+				[lower, fillStyle()],
+				[upper, fillStyle({ color: mc('#0000FF') })],
+			]);
+			expect(at(control, 150, 100)).toEqual([0, 0, 255, 255]);
+			// ...so any white there is the lower square's border surviving on top.
+			expect(at(r, 150, 100)[1]).toBeGreaterThan(20);
+		});
+	});
+
+	describe('drawLineStrings', () => {
+		const horizontal = (): Feature =>
+			makeLineFeature([
+				[
+					[0, 128],
+					[256, 128],
+				],
+			]);
+
+		test('strokes in the line colour at the given width', () => {
+			const r = makeRenderer();
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10 })]]);
+			expect(at(r, 128, 128)).toEqual([255, 0, 0, 255]);
+			expect(at(r, 128, 120)[3]).toBe(0);
+			expect(at(r, 128, 126)[3]).toBeGreaterThan(200);
+		});
+
+		test('skips non-positive width and transparent colours', () => {
+			const r = makeRenderer();
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 0 })]]);
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ color: mc('#FF0000', 0) })]]);
+			expect(at(r, 128, 128)[3]).toBe(0);
+		});
+
+		test('applies stroke-dasharray', () => {
+			const r = makeRenderer();
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, dasharray: [4, 2] })]]);
+			expect(runsAlongRow(r, 128, 256)).toBeGreaterThan(5);
+		});
+
+		test('line-cap square extends past the endpoint, butt does not', () => {
+			const segment = (): Feature =>
+				makeLineFeature([
+					[
+						[100, 128],
+						[150, 128],
+					],
+				]);
+			const butt = makeRenderer();
+			butt.drawLineStrings('line-test', [[segment(), lineStyle({ width: 10, cap: 'butt' })]]);
+			const square = makeRenderer();
+			square.drawLineStrings('line-test', [[segment(), lineStyle({ width: 10, cap: 'square' })]]);
+			expect(at(butt, 97, 128)[3]).toBe(0);
+			expect(at(square, 97, 128)[3]).toBeGreaterThan(200);
+		});
+
+		test('positive line-offset shifts an eastward line to the right (screen +y)', () => {
+			const r = makeRenderer();
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, offset: 10 })]]);
+			expect(at(r, 128, 138)[3]).toBeGreaterThan(200);
+			expect(at(r, 128, 128)[3]).toBe(0);
+		});
+
+		test('line-blur feathers the edge and fades the line', () => {
+			const sharp = makeRenderer();
+			sharp.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10 })]]);
+			const blurred = makeRenderer();
+			blurred.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10, blur: 8 })]]);
+
+			const feathered = (r: CanvasRenderer): number => {
+				let count = 0;
+				for (let y = 110; y < 146; y++) {
+					const alpha = at(r, 128, y)[3]!;
+					if (alpha > 5 && alpha < 250) count++;
+				}
+				return count;
+			};
+			expect(feathered(blurred)).toBeGreaterThan(feathered(sharp));
+			// The fade keeps a blurred line from reading as bright as a sharp one.
+			expect(at(blurred, 128, 128)[3]!).toBeLessThan(at(sharp, 128, 128)[3]!);
+		});
+
+		test('an axis-aligned blurred line is still drawn', () => {
+			// The SVG backend needs an explicit userSpaceOnUse filter region here, because a
+			// horizontal path has a zero-area bounding box. Canvas has no such concept — this
+			// pins that the case stays covered on both backends.
+			const r = makeRenderer();
+			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10, blur: 2 })]]);
+			expect(at(r, 128, 128)[3]).toBeGreaterThan(20);
+		});
+	});
+
+	describe('drawCircles', () => {
+		test('fills a circle of the given radius', () => {
+			const r = makeRenderer();
+			r.drawCircles('circle-test', [[makePointFeature([[128, 128]]), circleStyle({ radius: 20 })]]);
+			expect(at(r, 128, 128)).toEqual([255, 0, 0, 255]);
+			expect(at(r, 128, 145)[3]).toBeGreaterThan(200);
+			expect(at(r, 128, 155)[3]).toBe(0);
+		});
+
+		test('draws the stroke outside the radius, as MapLibre does', () => {
+			const r = makeRenderer();
+			r.drawCircles('circle-test', [
+				[makePointFeature([[128, 128]]), circleStyle({ radius: 20, strokeWidth: 6 })],
+			]);
+			// Fill still reaches `radius`; the stroke sits on [radius, radius + strokeWidth].
+			expect(at(r, 128, 128 + 18)[0]).toBeGreaterThan(200);
+			expect(at(r, 128, 128 + 23)[1]).toBeGreaterThan(200);
+			expect(at(r, 128, 128 + 30)[3]).toBe(0);
+		});
+
+		test('skips non-positive radius and zero opacity', () => {
+			const r = makeRenderer();
+			r.drawCircles('circle-test', [[makePointFeature([[128, 128]]), circleStyle({ radius: 0 })]]);
+			r.drawCircles('circle-test', [[makePointFeature([[128, 128]]), circleStyle({ opacity: 0 })]]);
+			expect(at(r, 128, 128)[3]).toBe(0);
+		});
+	});
+
+	describe('setClipCircle', () => {
+		test('restricts later drawing to the globe silhouette', () => {
+			const r = makeRenderer();
+			r.setClipCircle({ x: 128, y: 128, radius: 50 });
+			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
+			expect(at(r, 128, 128)[3]).toBe(255);
+			expect(at(r, 5, 5)[3]).toBe(0);
+		});
+	});
+
+	describe('not implemented yet', () => {
+		test.each([
+			['drawRasterTiles', 'raster tiles'],
+			['drawIcons', 'icons'],
+			['drawLabels', 'labels'],
+		])('%s throws rather than silently drawing nothing', (method, subject) => {
+			const r = makeRenderer();
+			expect(() => r[method as 'drawRasterTiles']()).toThrow(subject);
+		});
+	});
+
+	describe('toBuffer', () => {
+		test('encodes a PNG', () => {
+			const r = makeRenderer({ width: 10, height: 10 });
+			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
+			const buffer = r.toBuffer();
+			expect([...buffer.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+		});
+	});
+});

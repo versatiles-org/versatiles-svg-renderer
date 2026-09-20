@@ -1,4 +1,6 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { drawMap } from './pipeline/render.js';
+import { CanvasRenderer } from './renderer/canvas.js';
 
 /**
  * The canvas backend is an *optional* peer dependency, so it is imported dynamically:
@@ -49,7 +51,18 @@ export async function renderToPNG(options: RenderToPNGOptions): Promise<Buffer> 
 	if (height <= 0) throw new Error('height must be positive');
 	if (scale <= 0) throw new Error('scale must be positive');
 
-	await loadCanvasBackend();
+	const { createCanvas } = await loadCanvasBackend();
+	const renderer = new CanvasRenderer({ width, height, scale, createCanvas });
 
-	throw new Error('renderToPNG is not implemented yet: the canvas renderer is still to come.');
+	await drawMap({
+		renderer,
+		style: options.style,
+		view: {
+			center: [options.lon ?? 0, options.lat ?? 0],
+			zoom: options.zoom ?? 2,
+		},
+		renderLabels: options.renderLabels ?? false,
+	});
+
+	return renderer.toBuffer();
 }
