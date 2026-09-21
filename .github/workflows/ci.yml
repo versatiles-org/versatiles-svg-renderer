@@ -50,10 +50,11 @@ jobs:
       - name: Run tests
         run: npm run test
 
-      # Packs the built package and consumes it from a throwaway project: a green build
-      # says the bundles compile, not that the published artifact is usable.
-      - name: Test the packaged release
-        run: npm run test:pack
+      # Packs every package and consumes each from its own throwaway project: a green build
+      # says the bundles compile, not that the published artifacts are usable. `--docker`
+      # also installs png-renderer in Linux containers (glibc on Node 22, musl on Node 24).
+      - name: Test the packaged packages
+        run: npm run test:pack -- --docker
 
       - name: Run MapLibre plugin E2E test
         run: npm run test:e2e
