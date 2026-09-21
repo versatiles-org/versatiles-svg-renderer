@@ -1,4 +1,4 @@
-import type { Map, IControl } from 'maplibre-gl';
+import type { MapLibreControl, MapLibreMap } from './maplibre-types.js';
 import { PANEL_CSS } from './panel_css.js';
 import { renderToSVG } from '@versatiles/renderer-core/render_svg';
 
@@ -103,8 +103,8 @@ function sanitizeNode(node: Node): Node {
  * map.addControl(new SVGExportControl({ defaultWidth: 1920, defaultHeight: 1080 }));
  * ```
  */
-export class SVGExportControl implements IControl {
-	private map: Map | undefined;
+export class SVGExportControl implements MapLibreControl {
+	private map: MapLibreMap | undefined;
 	private container: HTMLDivElement | undefined;
 	private styleEl: HTMLStyleElement | undefined;
 	private panel: HTMLDivElement | undefined;
@@ -122,7 +122,7 @@ export class SVGExportControl implements IControl {
 	 * Called by MapLibre when the control is added with `map.addControl()`; not meant to be
 	 * called directly. Returns the button to place on the map.
 	 */
-	onAdd(map: Map): HTMLElement {
+	onAdd(map: MapLibreMap): HTMLElement {
 		this.map = map;
 
 		this.styleEl = document.createElement('style');
