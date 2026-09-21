@@ -126,7 +126,7 @@ If the workflow fails, fix the cause and use "Re-run failed jobs": versions alre
 <details>
 <summary>One-time setup of GitHub and npm</summary>
 
-- **npm**, for each of the three packages: _Settings → Trusted publishing → GitHub Actions_ with repository `versatiles-org/versatiles-svg-renderer`, workflow `release.yml` and environment `npm`. Then _Settings → Publishing access → "Require two-factor authentication and disallow tokens"_. A package must exist before it can be configured, so publish a new package name once by hand first.
+- **npm**, for each of the three packages: _Settings → Trusted publishing → GitHub Actions_ with repository `versatiles-org/versatiles-svg-renderer`, workflow `release.yml`, environment `npm` and the **publish** permission (`npm trust list <package>` shows it). Then _Settings → Publishing access → "Require two-factor authentication and disallow tokens"_. A package must exist before it can be configured, so publish a new package name once by hand first.
 - **GitHub**: an environment named `npm`, limited to tags matching `v*`, with the maintainers as required reviewers. A tag ruleset for `v*` that restricts creating, updating and deleting release tags.
 
 </details>
