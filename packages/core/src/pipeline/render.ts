@@ -2,6 +2,8 @@ import { type Feature, type Color as MaplibreColor } from '@maplibre/maplibre-gl
 import { getLayerFeatures, getRasterTiles } from '../sources/index.js';
 import { loadSpriteAtlas } from '../sources/sprite.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
+import { getTile, type TileLoader } from '../sources/tiles.js';
+import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { getLayerStyles } from './style_layer.js';
 import type {
 	EvaluatedProperties,
@@ -23,12 +25,39 @@ function resolveTokens(text: string, properties: Record<string, unknown>): strin
 }
 
 /**
+ * What rendering needs from a style besides the view: prepared once per style, so that
+ * rendering many views of one style does not redo it. Shared by concurrent renders, so
+ * nothing in it may depend on a view.
+ */
+export interface RenderContext {
+	/** The style's layers, parsed. */
+	layers: StyleLayer[];
+	/** The style's sprite atlas. Only called when labels are rendered. */
+	getSprite(): Promise<SpriteAtlas>;
+	loadTile: TileLoader;
+}
+
+/** A context without any caching, for rendering a single view. */
+export function createRenderContext(style: StyleSpecification): RenderContext {
+	return {
+		layers: getLayerStyles(style.layers),
+		getSprite: () => loadSpriteAtlas(style),
+		loadTile: getTile,
+	};
+}
+
+/**
  * Draws the map described by `job` onto its renderer and returns that renderer, so a
  * caller can take the result in whatever form the backend provides (see
  * {@link renderMap} for the SVG string, or `renderToPNG` in `@versatiles/png-renderer` for
  * an image buffer).
+ *
+ * `context` must have been created for `job.style`; without one, a fresh one is made.
  */
-export async function drawMap<R extends Renderer>(job: RenderJob<R>): Promise<R> {
+export async function drawMap<R extends Renderer>(
+	job: RenderJob<R>,
+	context: RenderContext = createRenderContext(job.style),
+): Promise<R> {
 	job.projection ??= Projection.fromStyle({
 		width: job.renderer.width,
 		height: job.renderer.height,
@@ -38,30 +67,32 @@ export async function drawMap<R extends Renderer>(job: RenderJob<R>): Promise<R>
 	});
 	const clipCircle = job.projection.clipCircle;
 	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
-	await render(job);
+	await render(job, context);
 	return job.renderer;
 }
 
-export async function renderMap(job: RenderJob<StringRenderer>): Promise<string> {
-	return (await drawMap(job)).getString();
+export async function renderMap(
+	job: RenderJob<StringRenderer>,
+	context?: RenderContext,
+): Promise<string> {
+	return (await drawMap(job, context)).getString();
 }
 
 function getFeatures(layerFeatures: LayerFeatures, layerStyle: StyleLayer): Features | undefined {
 	return layerFeatures.get(layerStyle.sourceLayer) ?? layerFeatures.get(layerStyle.source);
 }
 
-async function render(job: RenderJob): Promise<void> {
+async function render(job: RenderJob, context: RenderContext): Promise<void> {
 	const { renderer } = job;
 	const { zoom } = job.view;
 	const [layerFeatures, spriteAtlas] = await Promise.all([
-		getLayerFeatures(job),
-		job.renderLabels ? loadSpriteAtlas(job.style) : Promise.resolve(new Map() as SpriteAtlas),
+		getLayerFeatures(job, context.loadTile),
+		job.renderLabels ? context.getSprite() : Promise.resolve(new Map() as SpriteAtlas),
 	]);
-	const layerStyles = getLayerStyles(job.style.layers);
 	const availableImages: string[] = [...spriteAtlas.keys()];
 	const featureState = {};
 
-	for (const layerStyle of layerStyles) {
+	for (const layerStyle of context.layers) {
 		if (layerStyle.isHidden(zoom)) continue;
 
 		const { paint, layout } = layerStyle.evaluate({ zoom }, availableImages);
@@ -177,7 +208,7 @@ async function render(job: RenderJob): Promise<void> {
 				continue;
 			case 'raster':
 				{
-					const tiles = await getRasterTiles(job, layerStyle.source);
+					const tiles = await getRasterTiles(job, layerStyle.source, context.loadTile);
 					await renderer.drawRasterTiles(layerId, tiles, {
 						opacity: getPaint('raster-opacity') as number,
 						hueRotate: getPaint('raster-hue-rotate') as number,

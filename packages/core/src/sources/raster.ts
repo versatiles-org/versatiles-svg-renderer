@@ -1,8 +1,12 @@
 import type { RenderJob, RasterTile } from '../renderer/svg.js';
-import { calculateTileGrid, getTile } from './tiles.js';
+import { calculateTileGrid, getTile, type TileLoader } from './tiles.js';
 import { arrayBufferToBase64 } from './base64.js';
 
-export async function getRasterTiles(job: RenderJob, sourceName: string): Promise<RasterTile[]> {
+export async function getRasterTiles(
+	job: RenderJob,
+	sourceName: string,
+	loadTile: TileLoader = getTile,
+): Promise<RasterTile[]> {
 	const { width, height } = job.renderer;
 	const { zoom, center } = job.view;
 	const source = job.style.sources[sourceName] as
@@ -23,7 +27,7 @@ export async function getRasterTiles(job: RenderJob, sourceName: string): Promis
 		const z = Math.max(1, Math.min(Math.floor(zoom), source.maxzoom ?? Infinity));
 		const globeTiles = await Promise.all(
 			projection.coveringTiles(z).map(async (id): Promise<RasterTile | null> => {
-				const tile = await getTile(sourceUrl, id.z, id.x, id.y);
+				const tile = await loadTile(sourceUrl, id.z, id.x, id.y);
 				if (!tile) return null;
 				const triangles = projection.rasterTriangles(id);
 				if (triangles.length === 0) return null;
@@ -43,7 +47,7 @@ export async function getRasterTiles(job: RenderJob, sourceName: string): Promis
 
 	const rasterTiles = await Promise.all(
 		tiles.map(async ({ x, y, offsetX, offsetY }): Promise<RasterTile | null> => {
-			const tile = await getTile(sourceUrl, zoomLevel, x, y);
+			const tile = await loadTile(sourceUrl, zoomLevel, x, y);
 			if (!tile) return null;
 
 			const dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;

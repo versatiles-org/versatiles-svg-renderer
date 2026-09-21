@@ -40,6 +40,20 @@ describe('getLayerFeatures', () => {
 			expect.objectContaining({ type: 'vector' }),
 			job,
 			expect.any(Map),
+			expect.any(Function),
+		);
+	});
+
+	test('passes a given tile loader to loadVectorSource', async () => {
+		const job = makeJob({ vec: { type: 'vector', tiles: ['https://a/{z}/{x}/{y}.pbf'] } });
+		const loadTile = vi.fn();
+		await getLayerFeatures(job, loadTile);
+
+		expect(loadVectorSource).toHaveBeenCalledWith(
+			expect.anything(),
+			job,
+			expect.any(Map),
+			loadTile,
 		);
 	});
 

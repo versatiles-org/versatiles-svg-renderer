@@ -1,6 +1,6 @@
 import { Point2D, Feature } from '../geometry.js';
 import type { RenderJob } from '../renderer/svg.js';
-import { calculateTileGrid, getTile } from './tiles.js';
+import { calculateTileGrid, getTile, type TileLoader } from './tiles.js';
 import type { LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
 import { VectorTile } from '@mapbox/vector-tile';
@@ -20,6 +20,7 @@ export async function loadVectorSource(
 	source: VectorSourceSpec,
 	job: RenderJob,
 	layerFeatures: LayerFeatures,
+	loadTile: TileLoader = getTile,
 ): Promise<void> {
 	const tiles = source.tiles;
 	if (!tiles) return;
@@ -28,7 +29,7 @@ export async function loadVectorSource(
 
 	await Promise.all(
 		getTileProjections(source, job).map(async ({ x, y, z, project, clipToTile }): Promise<void> => {
-			const tile = await getTile(tiles[0]!, z, x, y);
+			const tile = await loadTile(tiles[0]!, z, x, y);
 			if (!tile) return;
 
 			const vectorTile = new VectorTile(new PbfReader(tile.buffer));

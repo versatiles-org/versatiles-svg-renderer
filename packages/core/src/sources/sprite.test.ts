@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest';
-import { loadSpriteAtlas } from './sprite.js';
+import { loadSprite, loadSpriteAtlas } from './sprite.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 function makeStyle(sprite?: string | { id: string; url: string }[]): StyleSpecification {
@@ -135,5 +135,38 @@ describe('loadSpriteAtlas', () => {
 
 		const atlas = await loadSpriteAtlas(makeStyle('https://example.com/sprite'));
 		expect(atlas.get('icon')!.pixelRatio).toBe(1);
+	});
+});
+
+describe('loadSprite', () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	test('is complete without a sprite', async () => {
+		expect((await loadSprite(makeStyle())).complete).toBe(true);
+	});
+
+	test('is complete when every sprite loaded', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ icon: { x: 0, y: 0, width: 16, height: 16 } }),
+			arrayBuffer: () => Promise.resolve(new Uint8Array([0x89]).buffer),
+		});
+		const { atlas, complete } = await loadSprite(makeStyle('https://example.com/sprite'));
+		expect(atlas.has('icon')).toBe(true);
+		expect(complete).toBe(true);
+	});
+
+	test('is incomplete after a network error', async () => {
+		globalThis.fetch = vi.fn().mockRejectedValue(new Error('network error'));
+		expect((await loadSprite(makeStyle('https://example.com/sprite'))).complete).toBe(false);
+	});
+
+	test('is incomplete after a non-ok response', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
+		expect((await loadSprite(makeStyle('https://example.com/sprite'))).complete).toBe(false);
 	});
 });

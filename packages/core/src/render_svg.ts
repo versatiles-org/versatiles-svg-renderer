@@ -1,60 +1,9 @@
 import { SVGRenderer } from './renderer/svg.js';
 import { renderMap } from './pipeline/render.js';
-import { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { SVGMapRendererOptions, ViewOptions } from './map_renderer.js';
 
-/** Options for {@link renderToSVG}. */
-export interface RenderToSVGOptions {
-	/**
-	 * The MapLibre style to render.
-	 *
-	 * Its sources must list their tile URLs directly (`tiles: [...]`). A style whose
-	 * sources only point at a TileJSON document (`url: '.../tiles.json'`) renders as an
-	 * **empty map without any error**, because the renderer does not fetch TileJSON. Styles
-	 * built with `@versatiles/style` come in that form, so pass them through its
-	 * `inlineSources()` first — see the examples on {@link renderToSVG}.
-	 */
-	style: StyleSpecification;
-	/**
-	 * Width of the image in pixels.
-	 * @defaultValue `1024`
-	 */
-	width?: number;
-	/**
-	 * Height of the image in pixels.
-	 * @defaultValue `1024`
-	 */
-	height?: number;
-	/**
-	 * Longitude of the map centre, in degrees.
-	 * @defaultValue `0`
-	 */
-	lon?: number;
-	/**
-	 * Latitude of the map centre, in degrees.
-	 * @defaultValue `0`
-	 */
-	lat?: number;
-	/**
-	 * Zoom level, as in MapLibre: each step doubles the scale. Fractional values are
-	 * allowed.
-	 * @defaultValue `2`
-	 */
-	zoom?: number;
-	/**
-	 * Draw the style's symbol layers: text labels and icons.
-	 *
-	 * Off by default, because labels are the least faithful part of the output. They are
-	 * drawn as horizontal text at the middle of their feature: labels that MapLibre curves
-	 * along a line (`symbol-placement: "line"`, typically street names) come out straight,
-	 * and there is no collision detection, so crowded label layers can overlap.
-	 *
-	 * The SVG names each label's font (`text-font`) and leaves resolving it to whatever
-	 * displays the SVG, so labels use the intended typeface only where that font is
-	 * installed or provided with `@font-face`.
-	 * @defaultValue `false`
-	 */
-	renderLabels?: boolean;
-}
+/** Options for {@link renderToSVG}: the style and the view, in one object. */
+export interface RenderToSVGOptions extends SVGMapRendererOptions, ViewOptions {}
 
 /**
  * Renders a MapLibre style to an SVG image.

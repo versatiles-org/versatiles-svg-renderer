@@ -56,6 +56,14 @@ export interface TileResponse {
 	contentType: string;
 }
 
+/** Loads one tile, like {@link getTile}; lets a caller put a cache in front of it. */
+export type TileLoader = (
+	url: string,
+	z: number,
+	x: number,
+	y: number,
+) => Promise<TileResponse | null>;
+
 export async function getTile(
 	url: string,
 	z: number,

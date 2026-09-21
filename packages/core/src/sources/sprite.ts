@@ -34,10 +34,18 @@ async function fetchSpritePair(
 	if (jsonResponse.ok && imageResponse.ok) return { jsonResponse, imageResponse };
 }
 
-export async function loadSpriteAtlas(style: StyleSpecification): Promise<SpriteAtlas> {
+/**
+ * Loads the style's sprites into one atlas. A sprite that cannot be loaded is left out,
+ * so a map still renders without its icons; `complete` says whether that happened, so a
+ * caller that keeps the atlas knows to retry later.
+ */
+export async function loadSprite(
+	style: StyleSpecification,
+): Promise<{ atlas: SpriteAtlas; complete: boolean }> {
 	const atlas: SpriteAtlas = new Map();
+	let complete = true;
 	const sprite = style.sprite;
-	if (!sprite) return atlas;
+	if (!sprite) return { atlas, complete };
 
 	const sources: { id: string; url: string }[] = [];
 	if (typeof sprite === 'string') {
@@ -56,7 +64,10 @@ export async function loadSpriteAtlas(style: StyleSpecification): Promise<Sprite
 			try {
 				// Try @2x retina sprites first, fall back to 1x
 				const spritePair = (await fetchSpritePair(`${url}@2x`)) ?? (await fetchSpritePair(url));
-				if (!spritePair) return;
+				if (!spritePair) {
+					complete = false;
+					return;
+				}
 				const { jsonResponse, imageResponse } = spritePair;
 
 				const json = (await jsonResponse.json()) as Record<string, SpriteJsonEntry>;
@@ -87,9 +98,14 @@ export async function loadSpriteAtlas(style: StyleSpecification): Promise<Sprite
 				}
 			} catch {
 				// Silently skip failed sprite loads
+				complete = false;
 			}
 		}),
 	);
 
-	return atlas;
+	return { atlas, complete };
+}
+
+export async function loadSpriteAtlas(style: StyleSpecification): Promise<SpriteAtlas> {
+	return (await loadSprite(style)).atlas;
 }

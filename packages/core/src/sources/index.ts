@@ -3,12 +3,16 @@ import type { RenderJob } from '../renderer/svg.js';
 import { loadVectorSource } from './vector.js';
 import { loadGeoJSONSource } from './geojson.js';
 import type { LayerFeatures } from '../geometry.js';
+import { getTile, type TileLoader } from './tiles.js';
 
 export { getRasterTiles } from './raster.js';
-export { loadSpriteAtlas } from './sprite.js';
+export { loadSprite, loadSpriteAtlas } from './sprite.js';
 export type { SpriteAtlas, SpriteEntry } from './sprite.js';
 
-export async function getLayerFeatures(job: RenderJob): Promise<LayerFeatures> {
+export async function getLayerFeatures(
+	job: RenderJob,
+	loadTile: TileLoader = getTile,
+): Promise<LayerFeatures> {
 	const { width, height } = job.renderer;
 	const { zoom, center } = job.view;
 	const { sources } = job.style;
@@ -26,6 +30,7 @@ export async function getLayerFeatures(job: RenderJob): Promise<LayerFeatures> {
 						source as unknown as { type: 'vector'; tiles?: string[]; maxzoom?: number },
 						job,
 						layerFeatures,
+						loadTile,
 					),
 				);
 				break;
