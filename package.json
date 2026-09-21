@@ -53,20 +53,23 @@
     "dist",
     "!dist/**/*.map"
   ],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "rm -rf dist && rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript && rm -rf dist/types",
     "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm run test && npm run test:pack && npm run test:e2e",
-    "demo": "tsx src/demo.ts",
+    "demo": "tsx packages/core/src/demo.ts",
     "dev": "tsx dev/serve.ts",
     "dev:render-comparison": "tsx dev/render-comparison.ts",
     "doc:bundle": "vrt bundle-treemap dist/index.js --depth 3 --min-size 4000 --svg docs/bundle-treemap.svg | vrt doc-insert README.md '## Bundle Composition'",
     "doc:graph": "vrt deps-graph | vrt doc-insert README.md '## Dependency Graph'",
-    "doc:typescript": "npx vrt doc-typescript -f html -i ./src/docs.ts -o ./doc-typescript",
+    "doc:typescript": "npx vrt doc-typescript -f html -i ./packages/core/src/docs.ts -o ./doc-typescript",
     "format": "prettier --write --log-level warn .",
     "lint": "eslint --color .",
     "prepack": "npm run doc:graph && npm run build && npm run doc:bundle",
     "release": "npx vrt release-npm",
-    "start": "tsx src/index.ts",
+    "start": "tsx packages/core/src/index.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e:maplibre": "tsx e2e/maplibre-control.ts",

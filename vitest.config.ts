@@ -5,8 +5,8 @@ export default defineConfig({
 		exclude: ['lib/**', 'node_modules/**', 'dist/**', 'e2e/**'],
 		passWithNoTests: true,
 		coverage: {
-			include: ['src/**/*.ts'],
-			exclude: ['src/demo.ts', 'src/docs.ts'],
+			include: ['packages/core/src/**/*.ts'],
+			exclude: ['packages/core/src/demo.ts', 'packages/core/src/docs.ts'],
 			reporter: ['text', 'lcov'],
 		},
 	},

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { loadCanvasBackend } from './renderer/canvas_backend.js';
 import { renderToPNG } from './png.js';
@@ -75,9 +75,8 @@ describe('renderToPNG', () => {
 	});
 
 	describe('fonts', () => {
-		const notoSans = resolve(
-			import.meta.dirname,
-			'../node_modules/@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff2',
+		const notoSans = createRequire(import.meta.url).resolve(
+			'@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff2',
 		);
 
 		test('registers a font under the name the style uses', async () => {

@@ -22,7 +22,7 @@ const dtsBanner = '/// <reference types="geojson" />';
 
 const allConfigs: RollupOptions[] = [
 	{
-		input: 'src/index.ts',
+		input: 'packages/core/src/index.ts',
 		output: [
 			{ file: 'dist/index.js', format: 'es', sourcemap: true },
 			{ file: 'dist/index.cjs', format: 'cjs', sourcemap: true },
@@ -40,7 +40,7 @@ const allConfigs: RollupOptions[] = [
 		// re-exports, and which therefore ends up in the browser bundle. `@napi-rs/canvas`
 		// stays external: it is an optional peer dependency, loaded at runtime only when
 		// PNG output is actually used.
-		input: 'src/png.ts',
+		input: 'packages/core/src/png.ts',
 		output: [
 			{ file: 'dist/png.js', format: 'es', sourcemap: true },
 			{ file: 'dist/png.cjs', format: 'cjs', sourcemap: true },
@@ -55,7 +55,7 @@ const allConfigs: RollupOptions[] = [
 		plugins: [dtsPlugin()],
 	},
 	{
-		input: 'src/maplibre/index.ts',
+		input: 'packages/core/src/maplibre/index.ts',
 		output: [
 			// The MapLibre control is browser-only (needs the DOM + maplibre-gl), so it
 			// ships ESM (for bundlers) and UMD (for <script>) — but no CommonJS: nothing
@@ -81,7 +81,7 @@ const allConfigs: RollupOptions[] = [
 
 const maplibreConfig: RollupOptions[] = [
 	{
-		input: 'src/maplibre/index.ts',
+		input: 'packages/core/src/maplibre/index.ts',
 		output: [{ file: 'dist/maplibre-svg-export.js', format: 'es', sourcemap: true }],
 		external: ['maplibre-gl'],
 		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],

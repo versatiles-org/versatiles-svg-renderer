@@ -35,9 +35,9 @@ function buildMaplibre(): void {
 // Initial build
 buildMaplibre();
 
-// Watch src/ for changes and rebuild
+// Watch the renderer sources for changes and rebuild
 let debounce: ReturnType<typeof setTimeout> | undefined;
-watch(resolve(ROOT, 'src'), { recursive: true }, (_event, filename) => {
+watch(resolve(ROOT, 'packages/core/src'), { recursive: true }, (_event, filename) => {
 	if (!filename?.endsWith('.ts')) return;
 	if (debounce) clearTimeout(debounce);
 	debounce = setTimeout(() => {
@@ -79,5 +79,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
 	console.log(`\nDev server running at http://localhost:${String(PORT)}/`);
-	console.log('Watching src/ for changes...\n');
+	console.log('Watching packages/core/src/ for changes...\n');
 });
