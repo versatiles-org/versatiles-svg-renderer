@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { createRequire } from 'node:module';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { loadCanvasBackend } from './canvas_backend.js';
+import { loadCanvasBackend, missingBackendMessage, nativePackageName } from './canvas_backend.js';
 import { renderToPNG } from './png.js';
 
 const minimalStyle = {
@@ -11,7 +11,7 @@ const minimalStyle = {
 };
 
 describe('loadCanvasBackend', () => {
-	test('resolves the optional canvas backend', async () => {
+	test('resolves the canvas backend', async () => {
 		const backend = await loadCanvasBackend();
 		expect(typeof backend.createCanvas).toBe('function');
 	});
@@ -21,15 +21,67 @@ describe('loadCanvasBackend', () => {
 		expect(first).toBe(second);
 	});
 
-	test('explains how to install the backend when it is missing', async () => {
+	test('explains a missing binary, keeping the original error as the cause', async () => {
 		vi.resetModules();
 		vi.doMock('@napi-rs/canvas', () => {
-			throw new Error("Cannot find package '@napi-rs/canvas'");
+			throw new Error('Cannot find native binding.');
 		});
 		const backend = await import('./canvas_backend.js');
-		await expect(backend.loadCanvasBackend()).rejects.toThrow(/npm install @napi-rs\/canvas/);
+		const error: unknown = await backend.loadCanvasBackend().then(
+			() => undefined,
+			(e: unknown) => e,
+		);
 		vi.doUnmock('@napi-rs/canvas');
 		vi.resetModules();
+
+		if (!(error instanceof Error)) throw new Error('expected loadCanvasBackend() to reject');
+		expect(error.message).toContain(`${process.platform}-${process.arch}`);
+		expect(error.message).toContain('--omit=optional');
+		// Vitest wraps an error thrown by a mock factory, so only check that one is attached.
+		expect(error.cause).toBeInstanceOf(Error);
+	});
+});
+
+describe('nativePackageName', () => {
+	test.each([
+		['darwin', 'arm64', false, '@napi-rs/canvas-darwin-arm64'],
+		['darwin', 'x64', false, '@napi-rs/canvas-darwin-x64'],
+		['linux', 'x64', false, '@napi-rs/canvas-linux-x64-gnu'],
+		['linux', 'x64', true, '@napi-rs/canvas-linux-x64-musl'],
+		['linux', 'arm64', true, '@napi-rs/canvas-linux-arm64-musl'],
+		['linux', 'arm', false, '@napi-rs/canvas-linux-arm-gnueabihf'],
+		['linux', 'riscv64', false, '@napi-rs/canvas-linux-riscv64-gnu'],
+		['win32', 'x64', false, '@napi-rs/canvas-win32-x64-msvc'],
+		['win32', 'arm64', false, '@napi-rs/canvas-win32-arm64-msvc'],
+		['android', 'arm64', false, '@napi-rs/canvas-android-arm64'],
+	])('%s %s (musl: %s) → %s', (platform, arch, musl, expected) => {
+		expect(nativePackageName(platform, arch, musl)).toBe(expected);
+	});
+
+	test.each([
+		['freebsd', 'x64', false],
+		['linux', 'ia32', false],
+		['linux', 'riscv64', true],
+		['win32', 'ia32', false],
+	])('%s %s (musl: %s) has no binary', (platform, arch, musl) => {
+		expect(nativePackageName(platform, arch, musl)).toBeUndefined();
+	});
+});
+
+describe('missingBackendMessage', () => {
+	test('names the platform, the missing package and the usual causes', () => {
+		const message = missingBackendMessage('linux', 'arm64', true);
+		expect(message).toContain('(linux-arm64-musl)');
+		expect(message).toContain('"@napi-rs/canvas-linux-arm64-musl"');
+		expect(message).toContain('--omit=optional');
+		expect(message).toContain('Docker');
+		expect(message).toContain('renderToSVG() works without it');
+	});
+
+	test('says so when the platform has no binary at all', () => {
+		const message = missingBackendMessage('freebsd', 'x64', false);
+		expect(message).toContain('no prebuilt binary for this platform (freebsd-x64)');
+		expect(message).not.toContain('--omit=optional');
 	});
 });
 

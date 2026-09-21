@@ -54,9 +54,11 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  * directly instead of producing SVG — no browser or SVG rasterizer needed. Satellite and
  * other raster tiles in WebP work too, which many SVG rasterizers cannot decode.
  *
- * **Node.js only.** It needs the native canvas backend `@napi-rs/canvas`, an optional peer
- * dependency: install it next to this package (`npm install @napi-rs/canvas`). Without it,
- * this function throws an error saying so. The browser bundle does not include it.
+ * **Node.js only.** It draws with the native canvas backend `@napi-rs/canvas`, a dependency
+ * of this package that npm installs together with it, including the prebuilt binary for
+ * the platform. If that binary is missing (e.g. installed with `--omit=optional`, or
+ * `node_modules` copied from another OS or CPU architecture), this function throws an error
+ * that names the platform and the missing package.
  *
  * @example Render a map to a file
  * ```ts
@@ -103,7 +105,7 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  * @returns The encoded PNG file. It is typed as a `Uint8Array` so that using this package
  *   does not require Node's type definitions; at runtime it is a Node `Buffer`, and either
  *   way it can be written with `fs.writeFile` as is.
- * @throws If `@napi-rs/canvas` is not installed, if `width`, `height` or `scale` is not
+ * @throws If the `@napi-rs/canvas` binary cannot be loaded, if `width`, `height` or `scale` is not
  *   positive, or if a font in `fonts` cannot be loaded.
  */
 export async function renderToPNG(options: RenderToPNGOptions): Promise<Uint8Array> {
