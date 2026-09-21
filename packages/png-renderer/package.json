@@ -1,0 +1,41 @@
+{
+  "name": "@versatiles/png-renderer",
+  "version": "1.2.0",
+  "description": "Renders MapLibre styles as PNG (and SVG) in Node.js.",
+  "keywords": [
+    "svg",
+    "map",
+    "renderer",
+    "vector-tiles",
+    "versatiles",
+    "maplibre"
+  ],
+  "homepage": "https://github.com/versatiles-org/versatiles-svg-renderer/tree/main/packages/png-renderer",
+  "bugs": "https://github.com/versatiles-org/versatiles-svg-renderer/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/versatiles-org/versatiles-svg-renderer.git",
+    "directory": "packages/png-renderer"
+  },
+  "author": "Michael Kreil <versatiles@michael-kreil.de>",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">= 22"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
+    "@types/geojson": "^7946.0.16"
+  }
+}

@@ -2,12 +2,11 @@
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
 		"outDir": "dist",
-		"rootDir": "packages/core/src",
+		"rootDir": "packages",
 		"declaration": true,
 		"declarationDir": "dist/types",
 		"noEmit": false,
 		"sourceMap": true
 	},
-	"include": ["packages/core/src/**/*.ts"],
-	"exclude": ["packages/core/src/demo.ts"]
+	"include": ["packages/*/src/**/*.ts"]
 }

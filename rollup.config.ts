@@ -2,6 +2,7 @@ import { defineConfig, type RollupOptions } from 'rollup';
 import resolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
 import dts from 'rollup-plugin-dts';
+import { resolve as resolvePath } from 'node:path';
 
 const maplibreOnly = process.env.BUILD_TARGET === 'maplibre';
 
@@ -15,14 +16,23 @@ const maplibreOnly = process.env.BUILD_TARGET === 'maplibre';
  * Those inlined types refer to the ambient `GeoJSON` namespace, which the style spec uses
  * but does not declare a dependency on, so each bundle also references `@types/geojson`
  * (a real dependency of this package, types only).
+ *
+ * The shared renderer (`@versatiles/renderer-core`) is inlined the same way: it is a private
+ * workspace package that is never published. Its specifiers point at the declarations `tsc`
+ * has already emitted for it, rather than at its `.ts` sources.
  */
 const dtsPlugin = (): ReturnType<typeof dts> =>
-	dts({ includeExternal: ['@maplibre/maplibre-gl-style-spec'] });
+	dts({
+		includeExternal: ['@maplibre/maplibre-gl-style-spec', '@versatiles/renderer-core'],
+		compilerOptions: {
+			paths: { '@versatiles/renderer-core/*': [resolvePath('dist/types/core/src/*')] },
+		},
+	});
 const dtsBanner = '/// <reference types="geojson" />';
 
 const allConfigs: RollupOptions[] = [
 	{
-		input: 'packages/core/src/index.ts',
+		input: 'packages/svg-renderer/src/index.ts',
 		output: [
 			{ file: 'dist/index.js', format: 'es', sourcemap: true },
 			{ file: 'dist/index.cjs', format: 'cjs', sourcemap: true },
@@ -30,7 +40,7 @@ const allConfigs: RollupOptions[] = [
 		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],
 	},
 	{
-		input: 'dist/types/index.d.ts',
+		input: 'dist/types/svg-renderer/src/index.d.ts',
 		output: { file: 'dist/index.d.ts', format: 'es', banner: dtsBanner },
 		plugins: [dtsPlugin()],
 	},
@@ -40,7 +50,7 @@ const allConfigs: RollupOptions[] = [
 		// re-exports, and which therefore ends up in the browser bundle. `@napi-rs/canvas`
 		// stays external: it is an optional peer dependency, loaded at runtime only when
 		// PNG output is actually used.
-		input: 'packages/core/src/png.ts',
+		input: 'packages/png-renderer/src/index.ts',
 		output: [
 			{ file: 'dist/png.js', format: 'es', sourcemap: true },
 			{ file: 'dist/png.cjs', format: 'cjs', sourcemap: true },
@@ -49,13 +59,13 @@ const allConfigs: RollupOptions[] = [
 		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],
 	},
 	{
-		input: 'dist/types/png.d.ts',
+		input: 'dist/types/png-renderer/src/index.d.ts',
 		output: { file: 'dist/png.d.ts', format: 'es', banner: dtsBanner },
 		external: ['@napi-rs/canvas'],
 		plugins: [dtsPlugin()],
 	},
 	{
-		input: 'packages/core/src/maplibre/index.ts',
+		input: 'packages/maplibre-svg-export/src/index.ts',
 		output: [
 			// The MapLibre control is browser-only (needs the DOM + maplibre-gl), so it
 			// ships ESM (for bundlers) and UMD (for <script>) — but no CommonJS: nothing
@@ -73,7 +83,7 @@ const allConfigs: RollupOptions[] = [
 		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],
 	},
 	{
-		input: 'dist/types/maplibre/index.d.ts',
+		input: 'dist/types/maplibre-svg-export/src/index.d.ts',
 		output: { file: 'dist/maplibre-svg-export.d.ts', format: 'es', banner: dtsBanner },
 		plugins: [dtsPlugin()],
 	},
@@ -81,7 +91,7 @@ const allConfigs: RollupOptions[] = [
 
 const maplibreConfig: RollupOptions[] = [
 	{
-		input: 'packages/core/src/maplibre/index.ts',
+		input: 'packages/maplibre-svg-export/src/index.ts',
 		output: [{ file: 'dist/maplibre-svg-export.js', format: 'es', sourcemap: true }],
 		external: ['maplibre-gl'],
 		plugins: [resolve(), typescript({ tsconfig: './tsconfig.build.json' })],

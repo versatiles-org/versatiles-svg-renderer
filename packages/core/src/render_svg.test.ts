@@ -5,7 +5,7 @@ vi.mock('./pipeline/render.js', () => ({
 }));
 
 const { renderMap } = await import('./pipeline/render.js');
-const { renderToSVG } = await import('./index.js');
+const { renderToSVG } = await import('./render_svg.js');
 
 describe('renderToSVG', () => {
 	const minimalStyle = {

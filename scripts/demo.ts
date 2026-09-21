@@ -1,5 +1,5 @@
 import { inlineSources, osm } from '@versatiles/style';
-import { renderToSVG } from './index.js';
+import { renderToSVG } from '../packages/svg-renderer/src/index.js';
 import { writeFileSync } from 'node:fs';
 
 const style = await inlineSources(osm({ theme: 'colorful' }));

@@ -14,6 +14,9 @@
  *
  * @module
  */
-export { renderToSVG, type RenderToSVGOptions } from './index.js';
-export { renderToPNG, type RenderToPNGOptions } from './png.js';
-export { SVGExportControl, type SVGExportControlOptions } from './maplibre/control.js';
+export { renderToSVG, type RenderToSVGOptions } from './packages/svg-renderer/src/index.js';
+export { renderToPNG, type RenderToPNGOptions } from './packages/png-renderer/src/index.js';
+export {
+	SVGExportControl,
+	type SVGExportControlOptions,
+} from './packages/maplibre-svg-export/src/index.js';

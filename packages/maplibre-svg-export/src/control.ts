@@ -1,6 +1,6 @@
 import type { Map, IControl } from 'maplibre-gl';
 import { PANEL_CSS } from './panel_css.js';
-import { renderToSVG } from '../index.js';
+import { renderToSVG } from '@versatiles/renderer-core/render_svg';
 
 /** Options for {@link SVGExportControl}. */
 export interface SVGExportControlOptions {

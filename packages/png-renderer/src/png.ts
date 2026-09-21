@@ -1,7 +1,7 @@
-import type { RenderToSVGOptions } from './index.js';
-import { drawMap } from './pipeline/render.js';
-import { CanvasRenderer } from './renderer/canvas.js';
-import { type CanvasBackend, loadCanvasBackend } from './renderer/canvas_backend.js';
+import type { RenderToSVGOptions } from '@versatiles/renderer-core/render_svg';
+import { drawMap } from '@versatiles/renderer-core/pipeline/render';
+import { CanvasRenderer } from '@versatiles/renderer-core/renderer/canvas';
+import { type CanvasBackend, loadCanvasBackend } from './canvas_backend.js';
 
 /**
  * Options for {@link renderToPNG}: everything {@link RenderToSVGOptions} takes, plus the

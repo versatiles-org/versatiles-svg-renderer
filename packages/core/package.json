@@ -4,5 +4,8 @@
   "private": true,
   "description": "The renderer shared by the published packages. Never published: each package bundles it.",
   "type": "module",
-  "license": "MIT"
+  "license": "MIT",
+  "exports": {
+    "./*": "./src/*.ts"
+  }
 }
