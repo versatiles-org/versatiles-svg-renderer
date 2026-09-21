@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { Color, Feature, LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { StyleLayer, createStyleLayer, PossiblyEvaluatedPropertyValue } from './style_layer.js';
 
 function makeBackground(paint?: Record<string, unknown>): LayerSpecification {
@@ -76,16 +76,16 @@ describe('StyleLayer', () => {
 		});
 	});
 
-	describe('recalculate', () => {
+	describe('evaluate', () => {
 		test('evaluates constant paint properties', () => {
 			const layer = new StyleLayer(
 				makeBackground({ 'background-color': '#ff0000', 'background-opacity': 0.5 }),
 			);
-			layer.recalculate({ zoom: 10 }, []);
+			const { paint } = layer.evaluate({ zoom: 10 }, []);
 
-			const color = layer.paint.get('background-color');
+			const color = paint.get('background-color');
 			expect(color).toBeDefined();
-			const opacity = layer.paint.get('background-opacity');
+			const opacity = paint.get('background-opacity');
 			expect(opacity).toBe(0.5);
 		});
 
@@ -100,11 +100,31 @@ describe('StyleLayer', () => {
 					},
 				}),
 			);
-			layer.recalculate({ zoom: 0 }, []);
-			expect(layer.paint.get('background-opacity')).toBe(0);
+			expect(layer.evaluate({ zoom: 0 }, []).paint.get('background-opacity')).toBe(0);
+			expect(layer.evaluate({ zoom: 20 }, []).paint.get('background-opacity')).toBe(1);
+		});
 
-			layer.recalculate({ zoom: 20 }, []);
-			expect(layer.paint.get('background-opacity')).toBe(1);
+		test('returns independent results, so one layer can serve concurrent renders', () => {
+			const layer = new StyleLayer(
+				makeFill({
+					paint: {
+						'fill-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0, 20, 1],
+						'fill-color': ['interpolate', ['linear'], ['zoom'], 0, '#000', 20, ['get', 'color']],
+					},
+				}),
+			);
+			const low = layer.evaluate({ zoom: 0 }, []);
+			const high = layer.evaluate({ zoom: 20 }, []);
+
+			expect(low.paint.get('fill-opacity')).toBe(0);
+			expect(high.paint.get('fill-opacity')).toBe(1);
+
+			// Data-driven values keep the zoom they were evaluated at.
+			const feature = { type: 1, properties: { color: '#fff' } } as unknown as Feature;
+			const lowColor = low.paint.get('fill-color') as PossiblyEvaluatedPropertyValue<Color>;
+			const highColor = high.paint.get('fill-color') as PossiblyEvaluatedPropertyValue<Color>;
+			expect(lowColor.evaluate(feature, {}).toString()).toBe('rgba(0,0,0,1)');
+			expect(highColor.evaluate(feature, {}).toString()).toBe('rgba(255,255,255,1)');
 		});
 
 		test('wraps source expressions in PossiblyEvaluatedPropertyValue', () => {
@@ -115,9 +135,9 @@ describe('StyleLayer', () => {
 					},
 				}),
 			);
-			layer.recalculate({ zoom: 10 }, []);
+			const { paint } = layer.evaluate({ zoom: 10 }, []);
 
-			const value = layer.paint.get('fill-color');
+			const value = paint.get('fill-color');
 			expect(value).toBeInstanceOf(PossiblyEvaluatedPropertyValue);
 		});
 
@@ -127,9 +147,9 @@ describe('StyleLayer', () => {
 					layout: { 'fill-sort-key': 5 },
 				}),
 			);
-			layer.recalculate({ zoom: 10 }, []);
+			const { layout } = layer.evaluate({ zoom: 10 }, []);
 
-			const sortKey = layer.layout.get('fill-sort-key');
+			const sortKey = layout.get('fill-sort-key');
 			expect(sortKey).toBe(5);
 		});
 	});

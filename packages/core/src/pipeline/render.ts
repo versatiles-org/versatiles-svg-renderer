@@ -3,7 +3,11 @@ import { getLayerFeatures, getRasterTiles } from '../sources/index.js';
 import { loadSpriteAtlas } from '../sources/sprite.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { getLayerStyles } from './style_layer.js';
-import type { PossiblyEvaluatedPropertyValue, StyleLayer } from './style_layer.js';
+import type {
+	EvaluatedProperties,
+	PossiblyEvaluatedPropertyValue,
+	StyleLayer,
+} from './style_layer.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
 import type { Features, LayerFeatures } from '../geometry.js';
 import { Projection } from '../projection.js';
@@ -60,11 +64,14 @@ async function render(job: RenderJob): Promise<void> {
 	for (const layerStyle of layerStyles) {
 		if (layerStyle.isHidden(zoom)) continue;
 
-		layerStyle.recalculate({ zoom }, availableImages);
+		const { paint, layout } = layerStyle.evaluate({ zoom }, availableImages);
 
-		function getStyleValue(obj: unknown, key: string, feature?: Feature): unknown {
-			const getter = obj as { get(k: string): unknown };
-			const value = getter.get(key);
+		function getStyleValue(
+			properties: EvaluatedProperties,
+			key: string,
+			feature?: Feature,
+		): unknown {
+			const value = properties.get(key);
 			if (typeof value === 'object' && value !== null && 'evaluate' in value) {
 				const evaluatable = value as PossiblyEvaluatedPropertyValue<unknown>;
 				return evaluatable.evaluate(
@@ -78,11 +85,11 @@ async function render(job: RenderJob): Promise<void> {
 		}
 
 		function getPaint(key: string, feature?: Feature): unknown {
-			return getStyleValue(layerStyle.paint, key, feature);
+			return getStyleValue(paint, key, feature);
 		}
 
 		function getLayout(key: string, feature?: Feature): unknown {
-			return getStyleValue(layerStyle.layout, key, feature);
+			return getStyleValue(layout, key, feature);
 		}
 
 		const layerId = layerStyle.id;
