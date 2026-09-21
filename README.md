@@ -197,7 +197,7 @@ A visual comparison report between the SVG renderer and MapLibre GL JS is publis
 
 [![Bundle composition](docs/bundle-treemap.svg)](docs/bundle-treemap.svg?raw=true)
 
-Sized by the bundle's own source map: **351.8 KB** raw, **73.7 KB** gzipped, across 80 modules.
+Sized by the bundle's own source map: **354.4 KB** raw, **74.8 KB** gzipped, across 82 modules.
 
 ## Dependency Graph
 
