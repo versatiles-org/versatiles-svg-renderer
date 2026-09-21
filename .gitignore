@@ -10,3 +10,4 @@ e2e/.cache/
 e2e/output/
 doc-typescript/
 dev/render-comparison-output/
+release/

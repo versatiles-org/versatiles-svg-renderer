@@ -5,7 +5,7 @@ import { ensureCacheDir, readCache, writeCache } from './fetch-cache.js';
 
 const MAPLIBRE_VERSION = '5.5.0';
 
-const distDir = resolve(import.meta.dirname, '..', 'dist');
+const distDir = resolve(import.meta.dirname, '..', 'packages', 'maplibre-svg-export', 'dist');
 const pluginJs = readFileSync(resolve(distDir, 'maplibre-svg-export.js'), 'utf8');
 
 console.log('Launching browser...');

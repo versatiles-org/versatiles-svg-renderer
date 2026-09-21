@@ -1,104 +1,45 @@
 {
-  "name": "@versatiles/svg-renderer",
+  "name": "versatiles-svg-renderer",
   "version": "1.2.0",
-  "description": "Renders vector maps as SVG.",
-  "keywords": [
-    "svg",
-    "map",
-    "renderer",
-    "vector-tiles",
-    "versatiles"
-  ],
+  "private": true,
+  "description": "Monorepo of @versatiles/svg-renderer, @versatiles/png-renderer and @versatiles/maplibre-svg-export.",
   "homepage": "https://github.com/versatiles-org/versatiles-svg-renderer",
   "bugs": "https://github.com/versatiles-org/versatiles-svg-renderer/issues",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/versatiles-org/versatiles-svg-renderer.git"
   },
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "unpkg": "dist/maplibre-svg-export.umd.js",
-  "jsdelivr": "dist/maplibre-svg-export.umd.js",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./png": {
-      "import": {
-        "types": "./dist/png.d.ts",
-        "default": "./dist/png.js"
-      },
-      "require": {
-        "types": "./dist/png.d.ts",
-        "default": "./dist/png.cjs"
-      }
-    },
-    "./maplibre": {
-      "script": "./dist/maplibre-svg-export.umd.js",
-      "import": {
-        "types": "./dist/maplibre-svg-export.d.ts",
-        "default": "./dist/maplibre-svg-export.js"
-      }
-    }
-  },
-  "files": [
-    "dist",
-    "!dist/**/*.map"
-  ],
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "build": "rm -rf dist && rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript && rm -rf dist/types",
+    "build": "rm -rf packages/*/dist && rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript",
+    "build:browser-tarball": "mkdir -p release && COPYFILE_DISABLE=1 tar -czf release/maplibre-svg-export.tar.gz -C packages/maplibre-svg-export/dist maplibre-svg-export.js maplibre-svg-export.umd.min.js maplibre-svg-export.d.ts -C .. README.md LICENSE",
     "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm run test && npm run test:pack && npm run test:e2e",
     "demo": "tsx scripts/demo.ts",
     "dev": "tsx dev/serve.ts",
     "dev:render-comparison": "tsx dev/render-comparison.ts",
-    "doc:bundle": "vrt bundle-treemap dist/index.js --depth 3 --min-size 4000 --svg docs/bundle-treemap.svg | vrt doc-insert README.md '## Bundle Composition'",
+    "doc:bundle": "vrt bundle-treemap packages/svg-renderer/dist/index.js --depth 3 --min-size 4000 --svg docs/bundle-treemap.svg | vrt doc-insert README.md '## Bundle Composition'",
     "doc:graph": "vrt deps-graph | vrt doc-insert README.md '## Dependency Graph'",
     "doc:typescript": "npx vrt doc-typescript -f html -i ./docs.ts -o ./doc-typescript",
     "format": "prettier --write --log-level warn .",
     "lint": "eslint --color .",
     "prepack": "npm run doc:graph && npm run build && npm run doc:bundle",
     "release": "npx vrt release-npm",
-        "test": "vitest run",
+    "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts && npm run test:e2e:maplibre && npm run test:e2e:screenshots",
     "test:e2e:maplibre": "tsx e2e/maplibre-control.ts",
     "test:e2e:screenshots": "tsx e2e/screenshots.ts",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts && npm run test:e2e:maplibre && npm run test:e2e:screenshots",
     "test:pack": "tsx scripts/test-pack.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json",
     "upgrade": "vrt deps-upgrade"
   },
-  "sideEffects": false,
   "type": "module",
   "author": "Michael Kreil <versatiles@michael-kreil.de>",
   "license": "MIT",
   "engines": {
     "node": ">= 22"
-  },
-  "dependencies": {
-    "@types/geojson": "^7946.0.16"
-  },
-  "peerDependencies": {
-    "@napi-rs/canvas": ">=1.0.0",
-    "maplibre-gl": ">=3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@napi-rs/canvas": {
-      "optional": true
-    },
-    "maplibre-gl": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -107,6 +48,7 @@
     "@maplibre/maplibre-gl-style-spec": "^26.4.4",
     "@napi-rs/canvas": "^1.0.9",
     "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/node": "^26.6.2",
     "@types/pbf": "^3.0.5",

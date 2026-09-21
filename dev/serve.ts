@@ -7,7 +7,7 @@ import { watch } from 'node:fs';
 const PORT = 3000;
 const ROOT = resolve(import.meta.dirname, '..');
 const DEV_DIR = resolve(ROOT, 'dev');
-const DIST_DIR = resolve(ROOT, 'dist');
+const DIST_DIR = resolve(ROOT, 'packages/maplibre-svg-export/dist');
 
 const MIME_TYPES: Record<string, string> = {
 	'.html': 'text/html',
@@ -22,7 +22,7 @@ function buildMaplibre(): void {
 	console.log('Building maplibre plugin...');
 	try {
 		execSync(
-			'npx rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript --environment BUILD_TARGET:maplibre',
+			'npx rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript --environment PACKAGE:maplibre-svg-export',
 			{ cwd: ROOT, stdio: 'pipe' },
 		);
 		console.log('Build complete.');
