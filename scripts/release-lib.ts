@@ -80,48 +80,136 @@ export function nextVersion(current: string, request: string): string {
 	return request;
 }
 
-const UNRELEASED = '## [Unreleased]';
+const UNRELEASED = 'Unreleased';
 
-/** The body of the changelog section whose heading starts with `heading`, trimmed. */
-function sectionBody(changelog: string, heading: string): string | undefined {
-	const lines = changelog.split('\n');
-	const start = lines.findIndex((line) => line === heading || line.startsWith(`${heading} `));
-	if (start < 0) return undefined;
-	let end = lines.findIndex((line, i) => i > start && line.startsWith('## '));
-	if (end < 0) end = lines.length;
-	return lines
-		.slice(start + 1, end)
-		.join('\n')
-		.trim();
+interface Section {
+	/** The text in brackets: `Unreleased` or a version. */
+	name: string;
+	/** Line index of the `## [...]` heading. */
+	start: number;
+	/** Line index after the section's last line. */
+	end: number;
+	body: string;
+}
+
+/** The `## [...]` sections of a changelog, in file order. */
+function parseSections(lines: string[]): Section[] {
+	const starts = lines.flatMap((line, i) => {
+		const match = /^## \[([^\]]+)\]/.exec(line);
+		return match ? [{ name: match[1]!, start: i }] : [];
+	});
+	return starts.map(({ name, start }, k) => {
+		const end = starts[k + 1]?.start ?? lines.length;
+		return {
+			name,
+			start,
+			end,
+			body: lines
+				.slice(start + 1, end)
+				.join('\n')
+				.trim(),
+		};
+	});
+}
+
+/** The sections of the prereleases of `version` (e.g. `2.0.0-rc.0` for `2.0.0`). */
+function prereleaseSections(sections: Section[], version: string): Section[] {
+	if (isPrerelease(version)) return [];
+	return sections.filter(
+		(s) => s.name.startsWith(`${version}-`) && SEMVER.test(s.name) && isPrerelease(s.name),
+	);
+}
+
+/**
+ * Merges release notes, oldest first. Subsections with the same `### ` title are combined
+ * into one, in the order the titles first appear; text before the first subsection is
+ * kept in front.
+ */
+function mergeNotes(notes: string[]): string {
+	const preambles: string[] = [];
+	const subsections = new Map<string, string[]>();
+	for (const note of notes) {
+		const parts = note.split(/^(?=### )/m);
+		const preamble = parts[0]!.startsWith('### ') ? '' : parts.shift()!.trim();
+		if (preamble) preambles.push(preamble);
+		for (const part of parts) {
+			const [title, ...rest] = part.split('\n');
+			const body = rest.join('\n').trim();
+			const bodies = subsections.get(title!) ?? [];
+			if (body) bodies.push(body);
+			subsections.set(title!, bodies);
+		}
+	}
+	const joinBodies = (bodies: string[]): string =>
+		bodies.reduce((all, body) => {
+			if (!all) return body;
+			// Two lists continue as one list; anything else gets a paragraph break.
+			const lastLine = all.split('\n').pop()!;
+			return all + (lastLine.startsWith('- ') && body.startsWith('- ') ? '\n' : '\n\n') + body;
+		}, '');
+	return [
+		...preambles,
+		...[...subsections].map(([title, bodies]) => `${title}\n\n${joinBodies(bodies)}`.trim()),
+	].join('\n\n');
 }
 
 /** The notes of the `[Unreleased]` section, or '' if it is empty. */
 export function unreleasedNotes(changelog: string): string {
-	const body = sectionBody(changelog, UNRELEASED);
-	if (body === undefined) throw new Error(`CHANGELOG.md has no "${UNRELEASED}" section`);
-	return body;
+	const section = parseSections(changelog.split('\n')).find((s) => s.name === UNRELEASED);
+	if (!section) throw new Error(`CHANGELOG.md has no "## [${UNRELEASED}]" section`);
+	return section.body;
 }
 
 /**
- * Turns the `[Unreleased]` section into `[version] - date` and opens a new, empty
- * `[Unreleased]` section above it.
+ * The notes that releasing `version` would publish: the `[Unreleased]` section and, for a
+ * stable version, the notes of its prereleases, so that 2.0.0 describes everything since
+ * 1.x and not only the changes since 2.0.0-rc.1.
+ */
+export function pendingNotes(changelog: string, version: string): string {
+	const sections = parseSections(changelog.split('\n'));
+	const unreleased = unreleasedNotes(changelog);
+	const prereleases = prereleaseSections(sections, version)
+		.map((s) => s.body)
+		.reverse(); // the changelog lists newest first
+	const notes = mergeNotes([...prereleases, unreleased].filter((n) => n !== ''));
+	if (notes === '') {
+		throw new Error(
+			`Nothing to release: the "## [${UNRELEASED}]" section of CHANGELOG.md is empty`,
+		);
+	}
+	return notes;
+}
+
+/**
+ * Moves the pending notes of `version` (see {@link pendingNotes}) into a new
+ * `[version] - date` section below an empty `[Unreleased]` section. For a stable version,
+ * the sections of its prereleases are replaced by the new one.
  */
 export function releaseChangelog(changelog: string, version: string, date: string): string {
-	if (unreleasedNotes(changelog) === '') {
-		throw new Error(`The "${UNRELEASED}" section of CHANGELOG.md is empty: nothing to release`);
-	}
-	if (sectionBody(changelog, `## [${version}]`) !== undefined) {
+	const lines = changelog.split('\n');
+	const sections = parseSections(lines);
+	if (sections.some((s) => s.name === version)) {
 		throw new Error(`CHANGELOG.md already has a section for ${version}`);
 	}
-	return changelog.replace(`${UNRELEASED}\n`, `${UNRELEASED}\n\n## [${version}] - ${date}\n`);
+	const notes = pendingNotes(changelog, version);
+	const unreleased = sections.find((s) => s.name === UNRELEASED)!;
+	const replaced = new Set([unreleased, ...prereleaseSections(sections, version)]);
+
+	const output = lines.slice(0, unreleased.start);
+	output.push(lines[unreleased.start]!, '', `## [${version}] - ${date}`, '', notes, '');
+	for (const section of sections) {
+		if (replaced.has(section)) continue;
+		output.push(...lines.slice(section.start, section.end));
+	}
+	return output.join('\n');
 }
 
 /** The release notes of `version` from the changelog. */
 export function releaseNotes(changelog: string, version: string): string {
-	const body = sectionBody(changelog, `## [${version}]`);
-	if (body === undefined) throw new Error(`CHANGELOG.md has no section for ${version}`);
-	if (body === '') throw new Error(`The CHANGELOG.md section for ${version} is empty`);
-	return body;
+	const section = parseSections(changelog.split('\n')).find((s) => s.name === version);
+	if (!section) throw new Error(`CHANGELOG.md has no section for ${version}`);
+	if (section.body === '') throw new Error(`The CHANGELOG.md section for ${version} is empty`);
+	return section.body;
 }
 
 /** Every `package.json` whose version is released in lockstep: the root and each workspace. */

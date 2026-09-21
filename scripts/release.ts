@@ -5,7 +5,8 @@
  * this commit, pending changelog notes), shows the version and the notes, and after
  * confirmation:
  *   1. writes the version into every package.json (all packages share one version),
- *   2. dates the `[Unreleased]` section of CHANGELOG.md,
+ *   2. moves the `[Unreleased]` notes of CHANGELOG.md into a dated section for the version
+ *      (a stable version also takes in the sections of its prereleases, e.g. 2.0.0-rc.*),
  *   3. commits "release: vX.Y.Z" and creates the annotated tag vX.Y.Z,
  *   4. pushes commit and tag in one atomic push.
  *
@@ -26,9 +27,9 @@ import {
 	isPrerelease,
 	lockstepManifests,
 	nextVersion,
+	pendingNotes,
 	readVersion,
 	releaseChangelog,
-	unreleasedNotes,
 } from './release-lib.js';
 
 const repo = resolve(import.meta.dirname, '..');
@@ -135,16 +136,19 @@ if (!skipCiCheck) {
 }
 const changelogPath = resolve(repo, 'CHANGELOG.md');
 const changelog = readFileSync(changelogPath, 'utf8');
-check('CHANGELOG.md has notes under [Unreleased]', () =>
-	unreleasedNotes(changelog) === '' ? 'the section is empty' : undefined,
-);
+// For a stable version this includes the notes of its prereleases (2.0.0 takes in 2.0.0-rc.*).
+let notes = '';
+check('CHANGELOG.md has release notes', () => {
+	notes = pendingNotes(changelog, version);
+	return undefined;
+});
 
 // --- Summary ----------------------------------------------------------------------
 console.log(
 	`\n${bold(`${current} → ${version}`)}${isPrerelease(version) ? dim(' (prerelease: npm dist-tag "next")') : ''}`,
 );
 console.log(dim('\n--- release notes ---'));
-console.log(unreleasedNotes(changelog));
+console.log(notes);
 console.log(dim('---------------------\n'));
 
 if (problems.length > 0) {
