@@ -10,7 +10,7 @@
 		"drift": 0.29
 	},
 	"warsaw-vector": {
-		"svg": 0.59,
+		"svg": 0.58,
 		"png": 0.44,
 		"drift": 0.21
 	},
@@ -22,7 +22,7 @@
 	"roma-vector": {
 		"svg": 0.55,
 		"png": 0.25,
-		"drift": 0.29
+		"drift": 0.28
 	},
 	"sao-paulo-vector": {
 		"svg": 0.57,
@@ -30,9 +30,9 @@
 		"drift": 0.58
 	},
 	"berlin-labels-vector": {
-		"svg": 8.88,
-		"png": 9.5,
-		"drift": 6.17
+		"svg": 9.26,
+		"png": 9.67,
+		"drift": 3.39
 	},
 	"berlin-satellite": {
 		"svg": 0.58,
