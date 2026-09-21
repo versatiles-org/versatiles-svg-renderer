@@ -3,12 +3,14 @@
   "version": "2.0.0-rc.0",
   "description": "MapLibre GL JS control that exports the current map view as SVG.",
   "keywords": [
+    "maplibre",
+    "maplibre-gl",
+    "maplibre-plugin",
+    "control",
     "svg",
+    "export",
     "map",
-    "renderer",
-    "vector-tiles",
-    "versatiles",
-    "maplibre"
+    "versatiles"
   ],
   "homepage": "https://github.com/versatiles-org/versatiles-svg-renderer/tree/main/packages/maplibre-svg-export",
   "bugs": "https://github.com/versatiles-org/versatiles-svg-renderer/issues",

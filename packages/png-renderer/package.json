@@ -3,12 +3,15 @@
   "version": "2.0.0-rc.0",
   "description": "Renders MapLibre styles as PNG (and SVG) in Node.js.",
   "keywords": [
+    "png",
     "svg",
     "map",
-    "renderer",
+    "maplibre",
     "vector-tiles",
-    "versatiles",
-    "maplibre"
+    "renderer",
+    "raster",
+    "nodejs",
+    "versatiles"
   ],
   "homepage": "https://github.com/versatiles-org/versatiles-svg-renderer/tree/main/packages/png-renderer",
   "bugs": "https://github.com/versatiles-org/versatiles-svg-renderer/issues",

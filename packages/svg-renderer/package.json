@@ -5,10 +5,11 @@
   "keywords": [
     "svg",
     "map",
-    "renderer",
+    "maplibre",
     "vector-tiles",
-    "versatiles",
-    "maplibre"
+    "renderer",
+    "export",
+    "versatiles"
   ],
   "homepage": "https://github.com/versatiles-org/versatiles-svg-renderer/tree/main/packages/svg-renderer",
   "bugs": "https://github.com/versatiles-org/versatiles-svg-renderer/issues",
