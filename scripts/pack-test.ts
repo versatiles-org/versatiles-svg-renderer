@@ -30,7 +30,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 
 const repo = resolve(import.meta.dirname, '..');
@@ -516,25 +516,45 @@ function checkTypes(consumer: string, code: string, lib?: string[]): void {
 	});
 }
 
-/** Installs png-renderer inside a container and renders a PNG there. */
+/**
+ * Installs png-renderer inside a container and renders a PNG there.
+ *
+ * Nothing is spliced into shell code: the check is written to a file next to the tarball
+ * (the directory is mounted read-only), and the tarball's name is passed to `sh` as a
+ * positional argument.
+ */
 function runInDocker(image: string, tarball: string): string {
+	writeFileSync(
+		resolve(dirname(tarball), 'docker-check.mjs'),
+		`${ASSERT_PNG}
+		const { renderToPNG } = await import('@versatiles/png-renderer');
+		const png = await renderToPNG({ style: ${BACKGROUND_STYLE}, width: 32, height: 16 });
+		const binaries = (await import('node:fs')).readdirSync('node_modules/@napi-rs').filter((n) => n !== 'canvas');
+		console.log(assertPng(png, 32, 16) + ' via ' + binaries.join(', '));\n`,
+	);
 	const script = [
 		'set -e',
 		'mkdir /app && cd /app',
-		`cp /tarballs/${tarball.split('/').pop()!} package.tgz`,
+		'cp "/tarballs/$1" package.tgz',
+		'cp /tarballs/docker-check.mjs .',
 		`echo '{"name":"consumer","version":"1.0.0","type":"module","private":true}' > package.json`,
 		'npm install --no-audit --no-fund --silent ./package.tgz',
-		`node --input-type=module -e "${`${ASSERT_PNG}
-			const { renderToPNG } = await import('@versatiles/png-renderer');
-			const png = await renderToPNG({ style: ${BACKGROUND_STYLE}, width: 32, height: 16 });
-			console.log(assertPng(png, 32, 16) + ' via ' + (await import('node:fs')).readdirSync('node_modules/@napi-rs').filter((n) => n !== 'canvas').join(', '));`.replace(
-			/"/g,
-			'\\"',
-		)}"`,
+		'node docker-check.mjs',
 	].join('\n');
 	const result = spawnSync(
 		'docker',
-		['run', '--rm', '-v', `${dirname(tarball)}:/tarballs:ro`, image, 'sh', '-c', script],
+		[
+			'run',
+			'--rm',
+			'-v',
+			`${dirname(tarball)}:/tarballs:ro`,
+			image,
+			'sh',
+			'-c',
+			script,
+			'sh', // $0
+			basename(tarball), // $1
+		],
 		{ encoding: 'utf8' },
 	);
 	if (result.error) throw result.error;
