@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- The browser test of the MapLibre control now runs against MapLibre GL JS 5 (with the ES module build) and MapLibre GL JS 6 (with the minified UMD build, as versatiles-frontend uses it), and checks that the map's interactions are disabled while the export panel is open and restored afterwards.
+
 ## [2.0.0-rc.0] - 2026-09-21
 
 **2.0.0 splits the package into three**, one per use case, released together under the same version number:

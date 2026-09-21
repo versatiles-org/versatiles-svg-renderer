@@ -5,11 +5,11 @@ MapLibre GL. Run the whole suite with `npm run test:e2e`.
 
 ## Entry points
 
-| File                  | What it does                                                                                                                                                                                                                                 | Run                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                                                                                                                                         | `npm run test:e2e` (vitest)    |
-| `screenshots.ts`      | Renders each region three ways — SVG renderer, PNG (canvas) renderer, and MapLibre (all at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff) — pixel-diffs them, and writes an HTML report to `output/report.html`. | `npm run test:e2e:screenshots` |
-| `maplibre-control.ts` | Drives the MapLibre `SVGExportControl` plugin in a headless browser and checks the export flow.                                                                                                                                              | `npm run test:e2e:maplibre`    |
+| File                  | What it does                                                                                                                                                                                                                                                                                    | Run                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                                                                                                                                                                                            | `npm run test:e2e` (vitest)    |
+| `screenshots.ts`      | Renders each region three ways — SVG renderer, PNG (canvas) renderer, and MapLibre (all at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff) — pixel-diffs them, and writes an HTML report to `output/report.html`.                                                    | `npm run test:e2e:screenshots` |
+| `maplibre-control.ts` | Drives the `SVGExportControl` plugin in a headless browser and checks the export flow, including that the map stops responding while the panel is open. Runs twice: MapLibre GL JS 5 with the plugin's ES module build, and MapLibre GL JS 6 (from `node_modules`) with its minified UMD build. | `npm run test:e2e:maplibre`    |
 
 ## Shared helpers
 
