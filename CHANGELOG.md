@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**2.0.0 splits the package into three**, one per use case, released together under the same version number:
+
+| Package                           | For                                               | Runs in           |
+| --------------------------------- | ------------------------------------------------- | ----------------- |
+| `@versatiles/svg-renderer`        | `renderToSVG`                                     | Node.js, browsers |
+| `@versatiles/png-renderer`        | `renderToPNG`, plus `renderToSVG`                 | Node.js           |
+| `@versatiles/maplibre-svg-export` | the MapLibre GL JS control `SVGExportControl`     | browsers          |
+
+### Migrating from 1.x
+
+| 1.x                                                                       | 2.0                                                                                                             |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `import { renderToSVG } from '@versatiles/svg-renderer'`                  | unchanged                                                                                                       |
+| `require('@versatiles/svg-renderer')`                                     | ESM only. Use `import`; Node.js 22.12 or later can also `require()` it                                          |
+| `import { SVGExportControl } from '@versatiles/svg-renderer/maplibre'`    | `import { SVGExportControl } from '@versatiles/maplibre-svg-export'`                                            |
+| `<script src="https://unpkg.com/@versatiles/svg-renderer/dist/maplibre-svg-export.umd.js">` | `<script src="https://cdn.jsdelivr.net/npm/@versatiles/maplibre-svg-export@2">`; the `VersaTilesSVG` global is unchanged |
+| `maplibre-gl` as a peer dependency                                        | not needed: the plugin brings its own types and never imports maplibre-gl                                        |
+
+`SVGExportControl` and `renderToSVG` take the same options as in 1.2.0.
+
+### Added
+
+- **`@versatiles/png-renderer`: PNG output in Node.js.** `renderToPNG` takes the options of `renderToSVG` plus `scale` (pixel density) and `fonts` (font files for labels, by the style's `text-font` names). It draws with Skia through `@napi-rs/canvas`, which is installed with the package, including the binary for the platform; there is no install script. WebP raster tiles, line blur and raster colour adjustments are supported. It also exports `renderToSVG`.
+- **A clear error when the canvas binary is missing.** It names the platform (e.g. `linux-arm64-musl`) and the missing `@napi-rs/canvas-<platform>` package, and explains the usual causes: installing with `--omit=optional`, or copying `node_modules` from another OS or CPU architecture into, say, a Docker image. `renderToSVG` keeps working without the binary.
+- **`@versatiles/maplibre-svg-export` as its own package**, with a minified UMD bundle (173 KB, 46 KB gzipped; 391 KB unminified in 1.2.0). jsDelivr serves it as the package's default file, and every GitHub release has a `maplibre-svg-export.tar.gz` with the bundles, types, README and license for self-hosting.
+
+### Changed
+
+- **ESM only.** The CommonJS builds (`index.cjs`) are gone. Node.js 22.12 or later can `require()` the ES modules.
+- **The MapLibre plugin moved** from `@versatiles/svg-renderer/maplibre` to `@versatiles/maplibre-svg-export`, and its UMD file is now `dist/maplibre-svg-export.umd.min.js`.
+- **No `maplibre-gl` peer dependency.** The plugin declares the few MapLibre types it needs itself, so its `.d.ts` has no imports; a type test keeps those declarations in line with MapLibre GL JS.
+- `@versatiles/svg-renderer` has a single entry point with `renderToSVG`, and no optional peer dependencies.
+
+### Internal
+
+- The repository is an npm workspace: the renderer lives in the private `packages/core` and is bundled into each package; `packages/svg-renderer`, `packages/png-renderer` and `packages/maplibre-svg-export` hold the entry points.
+- **New release process:** pushing a `v*` tag runs a GitHub workflow that builds, tests and packs all packages, publishes them to npm with provenance through trusted publishing (no npm token), and creates the GitHub release with the plugin tarball. It replaces `vrt release-npm`.
+- `npm run test:pack` packs every package and installs each into its own clean project, checking file lists, runtime, types (`skipLibCheck` off) and the release tarball. With `--docker`, it also installs png-renderer on Linux with glibc (Node.js 22) and musl (Node.js 24).
+- `npm run docs` regenerates the README graphics, replacing the `prepack` hook; the dev server also rebuilds on changes to the plugin's own sources.
+
+## [1.2.0] - 2026-09-19
+
 ### Changed
 
 - **Renamed the MapLibre plugin bundle** from `maplibre.*` to `maplibre-svg-export.*`, so the distributed files no longer collide with MapLibre GL JS's own `maplibre-gl.js`. The `@versatiles/svg-renderer/maplibre` import subpath and the `VersaTilesSVG` UMD global are unchanged — only the physical file names and CDN paths changed (e.g. `dist/maplibre-svg-export.umd.js`). ([7886d99](https://github.com/versatiles-org/versatiles-svg-renderer/commit/7886d9978122b1f63ca772b770cc42c784e2a66a))
@@ -28,8 +70,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - Added a `typecheck` step to CI so type regressions fail the build (previously only lint/build/test ran). ([1ae2269](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1ae2269b305bfa02f6899ae82f1bae9175179744))
-
-## [1.2.0] - 2026-09-19
 
 ### Features
 

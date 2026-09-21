@@ -75,7 +75,7 @@ function sanitizeNode(node: Node): Node {
  * @example With a bundler
  * ```ts
  * import maplibregl from 'maplibre-gl';
- * import { SVGExportControl } from '@versatiles/svg-renderer/maplibre';
+ * import { SVGExportControl } from '@versatiles/maplibre-svg-export';
  *
  * const map = new maplibregl.Map({
  *   container: 'map',
@@ -88,10 +88,10 @@ function sanitizeNode(node: Node): Node {
  * ```
  *
  * @example With a script tag
- * The UMD bundle exposes everything on a global `VersaTilesSVG`:
+ * The UMD bundle, served by jsDelivr, exposes everything on a global `VersaTilesSVG`:
  * ```html
  * <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
- * <script src="https://unpkg.com/@versatiles/svg-renderer/dist/maplibre-svg-export.umd.js"></script>
+ * <script src="https://cdn.jsdelivr.net/npm/@versatiles/maplibre-svg-export@2"></script>
  * <script>
  *   const map = new maplibregl.Map({ container: 'map', style: '…', center: [13.4, 52.52], zoom: 10 });
  *   map.addControl(new VersaTilesSVG.SVGExportControl(), 'top-right');

@@ -64,7 +64,9 @@ export interface RenderToSVGOptions {
  * result is a single self-contained SVG document — it references no external files, so
  * it can be saved, inlined into HTML or opened in a vector editor as is.
  *
- * Works in Node.js (22 or later) and in the browser.
+ * Works in Node.js (22 or later) and in the browser. The same function is exported by
+ * `@versatiles/svg-renderer`, `@versatiles/png-renderer` and
+ * `@versatiles/maplibre-svg-export`; the examples import it from the first.
  *
  * @example Render a map in Node.js
  * ```ts

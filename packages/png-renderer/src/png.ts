@@ -62,7 +62,7 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  *
  * @example Render a map to a file
  * ```ts
- * import { renderToPNG } from '@versatiles/svg-renderer/png';
+ * import { renderToPNG } from '@versatiles/png-renderer';
  * import { inlineSources, osm } from '@versatiles/style';
  * import { writeFile } from 'node:fs/promises';
  *
