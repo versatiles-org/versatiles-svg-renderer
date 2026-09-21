@@ -47,11 +47,26 @@ without letting it dominate every other diff.
 Each of the three metrics is compared to `diff-baseline.json` (the last-blessed
 value per region and metric), and the run **exits non-zero** (failing CI) on:
 
-- **degradation** — the diff rose beyond both 5% relative and a 0.1% absolute
-  floor (below that is MapLibre AA/GPU noise). Shown in red.
-- **ceiling breach** — the diff exceeded `max(baseline × 1.5, baseline + 0.3%)`,
+- **degradation** — the diff rose beyond both 10% relative and a 0.1 percentage-
+  point floor. Shown in red.
+- **ceiling breach** — the diff exceeded `max(baseline × 1.5, baseline + 0.5%)`,
   a hard backstop derived from the baseline (no separate value to maintain).
 - **missing screenshot** — a render crashed.
+
+### Why the tolerances are loose
+
+The same commit does not produce the same numbers everywhere. `svg` is stable —
+it compares Chromium against Chromium on one machine — but `png` and `drift`
+compare a Skia-rendered image against a Chromium one, so they carry each
+rasterizer's platform differences. Text is by far the worst of it: between macOS
+and Linux the labels region moves by whole percentage points, while every other
+region stays within 0.05.
+
+Three environments run this suite — a developer's machine, the CI runner, and the
+Pages container — so a baseline tight enough to be exact in one of them just fails
+in the other two. Each baseline therefore holds the **highest** value seen across
+them; a lower number elsewhere shows up as a (non-failing) improvement. When an
+environment disagrees after re-blessing, keep the higher figure.
 
 A **surprising improvement** (fallen beyond the same tolerance) is highlighted in
 green but does not fail — it's a nudge to re-bless. Regions with no baseline yet
