@@ -69,6 +69,12 @@ function spriteRequests(fetchMock: Mock): number {
 	return fetchMock.mock.calls.filter(([url]) => String(url).startsWith(SPRITE_URL)).length;
 }
 
+function tileRequests(fetchMock: Mock): number {
+	return fetchMock.mock.calls.filter(([url]) =>
+		String(url).startsWith('https://example.com/tiles/'),
+	).length;
+}
+
 describe('SVGMapRenderer', () => {
 	const originalFetch = globalThis.fetch;
 
@@ -144,6 +150,52 @@ describe('SVGMapRenderer', () => {
 		map.clearCache();
 		await map.renderSVG();
 		expect(spriteRequests(fetchMock)).toBe(4);
+	});
+
+	test('fetches each tile only once for overlapping views', async () => {
+		const fetchMock = mockFetch();
+		const map = new SVGMapRenderer({ style: makeStyle() });
+		await map.renderSVG({ zoom: 3, width: 256, height: 256 });
+		const first = tileRequests(fetchMock);
+		expect(first).toBeGreaterThan(0);
+		await map.renderSVG({ zoom: 3, width: 256, height: 256, lon: 1 });
+		expect(tileRequests(fetchMock)).toBe(first);
+	});
+
+	test('shares tile fetches between concurrent renders', async () => {
+		const fetchMock = mockFetch();
+		const map = new SVGMapRenderer({ style: makeStyle() });
+		await Promise.all([map.renderSVG({ zoom: 3 }), map.renderSVG({ zoom: 3 })]);
+		const concurrent = tileRequests(fetchMock);
+
+		const single = mockFetch();
+		await new SVGMapRenderer({ style: makeStyle() }).renderSVG({ zoom: 3 });
+		expect(concurrent).toBe(tileRequests(single));
+	});
+
+	test('with tileCacheSize 0, fetches the tiles for every render', async () => {
+		const fetchMock = mockFetch();
+		const map = new SVGMapRenderer({ style: makeStyle(), tileCacheSize: 0 });
+		await map.renderSVG({ zoom: 3 });
+		const first = tileRequests(fetchMock);
+		await map.renderSVG({ zoom: 3 });
+		expect(tileRequests(fetchMock)).toBe(2 * first);
+	});
+
+	test('clearCache makes the next render fetch the tiles again', async () => {
+		const fetchMock = mockFetch();
+		const map = new SVGMapRenderer({ style: makeStyle() });
+		await map.renderSVG({ zoom: 3 });
+		const first = tileRequests(fetchMock);
+		map.clearCache();
+		await map.renderSVG({ zoom: 3 });
+		expect(tileRequests(fetchMock)).toBe(2 * first);
+	});
+
+	test('rejects a negative tileCacheSize', () => {
+		expect(() => new SVGMapRenderer({ style: makeStyle(), tileCacheSize: -1 })).toThrow(
+			'tileCacheSize',
+		);
 	});
 
 	test('concurrent renders at different zooms match sequential ones', async () => {

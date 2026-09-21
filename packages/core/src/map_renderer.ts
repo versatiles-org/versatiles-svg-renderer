@@ -4,7 +4,7 @@ import { getLayerStyles } from './pipeline/style_layer.js';
 import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
-import { getTile } from './sources/tiles.js';
+import { TileCache } from './sources/tile_cache.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
 export interface SVGMapRendererOptions {
@@ -32,7 +32,20 @@ export interface SVGMapRendererOptions {
 	 * @defaultValue `false`
 	 */
 	renderLabels?: boolean;
+	/**
+	 * How much memory the fetched tiles may take, in bytes. Tiles are kept so that
+	 * rendering an overlapping view does not fetch them again; beyond this size, the least
+	 * recently used ones are dropped. `0` keeps none.
+	 *
+	 * Tiles are kept for the lifetime of the instance, regardless of the HTTP caching
+	 * headers they were served with; see {@link SVGMapRenderer.clearCache}.
+	 * @defaultValue `134217728` (128 MB)
+	 */
+	tileCacheSize?: number;
 }
+
+/** Default for {@link SVGMapRendererOptions.tileCacheSize}: 128 MB. */
+export const DEFAULT_TILE_CACHE_SIZE = 128 * 1024 * 1024;
 
 /** The view to render: size, centre and zoom. */
 export interface ViewOptions {
@@ -81,8 +94,9 @@ export function viewSize(view: ViewOptions): { width: number; height: number } {
  *
  * Does the work that depends only on the style once, when constructed or on the first
  * render, instead of on every call as {@link renderToSVG} does: the style is parsed once,
- * and the sprite (the icons, needed with `renderLabels`) is fetched once. Use it to
- * render a batch of views, e.g. thumbnails or a series of map sections.
+ * and the sprite (the icons, needed with `renderLabels`) is fetched once. Tiles are kept
+ * too (up to {@link SVGMapRendererOptions.tileCacheSize}), so overlapping views share
+ * them. Use it to render a batch of views, e.g. thumbnails or a series of map sections.
  *
  * The style is read when the instance is created and is expected not to change
  * afterwards; to render a changed style, create a new instance. Renders may run
@@ -103,16 +117,21 @@ export class SVGMapRenderer {
 	readonly #style: StyleSpecification;
 	readonly #renderLabels: boolean;
 	readonly #context: RenderContext;
+	readonly #tiles: TileCache;
 	#sprite: Promise<SpriteAtlas> | undefined;
 
-	/** @param options - The style, and whether to draw labels. */
+	/**
+	 * @param options - The style, whether to draw labels, and the tile cache size.
+	 * @throws If `tileCacheSize` is negative or not a number.
+	 */
 	public constructor(options: SVGMapRendererOptions) {
 		this.#style = options.style;
 		this.#renderLabels = options.renderLabels ?? false;
+		this.#tiles = new TileCache(options.tileCacheSize ?? DEFAULT_TILE_CACHE_SIZE);
 		this.#context = {
 			layers: getLayerStyles(options.style.layers),
 			getSprite: () => this.#getSprite(),
-			loadTile: getTile,
+			loadTile: this.#tiles.load,
 		};
 	}
 
@@ -130,10 +149,11 @@ export class SVGMapRenderer {
 	}
 
 	/**
-	 * Forgets the fetched sprite, so the next render fetches it again, e.g. after it was
-	 * updated on the server.
+	 * Forgets the fetched tiles and sprite, so the next render fetches them again, e.g.
+	 * after they were updated on the server, or to free their memory.
 	 */
 	public clearCache(): void {
+		this.#tiles.clear();
 		this.#sprite = undefined;
 	}
 

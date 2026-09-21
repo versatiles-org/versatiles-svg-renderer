@@ -1,3 +1,4 @@
+import { arrayBufferToBase64 } from './base64.js';
 import { Point2D } from '../geometry.js';
 
 export interface TileInfo {
@@ -56,6 +57,14 @@ export interface TileResponse {
 	contentType: string;
 }
 
+/**
+ * The outcome of fetching a tile. A tile the server does not have (`missing`) will not
+ * appear later, so it may be cached; a `failed` fetch (network error, server error, rate
+ * limit, …) may succeed when tried again.
+ */
+export type TileResult =
+	{ status: 'ok'; tile: TileResponse } | { status: 'missing' } | { status: 'failed' };
+
 /** Loads one tile, like {@link getTile}; lets a caller put a cache in front of it. */
 export type TileLoader = (
 	url: string,
@@ -64,21 +73,46 @@ export type TileLoader = (
 	y: number,
 ) => Promise<TileResponse | null>;
 
+export function resolveTileUrl(url: string, z: number, x: number, y: number): string {
+	return url.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+}
+
+export async function fetchTile(tileUrl: string): Promise<TileResult> {
+	try {
+		const response = await fetch(tileUrl);
+		// 204 No Content is how some tile servers answer for an empty tile.
+		if (response.status === 404 || response.status === 204) return { status: 'missing' };
+		if (!response.ok) return { status: 'failed' };
+		const buffer = await response.arrayBuffer();
+		const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+		return { status: 'ok', tile: { buffer, contentType } };
+	} catch (error: unknown) {
+		console.warn(`Failed to load tile: ${tileUrl}`, error);
+		return { status: 'failed' };
+	}
+}
+
 export async function getTile(
 	url: string,
 	z: number,
 	x: number,
 	y: number,
 ): Promise<TileResponse | null> {
-	const tileUrl = url.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
-	try {
-		const response = await fetch(tileUrl);
-		if (!response.ok) return null;
-		const buffer = await response.arrayBuffer();
-		const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
-		return { buffer, contentType };
-	} catch (error: unknown) {
-		console.warn(`Failed to load tile: ${tileUrl}`, error);
-		return null;
+	const result = await fetchTile(resolveTileUrl(url, z, x, y));
+	return result.status === 'ok' ? result.tile : null;
+}
+
+const dataUris = new WeakMap<TileResponse, string>();
+
+/**
+ * The tile as a data URI, built once per tile: a cached tile is the same object in every
+ * render, so it is not base64-encoded again.
+ */
+export function tileDataUri(tile: TileResponse): string {
+	let dataUri = dataUris.get(tile);
+	if (dataUri === undefined) {
+		dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;
+		dataUris.set(tile, dataUri);
 	}
+	return dataUri;
 }

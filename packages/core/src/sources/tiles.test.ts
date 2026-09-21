@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { calculateTileGrid, getTile } from './tiles.js';
+import { calculateTileGrid, fetchTile, getTile, resolveTileUrl, tileDataUri } from './tiles.js';
 
 describe('calculateTileGrid', () => {
 	test('returns correct zoom level for integer zoom', () => {
@@ -108,5 +108,52 @@ describe('getTile', () => {
 
 		if (result == null) throw new Error('expected result');
 		expect(result.contentType).toBe('application/octet-stream');
+	});
+});
+
+describe('fetchTile', () => {
+	test.each([404, 204])('reports %i as missing', async (status) => {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status }));
+		expect(await fetchTile('https://example.com/0/0/0')).toEqual({ status: 'missing' });
+	});
+
+	test.each([403, 429, 500, 503])('reports %i as failed', async (status) => {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status }));
+		expect(await fetchTile('https://example.com/0/0/0')).toEqual({ status: 'failed' });
+	});
+
+	test('reports a network error as failed', async () => {
+		vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		expect(await fetchTile('https://example.com/0/0/0')).toEqual({ status: 'failed' });
+		warnSpy.mockRestore();
+	});
+
+	test('returns the tile of an ok response', async () => {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+			new Response(new ArrayBuffer(3), { headers: { 'content-type': 'image/webp' } }),
+		);
+		const result = await fetchTile('https://example.com/0/0/0');
+		if (result.status !== 'ok') throw new Error('expected a tile');
+		expect(result.tile.contentType).toBe('image/webp');
+		expect(result.tile.buffer.byteLength).toBe(3);
+	});
+});
+
+describe('resolveTileUrl', () => {
+	test('fills in z, x and y', () => {
+		expect(resolveTileUrl('https://a/{z}/{x}/{y}.png', 3, 4, 5)).toBe('https://a/3/4/5.png');
+	});
+});
+
+describe('tileDataUri', () => {
+	test('encodes the tile with its content type', () => {
+		const tile = { buffer: new Uint8Array([1, 2, 3]).buffer, contentType: 'image/png' };
+		expect(tileDataUri(tile)).toBe('data:image/png;base64,AQID');
+	});
+
+	test('returns the same string for the same tile', () => {
+		const tile = { buffer: new Uint8Array(1000).buffer, contentType: 'image/png' };
+		expect(tileDataUri(tile)).toBe(tileDataUri(tile));
 	});
 });

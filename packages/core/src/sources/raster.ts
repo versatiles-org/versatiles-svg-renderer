@@ -1,6 +1,5 @@
 import type { RenderJob, RasterTile } from '../renderer/svg.js';
-import { calculateTileGrid, getTile, type TileLoader } from './tiles.js';
-import { arrayBufferToBase64 } from './base64.js';
+import { calculateTileGrid, getTile, tileDataUri, type TileLoader } from './tiles.js';
 
 export async function getRasterTiles(
 	job: RenderJob,
@@ -31,7 +30,7 @@ export async function getRasterTiles(
 				if (!tile) return null;
 				const triangles = projection.rasterTriangles(id);
 				if (triangles.length === 0) return null;
-				const dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;
+				const dataUri = tileDataUri(tile);
 				return { x: 0, y: 0, width: 1, height: 1, dataUri, triangles };
 			}),
 		);
@@ -50,7 +49,7 @@ export async function getRasterTiles(
 			const tile = await loadTile(sourceUrl, zoomLevel, x, y);
 			if (!tile) return null;
 
-			const dataUri = `data:${tile.contentType};base64,${arrayBufferToBase64(tile.buffer)}`;
+			const dataUri = tileDataUri(tile);
 
 			return {
 				x: offsetX,
