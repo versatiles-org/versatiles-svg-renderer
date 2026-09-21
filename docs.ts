@@ -1,16 +1,16 @@
 /**
- * The complete public API, gathered in one module for the API documentation.
+ * The complete public API of all three packages, gathered in one module for the API
+ * documentation.
  *
- * The package has three entry points, but the documentation generator reads a single
- * one. Pointing it at `index.ts` alone left `renderToPNG` and `SVGExportControl` out of
- * the docs entirely, so this module re-exports all three. Nothing imports it: each
- * symbol's documentation names the entry point to import it from.
+ * The documentation generator reads a single entry point, so this module re-exports every
+ * package's API. Nothing imports it: each symbol's documentation names the package to
+ * import it from.
  *
- * | Import from                           | Provides                                   |
- * | ------------------------------------- | ------------------------------------------ |
- * | `@versatiles/svg-renderer`            | {@link renderToSVG}                        |
- * | `@versatiles/svg-renderer/png`        | {@link renderToPNG} (Node.js only)         |
- * | `@versatiles/svg-renderer/maplibre`   | {@link SVGExportControl} (browser)         |
+ * | Package                           | Provides                                                   |
+ * | --------------------------------- | ---------------------------------------------------------- |
+ * | `@versatiles/svg-renderer`        | {@link renderToSVG} (Node.js and browser)                  |
+ * | `@versatiles/png-renderer`        | {@link renderToPNG} and {@link renderToSVG} (Node.js)      |
+ * | `@versatiles/maplibre-svg-export` | {@link SVGExportControl} and {@link renderToSVG} (browser) |
  *
  * @module
  */

@@ -35,16 +35,19 @@ function buildMaplibre(): void {
 // Initial build
 buildMaplibre();
 
-// Watch the renderer sources for changes and rebuild
+// Watch the plugin and the renderer it bundles for changes and rebuild
+const WATCHED = ['packages/maplibre-svg-export/src', 'packages/core/src'];
 let debounce: ReturnType<typeof setTimeout> | undefined;
-watch(resolve(ROOT, 'packages/core/src'), { recursive: true }, (_event, filename) => {
-	if (!filename?.endsWith('.ts')) return;
-	if (debounce) clearTimeout(debounce);
-	debounce = setTimeout(() => {
-		console.log(`\nFile changed: ${filename}`);
-		buildMaplibre();
-	}, 300);
-});
+for (const dir of WATCHED) {
+	watch(resolve(ROOT, dir), { recursive: true }, (_event, filename) => {
+		if (!filename?.endsWith('.ts') || filename.endsWith('.test.ts')) return;
+		if (debounce) clearTimeout(debounce);
+		debounce = setTimeout(() => {
+			console.log(`\nFile changed: ${dir}/${filename}`);
+			buildMaplibre();
+		}, 300);
+	});
+}
 
 // Serve files
 const server = createServer((req, res) => {
@@ -79,5 +82,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
 	console.log(`\nDev server running at http://localhost:${String(PORT)}/`);
-	console.log('Watching packages/core/src/ for changes...\n');
+	console.log(`Watching ${WATCHED.join(', ')} for changes...\n`);
 });
