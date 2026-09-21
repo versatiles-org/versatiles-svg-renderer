@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-rc.0] - 2026-09-21
+
 **2.0.0 splits the package into three**, one per use case, released together under the same version number:
 
 | Package                           | For                                               | Runs in           |
