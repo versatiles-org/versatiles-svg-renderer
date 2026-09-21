@@ -1,0 +1,188 @@
+name: Release
+
+# Started by pushing a version tag, which `npm run release <version>` does after bumping
+# the versions and dating the changelog. This workflow never changes the repository: it
+# verifies the tag, builds and tests, publishes the exact tarballs it tested, and creates
+# the GitHub release.
+#
+# Re-running is safe. Packages already on npm are skipped, and an existing GitHub release
+# is updated, so after a failure (say, an npm outage) "Re-run failed jobs" finishes the
+# release. Never move or delete a release tag: fix mistakes in the next version.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+  build:
+    name: Verify, build and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+      dist-tag: ${{ steps.check.outputs.dist-tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # A tag can be pushed from any commit. Only commits that are on main get released,
+      # so a release always matches the reviewed, CI-tested history.
+      - name: Check that the tagged commit is on main
+        run: |
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main. Refusing to release it."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check tag, versions and release notes
+        id: check
+        run: |
+          mkdir -p release
+          npx tsx scripts/release-check.ts "$GITHUB_REF_NAME" --notes release/notes.md
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      # Packs every package, tests each tarball in a clean project (and png-renderer on
+      # Linux with glibc and musl), builds the browser tarball, and keeps the tested
+      # package tarballs in release/ for the publish job.
+      - name: Pack and test the packages
+        run: npm run test:pack -- --docker --out release
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish to npm
+    needs: build
+    runs-on: ubuntu-latest
+    # The environment's required reviewers approve every publish, and npm's trusted
+    # publisher configuration only accepts this workflow in this environment.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC); no npm token is stored anywhere
+    env:
+      DIST_TAG: ${{ needs.build.outputs.dist-tag }}
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Check the npm version
+        run: |
+          # Trusted publishing needs npm 11.5.1 or later.
+          npm_version="$(npm --version)"
+          if [ "$(printf '%s\n' 11.5.1 "$npm_version" | sort -V | head -1)" != 11.5.1 ]; then
+            echo "::error::npm $npm_version is too old for trusted publishing (needs 11.5.1 or later)"
+            exit 1
+          fi
+          echo "npm $npm_version"
+
+      - name: Download release files
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+
+      # A fixed order, so a partial publish is easy to reason about. Each version that is
+      # already on npm is skipped, which makes re-running this job safe.
+      - name: Publish
+        working-directory: release
+        run: |
+          for pkg in svg-renderer png-renderer maplibre-svg-export; do
+            tarball="$(ls versatiles-${pkg}-*.tgz)"
+            name="$(tar -xzOf "$tarball" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).name')"
+            version="$(tar -xzOf "$tarball" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).version')"
+            if [ "$version" != "${{ needs.build.outputs.version }}" ]; then
+              echo "::error::$tarball has version $version, expected ${{ needs.build.outputs.version }}"
+              exit 1
+            fi
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is already on npm, skipping"
+              continue
+            fi
+            echo "Publishing $name@$version with dist-tag $DIST_TAG"
+            npm publish "./$tarball" --access public --tag "$DIST_TAG" --provenance
+          done
+
+  github-release:
+    name: Create GitHub release
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+      PRERELEASE: ${{ needs.build.outputs.prerelease }}
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+
+      # The asset is uploaded while the release is still a draft, so this also works with
+      # GitHub's immutable releases, which forbid changing a published release.
+      - name: Create or update the release
+        working-directory: release
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --draft --title "$TAG" --notes-file notes.md "${flags[@]}"
+          fi
+
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
+            gh release upload "$TAG" maplibre-svg-export.tar.gz --clobber
+            if [ "$PRERELEASE" = true ]; then
+              gh release edit "$TAG" --draft=false --prerelease
+            else
+              gh release edit "$TAG" --draft=false --latest
+            fi
+          else
+            echo "$TAG is already published; leaving it unchanged."
+          fi

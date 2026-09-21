@@ -113,6 +113,24 @@ This repository is an npm workspace:
 | `npm run dev`       | dev server for the plugin at http://localhost:3000/, rebuilding on change              |
 | `npm run docs`      | regenerates the graphics and generated sections of this README (commit the result)     |
 
+## Releasing
+
+All packages are released together, with one version number, by a GitHub workflow.
+
+1. Describe the changes under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md), and make sure CI is green on `main`.
+2. Run `npm run release <patch|minor|major|x.y.z>` on an up-to-date `main`. Use a version like `2.1.0-rc.0` for a prerelease (published with the npm dist-tag `next`), and add `-- --dry-run` to only see what would happen. The script sets the version in every `package.json`, dates the changelog section, then commits, tags and pushes.
+3. The tag starts the [Release workflow](https://github.com/versatiles-org/versatiles-svg-renderer/actions/workflows/release.yml). It verifies the tag, builds, tests and packs everything, then waits for a maintainer to **approve the `npm` environment**. After approval it publishes to npm (with provenance) and creates the GitHub release with `maplibre-svg-export.tar.gz`.
+
+If the workflow fails, fix the cause and use "Re-run failed jobs": versions already on npm are skipped. Never move or delete a release tag; fix mistakes in the next version.
+
+<details>
+<summary>One-time setup of GitHub and npm</summary>
+
+- **npm**, for each of the three packages: _Settings → Trusted publishing → GitHub Actions_ with repository `versatiles-org/versatiles-svg-renderer`, workflow `release.yml` and environment `npm`. Then _Settings → Publishing access → "Require two-factor authentication and disallow tokens"_. A package must exist before it can be configured, so publish a new package name once by hand first.
+- **GitHub**: an environment named `npm`, limited to tags matching `v*`, with the maintainers as required reviewers. A tag ruleset for `v*` that restricts creating, updating and deleting release tags.
+
+</details>
+
 ## Bundle Composition
 
 <!--- This chapter is generated automatically --->
