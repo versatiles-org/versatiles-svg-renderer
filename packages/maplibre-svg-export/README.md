@@ -64,7 +64,7 @@ const map = new maplibregl.Map({
 map.addControl(new SVGExportControl(), 'top-right');
 ```
 
-The package has no dependency on `maplibre-gl`: it works with the one your page already uses, and TypeScript needs nothing beyond this package to typecheck it. Tested in the browser with MapLibre GL JS 5; its types are checked against MapLibre GL JS 6.
+The package has no dependency on `maplibre-gl`: it works with the one your page already uses, and TypeScript needs nothing beyond this package to typecheck it. Tested in the browser with MapLibre GL JS 5 and 6.
 
 ### Self-hosted
 
