@@ -1,6 +1,6 @@
 {
   "name": "@versatiles/maplibre-svg-export",
-  "version": "2.0.0-rc.0",
+  "version": "2.0.0",
   "description": "MapLibre GL JS control that exports the current map view as SVG.",
   "keywords": [
     "maplibre",

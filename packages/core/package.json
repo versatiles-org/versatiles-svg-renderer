@@ -1,6 +1,6 @@
 {
   "name": "@versatiles/renderer-core",
-  "version": "2.0.0-rc.0",
+  "version": "2.0.0",
   "private": true,
   "description": "The renderer shared by the published packages. Never published: each package bundles it.",
   "type": "module",

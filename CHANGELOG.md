@@ -7,11 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Internal
-
-- The browser test of the MapLibre control now runs against MapLibre GL JS 5 (with the ES module build) and MapLibre GL JS 6 (with the minified UMD build, as versatiles-frontend uses it), and checks that the map's interactions are disabled while the export panel is open and restored afterwards.
-
-## [2.0.0-rc.0] - 2026-09-21
+## [2.0.0] - 2026-09-21
 
 **2.0.0 splits the package into three**, one per use case, released together under the same version number:
 
@@ -52,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New release process:** pushing a `v*` tag runs a GitHub workflow that builds, tests and packs all packages, publishes them to npm with provenance through trusted publishing (no npm token), and creates the GitHub release with the plugin tarball. It replaces `vrt release-npm`.
 - `npm run test:pack` packs every package and installs each into its own clean project, checking file lists, runtime, types (`skipLibCheck` off) and the release tarball. With `--docker`, it also installs png-renderer on Linux with glibc (Node.js 22) and musl (Node.js 24).
 - `npm run docs` regenerates the README graphics, replacing the `prepack` hook; the dev server also rebuilds on changes to the plugin's own sources.
+- The browser test of the MapLibre control now runs against MapLibre GL JS 5 (with the ES module build) and MapLibre GL JS 6 (with the minified UMD build, as versatiles-frontend uses it), and checks that the map's interactions are disabled while the export panel is open and restored afterwards.
 
 ## [1.2.0] - 2026-09-19
 
