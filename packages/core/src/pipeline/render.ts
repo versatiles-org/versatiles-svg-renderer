@@ -21,7 +21,8 @@ function resolveTokens(text: string, properties: Record<string, unknown>): strin
 /**
  * Draws the map described by `job` onto its renderer and returns that renderer, so a
  * caller can take the result in whatever form the backend provides (see
- * {@link renderMap} for the SVG string, or the PNG entry point for an image buffer).
+ * {@link renderMap} for the SVG string, or `renderToPNG` in `@versatiles/png-renderer` for
+ * an image buffer).
  */
 export async function drawMap<R extends Renderer>(job: RenderJob<R>): Promise<R> {
 	job.projection ??= Projection.fromStyle({
