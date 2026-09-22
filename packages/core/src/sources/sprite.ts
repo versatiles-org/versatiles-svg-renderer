@@ -1,4 +1,5 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { defaultFetch, type FetchFunction, type FetchResponse } from './fetch.js';
 import { arrayBufferToBase64 } from './base64.js';
 
 export interface SpriteEntry {
@@ -26,10 +27,11 @@ interface SpriteJsonEntry {
 
 async function fetchSpritePair(
 	url: string,
-): Promise<{ jsonResponse: Response; imageResponse: Response } | undefined> {
+	fetchFn: FetchFunction,
+): Promise<{ jsonResponse: FetchResponse; imageResponse: FetchResponse } | undefined> {
 	const [jsonResponse, imageResponse] = await Promise.all([
-		fetch(`${url}.json`),
-		fetch(`${url}.png`),
+		fetchFn(`${url}.json`),
+		fetchFn(`${url}.png`),
 	]);
 	if (jsonResponse.ok && imageResponse.ok) return { jsonResponse, imageResponse };
 }
@@ -41,6 +43,7 @@ async function fetchSpritePair(
  */
 export async function loadSprite(
 	style: StyleSpecification,
+	fetchFn: FetchFunction = defaultFetch,
 ): Promise<{ atlas: SpriteAtlas; complete: boolean }> {
 	const atlas: SpriteAtlas = new Map();
 	let complete = true;
@@ -63,7 +66,8 @@ export async function loadSprite(
 		sources.map(async ({ id, url }) => {
 			try {
 				// Try @2x retina sprites first, fall back to 1x
-				const spritePair = (await fetchSpritePair(`${url}@2x`)) ?? (await fetchSpritePair(url));
+				const spritePair =
+					(await fetchSpritePair(`${url}@2x`, fetchFn)) ?? (await fetchSpritePair(url, fetchFn));
 				if (!spritePair) {
 					complete = false;
 					return;
@@ -106,6 +110,9 @@ export async function loadSprite(
 	return { atlas, complete };
 }
 
-export async function loadSpriteAtlas(style: StyleSpecification): Promise<SpriteAtlas> {
-	return (await loadSprite(style)).atlas;
+export async function loadSpriteAtlas(
+	style: StyleSpecification,
+	fetchFn: FetchFunction = defaultFetch,
+): Promise<SpriteAtlas> {
+	return (await loadSprite(style, fetchFn)).atlas;
 }

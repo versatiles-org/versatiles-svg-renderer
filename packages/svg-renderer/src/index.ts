@@ -4,3 +4,4 @@ export {
 	type SVGMapRendererOptions,
 	type ViewOptions,
 } from '@versatiles/renderer-core/map_renderer';
+export type { FetchFunction, FetchResponse } from '@versatiles/renderer-core/sources/fetch';

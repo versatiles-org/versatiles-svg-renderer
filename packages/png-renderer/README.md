@@ -78,6 +78,45 @@ for (const [name, lon, lat] of [
 const svg = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
 ```
 
+### Caching tiles on disk
+
+The renderer keeps tiles in memory while an instance lives. To keep them between runs, pass a `fetch` that stores responses on disk ([more on `fetch`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#loading-tiles-your-own-way)):
+
+```typescript
+import { PNGMapRenderer } from '@versatiles/png-renderer';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const cacheDir = 'tile-cache';
+await mkdir(cacheDir, { recursive: true });
+
+/** Like fetch, but keeps every successful response in `cacheDir`. */
+async function cachedFetch(url: string): Promise<Response> {
+	const file = join(cacheDir, createHash('sha256').update(url).digest('hex'));
+	try {
+		const { type, body } = JSON.parse(await readFile(file, 'utf8')) as {
+			type: string;
+			body: string;
+		};
+		return new Response(Buffer.from(body, 'base64'), { headers: { 'content-type': type } });
+	} catch {
+		// Not cached yet.
+	}
+	const response = await fetch(url);
+	// Keep only what the server really has: a failed request must be tried again later.
+	if (!response.ok) return response;
+	const body = Buffer.from(await response.arrayBuffer());
+	const type = response.headers.get('content-type') ?? 'application/octet-stream';
+	await writeFile(file, JSON.stringify({ type, body: body.toString('base64') }));
+	return new Response(body, { headers: { 'content-type': type } });
+}
+
+const map = new PNGMapRenderer({ style, fetch: cachedFetch });
+```
+
+The files never expire: delete the directory to fetch fresh tiles.
+
 ### Labels in the style's own fonts
 
 A style only _names_ its fonts (`"text-font": ["noto_sans_regular"]`). Map each name to a font file (TTF, OTF, WOFF or WOFF2) with `fonts`. A name left unmapped falls back to a font installed on the machine.
@@ -103,7 +142,7 @@ const png = await renderToPNG({
 
 ### `renderToPNG(options): Promise<Uint8Array>`
 
-Takes every option of [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api) (`style`, `width`, `height`, `lon`, `lat`, `zoom`, `renderLabels`), plus:
+Takes every option of [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api) (`style`, `width`, `height`, `lon`, `lat`, `zoom`, `renderLabels`, `fetch`), plus:
 
 | Option  | Type                     | Default | Description                                                                                          |
 | ------- | ------------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
@@ -116,7 +155,7 @@ Label rendering has the same limitations as in SVG output: [see `renderLabels`](
 
 ### `new PNGMapRenderer(options)`
 
-An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (`style`, `renderLabels`, `tileCacheSize`), plus `fonts` as above.
+An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (`style`, `renderLabels`, `tileCacheSize`, `fetch`), plus `fonts` as above.
 
 - **`renderPNG(view?): Promise<Uint8Array>`** renders one view as PNG. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `scale`, with the same defaults as `renderToPNG`.
 - **`renderSVG(view?): Promise<string>`** renders one view as SVG, sharing the tiles and the sprite with the PNG renders.

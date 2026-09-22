@@ -5,6 +5,7 @@ import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
 import { TileCache } from './sources/tile_cache.js';
+import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
 export interface SVGMapRendererOptions {
@@ -42,6 +43,17 @@ export interface SVGMapRendererOptions {
 	 * @defaultValue `134217728` (128 MB)
 	 */
 	tileCacheSize?: number;
+	/**
+	 * Loads tiles and sprites, like `fetch`, which is the default. Pass your own to send
+	 * headers, go through a proxy, or keep tiles in a cache on disk.
+	 *
+	 * It must return a real `Response`, and its status matters: a 404 or 204 means the
+	 * server has no such tile, which is remembered (see {@link SVGMapRendererOptions.tileCacheSize}); any other
+	 * error status, or a rejected promise, counts as failed, and the next render tries
+	 * again.
+	 * @defaultValue the global `fetch`
+	 */
+	fetch?: FetchFunction;
 }
 
 /** Default for {@link SVGMapRendererOptions.tileCacheSize}: 128 MB. */
@@ -118,16 +130,19 @@ export class SVGMapRenderer {
 	readonly #renderLabels: boolean;
 	readonly #context: RenderContext;
 	readonly #tiles: TileCache;
+	readonly #fetch: FetchFunction;
 	#sprite: Promise<SpriteAtlas> | undefined;
 
 	/**
-	 * @param options - The style, whether to draw labels, and the tile cache size.
+	 * @param options - The style, whether to draw labels, the tile cache size, and how to
+	 *   load tiles and sprites.
 	 * @throws If `tileCacheSize` is negative or not a number.
 	 */
 	public constructor(options: SVGMapRendererOptions) {
 		this.#style = options.style;
 		this.#renderLabels = options.renderLabels ?? false;
-		this.#tiles = new TileCache(options.tileCacheSize ?? DEFAULT_TILE_CACHE_SIZE);
+		this.#fetch = toFetchFunction(options.fetch);
+		this.#tiles = new TileCache(options.tileCacheSize ?? DEFAULT_TILE_CACHE_SIZE, this.#fetch);
 		this.#context = {
 			layers: getLayerStyles(options.style.layers),
 			getSprite: () => this.#getSprite(),
@@ -176,7 +191,7 @@ export class SVGMapRenderer {
 	 */
 	#getSprite(): Promise<SpriteAtlas> {
 		if (this.#sprite) return this.#sprite;
-		const sprite = loadSprite(this.#style).then(({ atlas, complete }) => {
+		const sprite = loadSprite(this.#style, this.#fetch).then(({ atlas, complete }) => {
 			if (!complete && this.#sprite === sprite) this.#sprite = undefined;
 			return atlas;
 		});

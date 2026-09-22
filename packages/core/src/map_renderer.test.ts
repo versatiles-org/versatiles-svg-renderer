@@ -50,8 +50,11 @@ function response(body: string | Uint8Array<ArrayBuffer>, type: string): Respons
 }
 
 /** Answers tile and sprite requests after a short delay, so concurrent renders interleave. */
-function mockFetch(options: { spriteFails?: boolean } = {}): Mock {
-	const fetchMock = vi.fn(async (url: string) => {
+/** A fetch that answers tile and sprite requests after a short delay. */
+function fakeFetch(
+	options: { spriteFails?: boolean; tileStatus?: number } = {},
+): Mock<(url: string) => Promise<Response>> {
+	return vi.fn(async (url: string) => {
 		await new Promise((resolve) => setTimeout(resolve, 5));
 		if (url.startsWith(SPRITE_URL)) {
 			if (options.spriteFails) return new Response(null, { status: 500 });
@@ -59,10 +62,23 @@ function mockFetch(options: { spriteFails?: boolean } = {}): Mock {
 				? response(JSON.stringify({ dot: { x: 0, y: 0, width: 4, height: 4 } }), 'application/json')
 				: response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), 'image/png');
 		}
+		if (options.tileStatus) return new Response(null, { status: options.tileStatus });
 		return response(new Uint8Array([1, 2, 3, 4]), 'image/png');
 	});
+}
+
+/** Installs a fake fetch as the global `fetch`, so that concurrent renders interleave. */
+function mockFetch(options: { spriteFails?: boolean } = {}): Mock {
+	const fetchMock = fakeFetch(options);
 	globalThis.fetch = fetchMock as unknown as typeof fetch;
 	return fetchMock;
+}
+
+/** A global `fetch` that fails the test if anything uses it. */
+function forbidGlobalFetch(): void {
+	globalThis.fetch = () => {
+		throw new Error('the global fetch was used');
+	};
 }
 
 function spriteRequests(fetchMock: Mock): number {
@@ -210,6 +226,70 @@ describe('SVGMapRenderer', () => {
 		expect(concurrent).toEqual(sequential);
 		// The zoom-dependent values really differ, so a mix-up would show.
 		expect(new Set(sequential).size).toBe(zooms.length);
+	});
+
+	describe('fetch option', () => {
+		test('loads tiles and sprites through the given function only', async () => {
+			forbidGlobalFetch();
+			const fetchFn = fakeFetch();
+			const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true, fetch: fetchFn });
+			await map.renderSVG({ zoom: 3 });
+			expect(tileRequests(fetchFn)).toBeGreaterThan(0);
+			expect(spriteRequests(fetchFn)).toBe(2);
+		});
+
+		test('without it, uses the global fetch as it is at render time', async () => {
+			const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+			const fetchMock = mockFetch();
+			await map.renderSVG({ zoom: 3 });
+			expect(tileRequests(fetchMock)).toBeGreaterThan(0);
+		});
+
+		test('calls it as a plain function, as the browser needs for window.fetch', async () => {
+			const inner = fakeFetch();
+			// Like window.fetch, which throws "Illegal invocation" when called on another object.
+			const fetchFn = function (this: unknown, url: string): Promise<Response> {
+				if (this !== undefined) throw new TypeError('Illegal invocation');
+				return inner(url);
+			};
+			const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true, fetch: fetchFn });
+			await expect(map.renderSVG({ zoom: 3 })).resolves.toMatch(/^<svg/);
+			expect(tileRequests(inner)).toBeGreaterThan(0);
+		});
+
+		test('remembers a tile it answers with 404', async () => {
+			const fetchFn = fakeFetch({ tileStatus: 404 });
+			const map = new SVGMapRenderer({ style: makeStyle(), fetch: fetchFn });
+			await map.renderSVG({ zoom: 3 });
+			const first = tileRequests(fetchFn);
+			await map.renderSVG({ zoom: 3 });
+			expect(tileRequests(fetchFn)).toBe(first);
+		});
+
+		test('tries a tile again that it answered with 500 or a rejection', async () => {
+			for (const fetchFn of [
+				fakeFetch({ tileStatus: 500 }),
+				vi.fn((url: string) =>
+					url.startsWith(SPRITE_URL) ? fakeFetch()(url) : Promise.reject(new Error('offline')),
+				),
+			]) {
+				vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+				const map = new SVGMapRenderer({ style: makeStyle(), fetch: fetchFn });
+				await map.renderSVG({ zoom: 3 });
+				const first = tileRequests(fetchFn);
+				await map.renderSVG({ zoom: 3 });
+				expect(tileRequests(fetchFn)).toBe(2 * first);
+			}
+			vi.restoreAllMocks();
+		});
+
+		test('is passed on by renderToSVG', async () => {
+			forbidGlobalFetch();
+			const fetchFn = fakeFetch();
+			await renderToSVG({ style: makeStyle(), renderLabels: true, zoom: 3, fetch: fetchFn });
+			expect(tileRequests(fetchFn)).toBeGreaterThan(0);
+			expect(spriteRequests(fetchFn)).toBe(2);
+		});
 	});
 
 	test('rejects a non-positive size', async () => {

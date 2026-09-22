@@ -235,6 +235,20 @@ describe('PNGMapRenderer', () => {
 		expect(await map.renderPNG(view)).toEqual(expected);
 	});
 
+	test('loads tiles through the fetch option, and renderToPNG passes it on', async () => {
+		const fetchMock = await mockTiles();
+		globalThis.fetch = () => {
+			throw new Error('the global fetch was used');
+		};
+		const view = { zoom: 2, width: 256, height: 256 };
+		const viaClass = await new PNGMapRenderer({ style: rasterStyle, fetch: fetchMock }).renderPNG(
+			view,
+		);
+		const viaFunction = await renderToPNG({ style: rasterStyle, fetch: fetchMock, ...view });
+		expect(viaFunction).toEqual(viaClass);
+		expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+	});
+
 	test('takes the scale per view', async () => {
 		const map = new PNGMapRenderer({ style: minimalStyle });
 		const pngSize = (png: Uint8Array): number =>

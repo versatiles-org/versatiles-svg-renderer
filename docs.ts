@@ -24,6 +24,8 @@ export {
 	type RenderToSVGOptions,
 	type SVGMapRendererOptions,
 	type ViewOptions,
+	type FetchFunction,
+	type FetchResponse,
 } from './packages/svg-renderer/src/index.js';
 export {
 	PNGMapRenderer,

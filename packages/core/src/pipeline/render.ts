@@ -3,6 +3,7 @@ import { getLayerFeatures, getRasterTiles } from '../sources/index.js';
 import { loadSpriteAtlas } from '../sources/sprite.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { getTile, type TileLoader } from '../sources/tiles.js';
+import { defaultFetch, type FetchFunction } from '../sources/fetch.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { getLayerStyles } from './style_layer.js';
 import type {
@@ -38,11 +39,14 @@ export interface RenderContext {
 }
 
 /** A context without any caching, for rendering a single view. */
-export function createRenderContext(style: StyleSpecification): RenderContext {
+export function createRenderContext(
+	style: StyleSpecification,
+	fetchFn: FetchFunction = defaultFetch,
+): RenderContext {
 	return {
 		layers: getLayerStyles(style.layers),
-		getSprite: () => loadSpriteAtlas(style),
-		loadTile: getTile,
+		getSprite: () => loadSpriteAtlas(style, fetchFn),
+		loadTile: (url, z, x, y) => getTile(url, z, x, y, fetchFn),
 	};
 }
 

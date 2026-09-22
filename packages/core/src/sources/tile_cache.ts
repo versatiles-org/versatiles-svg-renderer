@@ -1,4 +1,5 @@
 import { LRUCache } from '../lru_cache.js';
+import { defaultFetch, type FetchFunction } from './fetch.js';
 import {
 	fetchTile,
 	resolveTileUrl,
@@ -22,10 +23,13 @@ const MISSING_TILE_SIZE = 64;
  */
 export class TileCache {
 	readonly #cache: LRUCache<TileResult>;
+	readonly #fetch: FetchFunction;
 
-	public constructor(maxBytes: number) {
+	/** @param fetchFn - Loads the tiles; see {@link toFetchFunction}. */
+	public constructor(maxBytes: number, fetchFn: FetchFunction = defaultFetch) {
 		if (!(maxBytes >= 0)) throw new Error('tileCacheSize must be a number ≥ 0');
 		this.#cache = new LRUCache(maxBytes, resultSize);
+		this.#fetch = fetchFn;
 	}
 
 	/** Total size of the tiles held, in bytes. */
@@ -40,7 +44,7 @@ export class TileCache {
 
 	public readonly load: TileLoader = async (url, z, x, y) => {
 		const key = resolveTileUrl(url, z, x, y);
-		const result = await this.#cache.getOrLoad(key, () => fetchTile(key));
+		const result = await this.#cache.getOrLoad(key, () => fetchTile(key, this.#fetch));
 		return result.status === 'ok' ? result.tile : null;
 	};
 

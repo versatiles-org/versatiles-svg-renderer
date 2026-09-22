@@ -247,10 +247,21 @@ try {
 				type RenderToSVGOptions,
 				type SVGMapRendererOptions,
 				type ViewOptions,
+				type FetchFunction,
 			} from '@versatiles/svg-renderer';
 			const options: RenderToSVGOptions = { style: ${MINIMAL_STYLE}, width: 64 };
 			export const svg: Promise<string> = renderToSVG(options);
 			const mapOptions: SVGMapRendererOptions = { style: ${MINIMAL_STYLE}, tileCacheSize: 0 };
+			// Without the DOM or Node's types, a fetch function can still be written out.
+			const fetchFn: FetchFunction = (url: string) =>
+				Promise.resolve({
+					ok: true,
+					status: 200,
+					headers: { get: () => url },
+					arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+					json: () => Promise.resolve({}),
+				});
+			export const withFetch = renderToSVG({ style: ${MINIMAL_STYLE}, fetch: fetchFn });
 			const view: ViewOptions = { lon: 1, lat: 2, zoom: 3 };
 			export const view1: Promise<string> = new SVGMapRenderer(mapOptions).renderSVG(view);`,
 		);
@@ -431,7 +442,14 @@ try {
 
 		checkTypes(
 			consumer,
-			`import { SVGExportControl, SVGMapRenderer, renderToSVG } from '@versatiles/maplibre-svg-export';
+			`import {
+				SVGExportControl,
+				SVGMapRenderer,
+				renderToSVG,
+				type FetchFunction,
+			} from '@versatiles/maplibre-svg-export';
+			// The browser's own fetch fits the option as is.
+			export const browserFetch: FetchFunction = fetch;
 			// Stands in for maplibre-gl's Map, which the consumer does not need to install.
 			declare const map: { addControl(control: { onAdd(map: never): HTMLElement }): void };
 			map.addControl(new SVGExportControl({ defaultWidth: 800, defaultHeight: 600 }));

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`SVGMapRenderer` and `PNGMapRenderer`: render many views of one style.** Create one with the style (and `renderLabels`), then call `renderSVG(view)` or `renderPNG(view)` for each view. The style is parsed once, the sprite is fetched once, and fetched tiles are kept up to `tileCacheSize` (default 128 MB, least recently used dropped first), so overlapping views do not fetch them again. `PNGMapRenderer` also keeps decoded images, and renders SVG too, from the same tiles. `clearCache()` forgets what was fetched. Exported by all three packages (`PNGMapRenderer` by `@versatiles/png-renderer` only).
+- **`fetch` option: load tiles and sprites your own way.** `SVGMapRenderer`, `PNGMapRenderer`, `renderToSVG` and `renderToPNG` take a `fetch` function, `(url: string) => Promise<Response>`, used instead of the global `fetch`: to send headers, go through a proxy, or cache tiles on disk (an example is in the README of `@versatiles/png-renderer`). The types are exported as `FetchFunction` and `FetchResponse` (the part of a `Response` the renderer reads), so they need neither the DOM nor Node's type definitions.
 - The tile cache remembers tiles the server does not have (HTTP 404 and 204); failed requests (network errors, other error statuses) are not kept, so the next render tries again.
 
 ### Changed

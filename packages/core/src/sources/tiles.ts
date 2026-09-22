@@ -1,4 +1,5 @@
 import { arrayBufferToBase64 } from './base64.js';
+import { defaultFetch, type FetchFunction } from './fetch.js';
 import { Point2D } from '../geometry.js';
 
 export interface TileInfo {
@@ -77,9 +78,12 @@ export function resolveTileUrl(url: string, z: number, x: number, y: number): st
 	return url.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
 }
 
-export async function fetchTile(tileUrl: string): Promise<TileResult> {
+export async function fetchTile(
+	tileUrl: string,
+	fetchFn: FetchFunction = defaultFetch,
+): Promise<TileResult> {
 	try {
-		const response = await fetch(tileUrl);
+		const response = await fetchFn(tileUrl);
 		// 204 No Content is how some tile servers answer for an empty tile.
 		if (response.status === 404 || response.status === 204) return { status: 'missing' };
 		if (!response.ok) return { status: 'failed' };
@@ -97,8 +101,9 @@ export async function getTile(
 	z: number,
 	x: number,
 	y: number,
+	fetchFn: FetchFunction = defaultFetch,
 ): Promise<TileResponse | null> {
-	const result = await fetchTile(resolveTileUrl(url, z, x, y));
+	const result = await fetchTile(resolveTileUrl(url, z, x, y), fetchFn);
 	return result.status === 'ok' ? result.tile : null;
 }
 

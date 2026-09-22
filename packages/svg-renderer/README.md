@@ -91,15 +91,16 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12, width: 80
 
 ### `renderToSVG(options): Promise<string>`
 
-| Option         | Type                 | Default      | Description                               |
-| -------------- | -------------------- | ------------ | ----------------------------------------- |
-| `style`        | `StyleSpecification` | _(required)_ | MapLibre style specification              |
-| `width`        | `number`             | `1024`       | Output width in pixels                    |
-| `height`       | `number`             | `1024`       | Output height in pixels                   |
-| `lon`          | `number`             | `0`          | Center longitude                          |
-| `lat`          | `number`             | `0`          | Center latitude                           |
-| `zoom`         | `number`             | `2`          | Zoom level                                |
-| `renderLabels` | `boolean`            | `false`      | Enable rendering of text labels and icons |
+| Option         | Type                 | Default        | Description                                                                            |
+| -------------- | -------------------- | -------------- | -------------------------------------------------------------------------------------- |
+| `style`        | `StyleSpecification` | _(required)_   | MapLibre style specification                                                           |
+| `width`        | `number`             | `1024`         | Output width in pixels                                                                 |
+| `height`       | `number`             | `1024`         | Output height in pixels                                                                |
+| `lon`          | `number`             | `0`            | Center longitude                                                                       |
+| `lat`          | `number`             | `0`            | Center latitude                                                                        |
+| `zoom`         | `number`             | `2`            | Zoom level                                                                             |
+| `renderLabels` | `boolean`            | `false`        | Enable rendering of text labels and icons                                              |
+| `fetch`        | `FetchFunction`      | global `fetch` | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
 
 ### `new SVGMapRenderer(options)`
 
@@ -110,11 +111,25 @@ Renders many views of one style. The options stay the same for every view:
 | `style`         | `StyleSpecification` | _(required)_         | MapLibre style specification. Read once: to render a changed style, create a new instance |
 | `renderLabels`  | `boolean`            | `false`              | Enable rendering of text labels and icons                                                 |
 | `tileCacheSize` | `number`             | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
+| `fetch`         | `FetchFunction`      | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
 
 - **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat` and `zoom`, with the same defaults as `renderToSVG`. Renders may run concurrently.
 - **`clearCache()`** forgets the fetched tiles and sprite, e.g. after they were updated on the server.
 
 Tiles are kept for the lifetime of the instance, regardless of their HTTP caching headers; beyond `tileCacheSize`, the least recently used ones are dropped. A tile the server does not have (404) is remembered as missing; a failed request (network error, server error) is not, so the next render tries again.
+
+### Loading tiles your own way
+
+Tiles and sprites are loaded with the global `fetch`, unless you pass your own function as `fetch`: `(url: string) => Promise<Response>`. Use it to send headers (an API key, say), go through a proxy, or keep tiles on disk between runs — see [Caching tiles on disk](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/png-renderer/README.md#caching-tiles-on-disk) for an example in Node.js.
+
+```typescript
+const map = new SVGMapRenderer({
+	style,
+	fetch: (url) => fetch(url, { headers: { Authorization: `Bearer ${token}` } }),
+});
+```
+
+It must return a real `Response`, and the status counts: a 404 or 204 means the server has no such tile, and the renderer remembers that; any other error status, or a rejected promise, counts as failed, so the next render tries again. The renderer only asks for tiles and sprites: a style's TileJSON sources are resolved beforehand, e.g. by `inlineSources()` of `@versatiles/style`, which uses its own requests.
 
 ### About `renderLabels`
 
