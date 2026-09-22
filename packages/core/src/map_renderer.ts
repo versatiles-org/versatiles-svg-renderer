@@ -5,6 +5,8 @@ import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
 import { TileCache } from './sources/tile_cache.js';
+import { Projection } from './projection.js';
+import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
@@ -87,6 +89,21 @@ export interface ViewOptions {
 	 * @defaultValue `2`
 	 */
 	zoom?: number;
+}
+
+/** The center and zoom of a view, with defaults applied. */
+function viewCenter(view: ViewOptions): { center: [number, number]; zoom: number } {
+	return { center: [view.lon ?? 0, view.lat ?? 0], zoom: view.zoom ?? 2 };
+}
+
+/** The projection of a view: shared by rendering and {@link SVGMapRenderer.project}. */
+function projectionOf(
+	style: StyleSpecification,
+	width: number,
+	height: number,
+	view: ViewOptions,
+): Projection {
+	return Projection.fromStyle({ width, height, ...viewCenter(view), projection: style.projection });
 }
 
 /**
@@ -178,11 +195,47 @@ export class SVGMapRenderer {
 			{
 				renderer,
 				style: this.#style,
-				view: { center: [view.lon ?? 0, view.lat ?? 0], zoom: view.zoom ?? 2 },
+				view: viewCenter(view),
 				renderLabels: this.#renderLabels,
+				projection: projectionOf(this.#style, renderer.width, renderer.height, view),
 			},
 			this.#context,
 		);
+	}
+
+	/**
+	 * Where a coordinate lands in the image of `view`: its position in the units of
+	 * `width` and `height`, the same in the SVG and on the canvas of `renderCanvas`. Use
+	 * it to place your own drawing on the map.
+	 *
+	 * On the globe, a coordinate on its far side is hidden; then this returns `undefined`.
+	 * A position outside the image is returned as is, so it can lie beyond `width` and
+	 * `height`, or be negative.
+	 *
+	 * @example Mark a place on a rendered canvas
+	 * ```ts
+	 * const view = { lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 };
+	 * const canvas = await map.renderCanvas(view);
+	 * const [x, y] = map.project(view, [13.3777, 52.5163])!; // Brandenburg Gate
+	 * const ctx = canvas.getContext('2d');
+	 * ctx.beginPath();
+	 * ctx.arc(x, y, 6, 0, 2 * Math.PI);
+	 * ctx.fill();
+	 * ```
+	 *
+	 * @param view - The view the image was rendered with.
+	 * @param lonLat - Longitude and latitude, in degrees.
+	 * @returns `[x, y]`, or `undefined` for a point hidden on the globe.
+	 * @throws If `width` or `height` is not positive.
+	 */
+	public project(view: ViewOptions, lonLat: [number, number]): [number, number] | undefined {
+		const { width, height } = viewSize(view);
+		const projection = projectionOf(this.#style, width, height, view);
+		const mercator = new Point2D(lonLat[0], lonLat[1]).getProject2Pixel();
+		const onSphere = projection.toSphere(mercator.x, mercator.y);
+		if (!projection.isVisible(onSphere)) return undefined;
+		const { x, y } = projection.project(mercator.x, mercator.y, onSphere);
+		return [x, y];
 	}
 
 	/**

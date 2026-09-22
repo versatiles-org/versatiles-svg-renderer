@@ -114,6 +114,7 @@ Renders many views of one style. The options stay the same for every view:
 | `fetch`         | `FetchFunction`      | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
 
 - **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat` and `zoom`, with the same defaults as `renderToSVG`. Renders may run concurrently.
+- **`project(view, [lon, lat]): [x, y] | undefined`** tells where a coordinate lands in the image of `view`, in the units of `width` and `height`, to place your own drawing on the map. On the globe, a point on the far side gives `undefined`.
 - **`clearCache()`** forgets the fetched tiles and sprite, e.g. after they were updated on the server.
 
 Tiles are kept for the lifetime of the instance, regardless of their HTTP caching headers; beyond `tileCacheSize`, the least recently used ones are dropped. A tile the server does not have (404) is remembered as missing; a failed request (network error, server error) is not, so the next render tries again.

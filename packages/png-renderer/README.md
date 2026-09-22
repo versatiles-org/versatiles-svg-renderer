@@ -84,12 +84,20 @@ const svg = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, h
 
 ```typescript
 const map = new PNGMapRenderer({ style });
-const canvas = await map.renderCanvas({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
+const view = { lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 };
+const canvas = await map.renderCanvas(view);
 
 const ctx = canvas.getContext('2d');
 ctx.strokeStyle = '#000';
 ctx.lineWidth = 4;
 ctx.strokeRect(2, 2, 796, 596);
+
+// Mark the Brandenburg Gate: project() gives its position in the same units.
+const [x, y] = map.project(view, [13.3777, 52.5163])!;
+ctx.fillStyle = '#e00';
+ctx.beginPath();
+ctx.arc(x, y, 8, 0, 2 * Math.PI);
+ctx.fill();
 
 await writeFile('berlin.webp', await canvas.encode('webp', 90));
 ```
@@ -178,6 +186,7 @@ An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/
 - **`renderPNG(view?): Promise<Uint8Array>`** renders one view as PNG. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `scale`, with the same defaults as `renderToPNG`.
 - **`renderCanvas(view?): Promise<Canvas>`** renders one view onto a canvas, to draw on or to encode in another format; see [above](#drawing-on-the-map-or-saving-another-format).
 - **`renderSVG(view?): Promise<string>`** renders one view as SVG, sharing the tiles and the sprite with the PNG renders.
+- **`project(view, [lon, lat])`** tells where a coordinate lands in the image of `view`, as on [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions).
 - **`clearCache()`** forgets the fetched tiles and sprite, and the decoded images.
 
 A font that cannot be loaded is reported by `renderPNG`, and the next `renderPNG` tries again.

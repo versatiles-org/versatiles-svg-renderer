@@ -299,6 +299,65 @@ describe('SVGMapRenderer', () => {
 	});
 });
 
+describe('SVGMapRenderer.project', () => {
+	const flat: StyleSpecification = { version: 8, sources: {}, layers: [] };
+	const globe: StyleSpecification = { ...flat, projection: { type: 'globe' } };
+	const view = { width: 400, height: 300, lon: 10, lat: 20, zoom: 3 };
+
+	test('puts the center of the view in the middle of the image', () => {
+		for (const style of [flat, globe]) {
+			const [x, y] = new SVGMapRenderer({ style }).project(view, [10, 20])!;
+			expect(x).toBeCloseTo(200, 6);
+			expect(y).toBeCloseTo(150, 6);
+		}
+	});
+
+	test('moves a degree of longitude by the world size at the zoom level, in mercator', () => {
+		const [x] = new SVGMapRenderer({ style: flat }).project(view, [11, 20])!;
+		expect(x - 200).toBeCloseTo((512 * 2 ** 3) / 360, 6);
+	});
+
+	test('hides a point on the far side of the globe', () => {
+		const map = new SVGMapRenderer({ style: globe });
+		const whole = { width: 400, height: 400, lon: 0, lat: 0, zoom: 1 };
+		expect(map.project(whole, [180, 0])).toBeUndefined();
+		expect(map.project(whole, [30, 10])).toBeDefined();
+		// Mercator has no far side.
+		expect(new SVGMapRenderer({ style: flat }).project(whole, [180, 0])).toBeDefined();
+	});
+
+	test('agrees with where the renderer draws a point', async () => {
+		const point: [number, number] = [11.3, 21.2];
+		for (const projection of [undefined, { type: 'globe' as const }]) {
+			const style: StyleSpecification = {
+				version: 8,
+				...(projection ? { projection } : {}),
+				sources: {
+					dot: {
+						type: 'geojson',
+						data: { type: 'Point', coordinates: point },
+					},
+				},
+				layers: [{ id: 'dot', type: 'circle', source: 'dot', paint: { 'circle-radius': 3 } }],
+			};
+			const map = new SVGMapRenderer({ style });
+			const svg = await map.renderSVG(view);
+			// The layer's circle, not the globe's clip circle.
+			const match = /<g id="dot">\s*<circle cx="([\d.-]+)" cy="([\d.-]+)"/.exec(svg);
+			if (!match) throw new Error('no circle in the SVG');
+			const [x, y] = map.project(view, point)!;
+			expect(Number(match[1])).toBeCloseTo(x, 1);
+			expect(Number(match[2])).toBeCloseTo(y, 1);
+		}
+	});
+
+	test('rejects a non-positive size, like renderSVG', () => {
+		expect(() => new SVGMapRenderer({ style: flat }).project({ width: 0 }, [0, 0])).toThrow(
+			'width must be positive',
+		);
+	});
+});
+
 describe('viewSize', () => {
 	test('defaults to 1024 × 1024', () => {
 		expect(viewSize({})).toEqual({ width: 1024, height: 1024 });
