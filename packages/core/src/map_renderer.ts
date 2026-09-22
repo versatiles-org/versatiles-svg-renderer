@@ -225,11 +225,13 @@ export class SVGMapRenderer {
 	 *
 	 * @param view - The view the image was rendered with.
 	 * @param lonLat - Longitude and latitude, in degrees.
-	 * @returns `[x, y]`, or `undefined` for a point hidden on the globe.
+	 * @returns `[x, y]`, or `undefined` for a point hidden on the globe, and for a
+	 *   longitude or latitude that is not a finite number.
 	 * @throws If `width` or `height` is not positive.
 	 */
 	public project(view: ViewOptions, lonLat: [number, number]): [number, number] | undefined {
 		const { width, height } = viewSize(view);
+		if (!lonLat.every(Number.isFinite)) return undefined;
 		const projection = projectionOf(this.#style, width, height, view);
 		const lat = Math.max(-MAX_LATITUDE, Math.min(MAX_LATITUDE, lonLat[1]));
 		const mercator = new Point2D(lonLat[0], lat).getProject2Pixel();
@@ -247,11 +249,13 @@ export class SVGMapRenderer {
 	 *
 	 * @param view - The view the image was rendered with.
 	 * @param xy - A position in the units of `width` and `height`.
-	 * @returns `[lon, lat]` in degrees, or `undefined` where there is no map.
+	 * @returns `[lon, lat]` in degrees, or `undefined` where there is no map, and for a
+	 *   position that is not a finite number.
 	 * @throws If `width` or `height` is not positive.
 	 */
 	public unproject(view: ViewOptions, xy: [number, number]): [number, number] | undefined {
 		const { width, height } = viewSize(view);
+		if (!xy.every(Number.isFinite)) return undefined;
 		const mercator = projectionOf(this.#style, width, height, view).unproject(xy[0], xy[1]);
 		return mercator && mercatorToLonLat(mercator[0], mercator[1]);
 	}

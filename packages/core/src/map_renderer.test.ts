@@ -416,6 +416,22 @@ describe('SVGMapRenderer.unproject', () => {
 		expect(map.unproject({ width: 400, height: 400, zoom: 0 }, [2, 2])).toBeUndefined();
 	});
 
+	test('gives nothing for a position that is not a finite number', () => {
+		const view = { width: 400, height: 300, lon: 10, lat: 20, zoom: 3 };
+		for (const style of [flat, globe]) {
+			const map = new SVGMapRenderer({ style });
+			for (const xy of [
+				[NaN, 0],
+				[0, NaN],
+				[Infinity, 0],
+				[0, -Infinity],
+			] as [number, number][]) {
+				expect(map.unproject(view, xy)).toBeUndefined();
+				expect(map.project(view, xy)).toBeUndefined();
+			}
+		}
+	});
+
 	test('rejects a non-positive size, like project', () => {
 		expect(() => new SVGMapRenderer({ style: flat }).unproject({ height: 0 }, [0, 0])).toThrow(
 			'height must be positive',
