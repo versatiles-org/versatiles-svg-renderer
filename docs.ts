@@ -29,6 +29,7 @@ export {
 } from './packages/svg-renderer/src/index.js';
 export {
 	PNGMapRenderer,
+	renderToCanvas,
 	renderToPNG,
 	type PNGMapRendererOptions,
 	type PNGViewOptions,

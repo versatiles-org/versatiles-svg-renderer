@@ -1,4 +1,4 @@
-import type { Image } from '@napi-rs/canvas';
+import type { Canvas, Image } from '@napi-rs/canvas';
 import type { RenderToSVGOptions } from '@versatiles/renderer-core/render_svg';
 import { CanvasRenderer } from '@versatiles/renderer-core/renderer/canvas';
 import { LRUCache } from '@versatiles/renderer-core/lru_cache';
@@ -123,6 +123,24 @@ export async function renderToPNG(options: RenderToPNGOptions): Promise<Uint8Arr
 	return new PNGMapRenderer(options).renderPNG(options);
 }
 
+/**
+ * Renders a MapLibre style onto a canvas, to draw on top of it or to encode it in another
+ * format than PNG. Takes the options of {@link renderToPNG}; the canvas is described on
+ * {@link PNGMapRenderer.renderCanvas}.
+ *
+ * @example Save a map as JPEG
+ * ```ts
+ * const canvas = await renderToCanvas({ style, lon: 13.4, lat: 52.52, zoom: 12 });
+ * await writeFile('berlin.jpg', await canvas.encode('jpeg', 85));
+ * ```
+ *
+ * @returns A `Canvas` of `@napi-rs/canvas`.
+ * @throws As {@link renderToPNG}.
+ */
+export async function renderToCanvas(options: RenderToPNGOptions): Promise<Canvas> {
+	return new PNGMapRenderer(options).renderCanvas(options);
+}
+
 /** Options for {@link PNGMapRenderer}: those of {@link SVGMapRenderer}, plus fonts. */
 export interface PNGMapRendererOptions extends SVGMapRendererOptions {
 	/**
@@ -194,6 +212,48 @@ export class PNGMapRenderer extends SVGMapRenderer {
 	 *   `scale` is not positive, or if a font in `fonts` cannot be loaded.
 	 */
 	public async renderPNG(view: PNGViewOptions = {}): Promise<Uint8Array> {
+		return (await this.#render(view)).toBuffer();
+	}
+
+	/**
+	 * Renders one view of the map onto a canvas, to draw on top of it or to encode it in
+	 * another format.
+	 *
+	 * The canvas is `width × scale` by `height × scale` pixels. Its 2D context is in its
+	 * default state, except that it is scaled by `scale`: draw in the same units as
+	 * `width` and `height`. Encode it with `canvas.encode('webp' | 'jpeg' | 'avif' | 'png')`
+	 * or `canvas.toBuffer(…)`.
+	 *
+	 * The canvas records what is drawn and only paints the pixels when they are needed,
+	 * usually when it is encoded, so drawing more on it costs little. Reading pixels
+	 * (`getImageData`) paints everything recorded so far, every time it is called.
+	 *
+	 * @example Draw a frame around the map and save it as WebP
+	 * ```ts
+	 * const canvas = await map.renderCanvas({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
+	 * const ctx = canvas.getContext('2d');
+	 * ctx.strokeStyle = '#000';
+	 * ctx.lineWidth = 4;
+	 * ctx.strokeRect(2, 2, 796, 596);
+	 * await writeFile('berlin.webp', await canvas.encode('webp', 90));
+	 * ```
+	 *
+	 * @param view - Size, centre, zoom and pixel density. All optional.
+	 * @returns A `Canvas` of `@napi-rs/canvas`.
+	 * @throws As {@link PNGMapRenderer.renderPNG}.
+	 */
+	public async renderCanvas(view: PNGViewOptions = {}): Promise<Canvas> {
+		return (await this.#render(view)).canvas;
+	}
+
+	/** Forgets the fetched tiles and sprite, and the decoded images. */
+	public override clearCache(): void {
+		super.clearCache();
+		this.#images.clear();
+	}
+
+	/** Draws `view` onto a new canvas, finished: nothing clips or transforms it any more. */
+	async #render(view: PNGViewOptions): Promise<CanvasRenderer> {
 		const { width, height } = viewSize(view);
 		const scale = view.scale ?? 1;
 		if (scale <= 0) throw new Error('scale must be positive');
@@ -207,14 +267,7 @@ export class PNGMapRenderer extends SVGMapRenderer {
 			loadImage: backend.loadImage,
 			images: this.#images,
 		});
-		await this.draw(renderer, view);
-		return renderer.toBuffer();
-	}
-
-	/** Forgets the fetched tiles and sprite, and the decoded images. */
-	public override clearCache(): void {
-		super.clearCache();
-		this.#images.clear();
+		return this.draw(renderer, view);
 	}
 
 	/**

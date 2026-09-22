@@ -78,6 +78,24 @@ for (const [name, lon, lat] of [
 const svg = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
 ```
 
+### Drawing on the map, or saving another format
+
+`renderCanvas` returns the canvas instead of a PNG file: a [`Canvas` of `@napi-rs/canvas`](https://github.com/Brooooooklyn/canvas). Draw on it with its 2D context, then encode it in any format it supports — WebP, JPEG, AVIF or PNG. Its context is scaled by `scale`, so you draw in the same units as `width` and `height`.
+
+```typescript
+const map = new PNGMapRenderer({ style });
+const canvas = await map.renderCanvas({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
+
+const ctx = canvas.getContext('2d');
+ctx.strokeStyle = '#000';
+ctx.lineWidth = 4;
+ctx.strokeRect(2, 2, 796, 596);
+
+await writeFile('berlin.webp', await canvas.encode('webp', 90));
+```
+
+`renderToCanvas(options)` does the same in one call, like `renderToPNG`.
+
 ### Caching tiles on disk
 
 The renderer keeps tiles in memory while an instance lives. To keep them between runs, pass a `fetch` that stores responses on disk ([more on `fetch`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#loading-tiles-your-own-way)):
@@ -158,10 +176,19 @@ Label rendering has the same limitations as in SVG output: [see `renderLabels`](
 An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (`style`, `renderLabels`, `tileCacheSize`, `fetch`), plus `fonts` as above.
 
 - **`renderPNG(view?): Promise<Uint8Array>`** renders one view as PNG. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `scale`, with the same defaults as `renderToPNG`.
+- **`renderCanvas(view?): Promise<Canvas>`** renders one view onto a canvas, to draw on or to encode in another format; see [above](#drawing-on-the-map-or-saving-another-format).
 - **`renderSVG(view?): Promise<string>`** renders one view as SVG, sharing the tiles and the sprite with the PNG renders.
 - **`clearCache()`** forgets the fetched tiles and sprite, and the decoded images.
 
 A font that cannot be loaded is reported by `renderPNG`, and the next `renderPNG` tries again.
+
+### `renderToCanvas(options): Promise<Canvas>`
+
+Takes the options of `renderToPNG` and returns the canvas instead of the PNG file, like `renderCanvas`.
+
+### TypeScript
+
+The types of `renderCanvas` and `renderToCanvas` are those of `@napi-rs/canvas`, which use Node's types (`Buffer`, for one). A TypeScript project using this package therefore needs `@types/node`, as most Node.js projects have anyway, or `skipLibCheck`.
 
 ### `renderToSVG(options): Promise<string>` and `new SVGMapRenderer(options)`
 

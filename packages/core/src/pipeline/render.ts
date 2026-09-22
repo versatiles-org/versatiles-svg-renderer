@@ -72,6 +72,7 @@ export async function drawMap<R extends Renderer>(
 	const clipCircle = job.projection.clipCircle;
 	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
 	await render(job, context);
+	job.renderer.finish?.();
 	return job.renderer;
 }
 

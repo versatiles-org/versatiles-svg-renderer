@@ -36,6 +36,11 @@ export interface Renderer {
 	drawRasterTiles(id: string, tiles: RasterTile[], style: RasterStyle): void | Promise<void>;
 	/** Restricts all drawing to a circle (the silhouette of the globe). */
 	setClipCircle?(circle: ClipCircle): void;
+	/**
+	 * Called once the map is complete: undoes any state set up for drawing it (such as the
+	 * clip circle), so that whoever gets the result can keep drawing on it.
+	 */
+	finish?(): void;
 }
 
 /** A {@link Renderer} whose result is text, such as the SVG backend. */

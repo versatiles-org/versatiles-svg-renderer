@@ -3,7 +3,8 @@
  *
  * This lives apart from the public entry point on purpose. Its type is
  * `typeof import('@napi-rs/canvas')`, and anything reachable from an entry point's exports
- * ends up in that entry's `.d.ts`, which would tie the published types to the backend's.
+ * ends up in that entry's `.d.ts`. The public types reference only the backend's `Canvas`,
+ * which `renderCanvas` returns by design; the rest of the backend stays out of them.
  */
 /**
  * `@napi-rs/canvas` is a dependency of this package, but it is still imported lazily: its

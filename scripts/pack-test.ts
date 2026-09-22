@@ -109,6 +109,8 @@ interface PackageSpec {
 	files: string[];
 	/** The published `.d.ts` entry. */
 	types: string;
+	/** Modules the published types may import besides `geojson`: declared dependencies. */
+	typeImports?: string[];
 }
 
 const PACKAGES: PackageSpec[] = [
@@ -121,6 +123,8 @@ const PACKAGES: PackageSpec[] = [
 		dir: 'png-renderer',
 		files: ['LICENSE', 'README.md', 'package.json', 'dist/index.js', 'dist/index.d.ts'],
 		types: 'dist/index.d.ts',
+		// `renderCanvas` returns its `Canvas`, on purpose.
+		typeImports: ['@napi-rs/canvas'],
 	},
 	{
 		dir: 'maplibre-svg-export',
@@ -174,11 +178,11 @@ try {
 			return shipped.filter((f) => f.startsWith('dist/')).join(', ');
 		});
 
-		check('published types reference no other module', () => {
-			// Only `@types/geojson` may be referenced: it is a declared dependency. Anything
-			// else (maplibre-gl, @napi-rs/canvas, the style spec, the private core) would make
-			// consumers install it just to typecheck. Comments are stripped first, because the
-			// documentation's code examples legitimately contain `import … from '…'`.
+		check('published types reference only declared dependencies', () => {
+			// `@types/geojson` may be referenced, and what `typeImports` lists: declared
+			// dependencies. Anything else (maplibre-gl, the style spec, the private core) would
+			// make consumers install it just to typecheck. Comments are stripped first, because
+			// the documentation's code examples legitimately contain `import … from '…'`.
 			const source = readFileSync(resolve(pkgDir, spec.types), 'utf8');
 			const references = [...source.matchAll(/\/\/\/\s*<reference\s+types="([^"]+)"/g)].map(
 				(m) => m[1],
@@ -187,9 +191,10 @@ try {
 			const imports = [
 				...code.matchAll(/(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*)['"]([^'"]+)['"]/g),
 			].map((m) => m[1]);
-			const foreign = [...references, ...imports].filter((m) => m !== 'geojson');
+			const allowed = ['geojson', ...(spec.typeImports ?? [])];
+			const foreign = [...references, ...imports].filter((m) => !allowed.includes(m!));
 			assert(foreign.length === 0, `references ${foreign.join(', ')}`);
-			return 'only geojson';
+			return [...new Set([...references, ...imports])].join(', ');
 		});
 	}
 
@@ -325,13 +330,29 @@ try {
 			),
 		);
 
+		check('renders onto a canvas to draw on and encode', () =>
+			runModule(
+				`const { PNGMapRenderer, renderToCanvas } = await import('@versatiles/png-renderer');
+				const canvas = await new PNGMapRenderer({ style: ${BACKGROUND_STYLE} }).renderCanvas({ width: 32, height: 16, scale: 2 });
+				if (canvas.width !== 64 || canvas.height !== 32) throw new Error('wrong size');
+				canvas.getContext('2d').fillRect(0, 0, 4, 4);
+				const webp = await canvas.encode('webp');
+				if (webp.subarray(0, 4).toString() !== 'RIFF') throw new Error('not a WebP');
+				const other = await renderToCanvas({ style: ${BACKGROUND_STYLE}, width: 8, height: 8 });
+				console.log(webp.length + ' bytes of WebP, and ' + other.width + 'x' + other.height + ' from renderToCanvas');`,
+				consumer,
+			),
+		);
+
 		checkTypes(
 			consumer,
 			`import {
 				PNGMapRenderer,
+				renderToCanvas,
 				renderToPNG,
 				renderToSVG,
 				SVGMapRenderer,
+				type Canvas,
 				type PNGMapRendererOptions,
 				type PNGViewOptions,
 				type RenderToPNGOptions,
@@ -343,7 +364,14 @@ try {
 			const view: PNGViewOptions = { zoom: 3, scale: 2 };
 			const map: SVGMapRenderer = new PNGMapRenderer(mapOptions);
 			export const png1: Promise<Uint8Array> = new PNGMapRenderer(mapOptions).renderPNG(view);
+			// The canvas is the real one of @napi-rs/canvas, with its whole API.
+			const canvas: Canvas = await new PNGMapRenderer(mapOptions).renderCanvas(view);
+			canvas.getContext('2d').strokeRect(1, 1, 10, 10);
+			export const webp: Promise<Buffer> = canvas.encode('webp', 90);
+			export const other: Promise<Canvas> = renderToCanvas(options);
 			export const svg1: Promise<string> = map.renderSVG(view);`,
+			undefined,
+			true,
 		);
 	}
 
@@ -551,15 +579,23 @@ function createConsumer(name: string, packages: string[], npmArgs: string[] = []
 /**
  * Typechecks `code` in the consumer and returns tsc's output ('' when it passes).
  *
- * Only the compiler is provided. No `@types/node`: the published types must not depend on
- * Node's ambient globals (which is why `renderToPNG` returns a `Uint8Array` rather than a
- * `Buffer`), and no `@types/geojson` either: each package declares it, so installing the
- * tarball brings it along.
+ * Only the compiler is provided, and no `@types/geojson`: each package declares it, so
+ * installing the tarball brings it along. No `@types/node` either, unless `nodeTypes` is
+ * set: the SVG packages must not depend on Node's ambient globals. png-renderer needs
+ * them, since the types of the `Canvas` its `renderCanvas` returns do.
  */
-function typecheck(consumer: string, code: string, lib: string[] = ['ES2022']): string {
-	const link = resolve(consumer, 'node_modules/typescript');
-	mkdirSync(dirname(link), { recursive: true });
-	if (!existsSync(link)) symlinkSync(resolve(repo, 'node_modules/typescript'), link, 'dir');
+function typecheck(
+	consumer: string,
+	code: string,
+	lib: string[] = ['ES2022'],
+	nodeTypes = false,
+): string {
+	const provided = ['typescript', ...(nodeTypes ? ['@types/node', 'undici-types'] : [])];
+	for (const name of provided) {
+		const link = resolve(consumer, 'node_modules', name);
+		mkdirSync(dirname(link), { recursive: true });
+		if (!existsSync(link)) symlinkSync(resolve(repo, 'node_modules', name), link, 'dir');
+	}
 	writeFileSync(resolve(consumer, 'consumer.ts'), code);
 	writeFileSync(
 		resolve(consumer, 'tsconfig.json'),
@@ -569,7 +605,7 @@ function typecheck(consumer: string, code: string, lib: string[] = ['ES2022']): 
 				moduleResolution: 'node16',
 				target: 'ES2022',
 				lib,
-				types: [],
+				types: nodeTypes ? ['node'] : [],
 				strict: true,
 				noEmit: true,
 				// Deliberately off: the published .d.ts files must stand on their own. With it
@@ -588,11 +624,11 @@ function typecheck(consumer: string, code: string, lib: string[] = ['ES2022']): 
 	}
 }
 
-function checkTypes(consumer: string, code: string, lib?: string[]): void {
+function checkTypes(consumer: string, code: string, lib?: string[], nodeTypes = false): void {
 	check('a strict consumer typechecks against the published types', () => {
-		const output = typecheck(consumer, code, lib);
+		const output = typecheck(consumer, code, lib, nodeTypes);
 		assert(output === '', output);
-		return 'node16 resolution, skipLibCheck off, no @types/node';
+		return `node16 resolution, skipLibCheck off, ${nodeTypes ? 'with' : 'no'} @types/node`;
 	});
 }
 

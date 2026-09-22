@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`SVGMapRenderer` and `PNGMapRenderer`: render many views of one style.** Create one with the style (and `renderLabels`), then call `renderSVG(view)` or `renderPNG(view)` for each view. The style is parsed once, the sprite is fetched once, and fetched tiles are kept up to `tileCacheSize` (default 128 MB, least recently used dropped first), so overlapping views do not fetch them again. `PNGMapRenderer` also keeps decoded images, and renders SVG too, from the same tiles. `clearCache()` forgets what was fetched. Exported by all three packages (`PNGMapRenderer` by `@versatiles/png-renderer` only).
 - **`fetch` option: load tiles and sprites your own way.** `SVGMapRenderer`, `PNGMapRenderer`, `renderToSVG` and `renderToPNG` take a `fetch` function, `(url: string) => Promise<Response>`, used instead of the global `fetch`: to send headers, go through a proxy, or cache tiles on disk (an example is in the README of `@versatiles/png-renderer`). The types are exported as `FetchFunction` and `FetchResponse` (the part of a `Response` the renderer reads), so they need neither the DOM nor Node's type definitions.
+- **`renderCanvas` and `renderToCanvas` (`@versatiles/png-renderer`): the rendered canvas**, instead of a PNG file, to draw on it or to encode it in another format (`canvas.encode('webp' | 'jpeg' | 'avif')`). Its context is left in its default state apart from the pixel-density scale, also on the globe.
 - The tile cache remembers tiles the server does not have (HTTP 404 and 204); failed requests (network errors, other error statuses) are not kept, so the next render tries again.
 
 ### Changed
 
 - `renderToSVG` and `renderToPNG` render through the new classes. Their options and output are unchanged; within a single render, a tile that appears twice (e.g. in a wide view at a low zoom) is now fetched once.
+- **TypeScript users of `@versatiles/png-renderer` need `@types/node`** (or `skipLibCheck`): the `Canvas` that `renderCanvas` returns is typed by `@napi-rs/canvas`, whose types use Node's. For the same reason, a new major version of `@napi-rs/canvas` will be a breaking change of this package.
 
 ## [2.0.0] - 2026-09-21
 

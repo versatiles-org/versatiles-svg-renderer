@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { loadCanvasBackend, missingBackendMessage, nativePackageName } from './canvas_backend.js';
-import { PNGMapRenderer, renderToPNG } from './png.js';
+import { PNGMapRenderer, renderToCanvas, renderToPNG } from './png.js';
 
 const minimalStyle = {
 	version: 8 as const,
@@ -247,6 +247,62 @@ describe('PNGMapRenderer', () => {
 		const viaFunction = await renderToPNG({ style: rasterStyle, fetch: fetchMock, ...view });
 		expect(viaFunction).toEqual(viaClass);
 		expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+	});
+
+	describe('renderCanvas', () => {
+		test('gives a canvas of the size of the view times the scale', async () => {
+			const map = new PNGMapRenderer({ style: minimalStyle });
+			const canvas = await map.renderCanvas({ width: 30, height: 20, scale: 2 });
+			expect([canvas.width, canvas.height]).toEqual([60, 40]);
+		});
+
+		test('encodes to the same PNG as renderPNG', async () => {
+			await mockTiles();
+			const map = new PNGMapRenderer({ style: rasterStyle });
+			const view = { zoom: 2, width: 128, height: 96, scale: 2 };
+			const canvas = await map.renderCanvas(view);
+			// Both as Buffer: toEqual does not take a Uint8Array for a Buffer with the same bytes.
+			const fromPNG = Buffer.from(await map.renderPNG(view));
+			expect(canvas.toBuffer('image/png')).toEqual(fromPNG);
+		});
+
+		test('leaves the context unclipped and scaled only, also on the globe', async () => {
+			const globeStyle = {
+				version: 8 as const,
+				projection: { type: 'globe' as const },
+				sources: {},
+				layers: [
+					{ id: 'bg', type: 'background' as const, paint: { 'background-color': '#0000ff' } },
+				],
+			} as StyleSpecification;
+			const map = new PNGMapRenderer({ style: globeStyle });
+			const canvas = await map.renderCanvas({ zoom: 0, width: 200, height: 200, scale: 2 });
+			const ctx = canvas.getContext('2d');
+			const { a, b, c, d, e, f } = ctx.getTransform();
+			expect([a, b, c, d, e, f]).toEqual([2, 0, 0, 2, 0, 0]);
+
+			// The corners lie outside the globe; drawing there must not be clipped away.
+			const cornerAlpha = (): number => ctx.getImageData(2, 2, 1, 1).data[3]!;
+			expect(cornerAlpha()).toBe(0);
+			ctx.fillStyle = '#ff0000';
+			ctx.fillRect(0, 0, 5, 5);
+			expect([...ctx.getImageData(2, 2, 1, 1).data]).toEqual([255, 0, 0, 255]);
+			// And the globe itself was drawn.
+			expect([...ctx.getImageData(200, 200, 1, 1).data]).toEqual([0, 0, 255, 255]);
+		});
+
+		test('renderToCanvas gives the same canvas', async () => {
+			await mockTiles();
+			const view = { zoom: 2, width: 64, height: 64 };
+			const viaClass = await new PNGMapRenderer({ style: rasterStyle }).renderCanvas(view);
+			const viaFunction = await renderToCanvas({ style: rasterStyle, ...view });
+			expect(viaFunction.toBuffer('image/png')).toEqual(viaClass.toBuffer('image/png'));
+		});
+
+		test('rejects a non-positive scale, like renderPNG', async () => {
+			const map = new PNGMapRenderer({ style: minimalStyle });
+			await expect(map.renderCanvas({ scale: 0 })).rejects.toThrow('scale must be positive');
+		});
 	});
 
 	test('takes the scale per view', async () => {

@@ -94,6 +94,9 @@ export class CanvasRenderer implements Renderer {
 
 	readonly #loadImage: ((source: string) => Promise<Image>) | undefined;
 
+	/** Whether the context was saved for the clip circle, to be restored by `finish`. */
+	#clipped = false;
+
 	/** Reused offscreen layer for effects that must not see what is already drawn. */
 	#scratch: { canvas: Canvas; ctx: SKRSContext2D } | undefined;
 
@@ -121,9 +124,12 @@ export class CanvasRenderer implements Renderer {
 	 * Restricts all later drawing to the globe's silhouette. The pipeline calls this
 	 * before any layer is drawn, so the clip can be applied to the context directly (the
 	 * SVG backend instead has to defer it to a `clipPath` at serialization time). Drawing
-	 * methods save and restore around their own state, so this outer clip survives them.
+	 * methods save and restore around their own state, so this outer clip survives them;
+	 * {@link finish} removes it.
 	 */
 	public setClipCircle(circle: ClipCircle): void {
+		if (!this.#clipped) this.ctx.save();
+		this.#clipped = true;
 		this.ctx.beginPath();
 		this.ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
 		this.ctx.clip();
@@ -594,6 +600,15 @@ export class CanvasRenderer implements Renderer {
 				ctx.fillText(style.text, x + dx / UNITS_PER_PX, y + dy / UNITS_PER_PX);
 			});
 		}
+	}
+
+	/**
+	 * Leaves the context as a caller expects it: in its default state, apart from the
+	 * scale to device pixels.
+	 */
+	public finish(): void {
+		if (this.#clipped) this.ctx.restore();
+		this.#clipped = false;
 	}
 
 	public toBuffer(): Buffer {

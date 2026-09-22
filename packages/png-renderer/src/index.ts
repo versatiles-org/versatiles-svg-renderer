@@ -1,5 +1,6 @@
 export {
 	PNGMapRenderer,
+	renderToCanvas,
 	renderToPNG,
 	type PNGMapRendererOptions,
 	type PNGViewOptions,
@@ -12,3 +13,4 @@ export {
 	type ViewOptions,
 } from '@versatiles/renderer-core/map_renderer';
 export type { FetchFunction, FetchResponse } from '@versatiles/renderer-core/sources/fetch';
+export type { Canvas } from '@napi-rs/canvas';
