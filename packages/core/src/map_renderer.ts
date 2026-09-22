@@ -5,7 +5,7 @@ import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
 import { TileCache } from './sources/tile_cache.js';
-import { mercatorToLonLat, Projection } from './projection.js';
+import { MAX_LATITUDE, mercatorToLonLat, Projection } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 
@@ -210,7 +210,8 @@ export class SVGMapRenderer {
 	 *
 	 * On the globe, a coordinate on its far side is hidden; then this returns `undefined`.
 	 * A position outside the image is returned as is, so it can lie beyond `width` and
-	 * `height`, or be negative.
+	 * `height`, or be negative. The map ends at about ±85.05° latitude, as in MapLibre: a
+	 * latitude beyond that, up to the poles, gives the position of the map's edge.
 	 *
 	 * @example Mark a place on a rendered canvas
 	 * ```ts
@@ -231,7 +232,8 @@ export class SVGMapRenderer {
 	public project(view: ViewOptions, lonLat: [number, number]): [number, number] | undefined {
 		const { width, height } = viewSize(view);
 		const projection = projectionOf(this.#style, width, height, view);
-		const mercator = new Point2D(lonLat[0], lonLat[1]).getProject2Pixel();
+		const lat = Math.max(-MAX_LATITUDE, Math.min(MAX_LATITUDE, lonLat[1]));
+		const mercator = new Point2D(lonLat[0], lat).getProject2Pixel();
 		const onSphere = projection.toSphere(mercator.x, mercator.y);
 		if (!projection.isVisible(onSphere)) return undefined;
 		const { x, y } = projection.project(mercator.x, mercator.y, onSphere);

@@ -351,6 +351,23 @@ describe('SVGMapRenderer.project', () => {
 		}
 	});
 
+	test('puts the poles at the edge of the map, where the mercator map ends', () => {
+		const edge = 85.05112877980659;
+		for (const [style, v] of [
+			[flat, view],
+			// On the globe, a view near the pole, so the pole is on the visible side.
+			[globe, { width: 400, height: 400, lon: 0, lat: 70, zoom: 1 }],
+		] as const) {
+			const map = new SVGMapRenderer({ style });
+			for (const sign of [1, -1]) {
+				if (style === globe && sign === -1) continue; // the south pole is hidden from there
+				const pole = map.project(v, [0, 90 * sign])!;
+				expect(pole.every(Number.isFinite)).toBe(true);
+				expect(pole).toEqual(map.project(v, [0, edge * sign]));
+			}
+		}
+	});
+
 	test('rejects a non-positive size, like renderSVG', () => {
 		expect(() => new SVGMapRenderer({ style: flat }).project({ width: 0 }, [0, 0])).toThrow(
 			'width must be positive',

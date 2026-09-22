@@ -153,6 +153,9 @@ function inWorld([mx, my]: [number, number]): [number, number] | undefined {
 	return [mx - Math.floor(mx), my];
 }
 
+/** The latitude where the mercator map ends, north and south: atan(sinh(π)), in degrees. */
+export const MAX_LATITUDE = (Math.atan(Math.sinh(Math.PI)) * 180) / Math.PI;
+
 /** Mercator world coordinates (0..1) → longitude and latitude in degrees. */
 export function mercatorToLonLat(mx: number, my: number): [number, number] {
 	const lon = mx * 360 - 180;
