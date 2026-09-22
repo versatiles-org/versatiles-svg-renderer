@@ -16,9 +16,9 @@ export interface SVGMapRendererOptions {
 	 *
 	 * Its sources must list their tile URLs directly (`tiles: [...]`). A style whose
 	 * sources only point at a TileJSON document (`url: '.../tiles.json'`) renders as an
-	 * **empty map without any error**, because the renderer does not fetch TileJSON. Styles
-	 * built with `@versatiles/style` come in that form, so pass them through its
-	 * `inlineSources()` first — see the examples on {@link renderToSVG}.
+	 * **empty map without any error**, because the renderer does not fetch TileJSON. Hosted
+	 * styles such as those of VersaTiles list their tiles; a style built with
+	 * `@versatiles/style` needs its `inlineSources()` first.
 	 */
 	style: StyleSpecification;
 	/**
@@ -134,12 +134,11 @@ export function viewSize(view: ViewOptions): { width: number; height: number } {
  * @example Render several views of one style
  * ```ts
  * import { SVGMapRenderer } from '@versatiles/svg-renderer';
- * import { inlineSources, osm } from '@versatiles/style';
  *
- * const map = new SVGMapRenderer({ style: await inlineSources(osm()), renderLabels: true });
+ * const map = new SVGMapRenderer({ style });
  *
- * const berlin = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
- * const paris = await map.renderSVG({ lon: 2.35, lat: 48.86, zoom: 12, width: 800, height: 600 });
+ * const berlin = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12 });
+ * const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
  * ```
  */
 export class SVGMapRenderer {
@@ -215,7 +214,7 @@ export class SVGMapRenderer {
 	 *
 	 * @example Mark a place on a rendered canvas
 	 * ```ts
-	 * const view = { lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 };
+	 * const view = { lon: 13.4, lat: 52.52, zoom: 12 };
 	 * const canvas = await map.renderCanvas(view);
 	 * const [x, y] = map.project(view, [13.3777, 52.5163])!; // Brandenburg Gate
 	 * const ctx = canvas.getContext('2d');

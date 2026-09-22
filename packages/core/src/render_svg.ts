@@ -20,38 +20,14 @@ export interface RenderToSVGOptions
  * sprite again. To render many views of one style, use {@link SVGMapRenderer}, which
  * keeps them between renders.
  *
- * @example Render a map in Node.js
- * ```ts
- * import { renderToSVG } from '@versatiles/svg-renderer';
- * import { inlineSources, osm } from '@versatiles/style';
- * import { writeFile } from 'node:fs/promises';
- *
- * // inlineSources() resolves the style's TileJSON sources into tile URLs,
- * // which the renderer needs. Without it the map comes out empty.
- * const style = await inlineSources(osm({ theme: 'colorful' }));
- *
- * const svg = await renderToSVG({
- *   style,
- *   width: 800,
- *   height: 600,
- *   lon: 13.4, // Berlin
- *   lat: 52.52,
- *   zoom: 12,
- * });
- *
- * await writeFile('berlin.svg', svg);
- * ```
- *
- * @example Render a hosted style in the browser
+ * @example Render a map
  * ```ts
  * import { renderToSVG } from '@versatiles/svg-renderer';
  *
- * // This hosted style already lists its tile URLs, so it can be used directly.
- * const style = await fetch(
- *   'https://tiles.versatiles.org/assets/styles/colorful/style.json',
- * ).then((response) => response.json());
+ * const url = 'https://tiles.versatiles.org/assets/styles/colorful/style.json';
+ * const style = await (await fetch(url)).json();
  *
- * document.body.innerHTML = await renderToSVG({ style, width: 800, height: 600, zoom: 3 });
+ * const svg = await renderToSVG({ style, lon: 13.4, lat: 52.52, zoom: 12 });
  * ```
  *
  * @example Include labels and icons

@@ -74,40 +74,24 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  * @example Render a map to a file
  * ```ts
  * import { renderToPNG } from '@versatiles/png-renderer';
- * import { inlineSources, osm } from '@versatiles/style';
  * import { writeFile } from 'node:fs/promises';
  *
- * // As with renderToSVG, the style's sources must list their tile URLs.
- * const style = await inlineSources(osm({ theme: 'colorful' }));
+ * const url = 'https://tiles.versatiles.org/assets/styles/colorful/style.json';
+ * const style = await (await fetch(url)).json();
  *
- * const png = await renderToPNG({
- *   style,
- *   width: 800,
- *   height: 600,
- *   lon: 13.4, // Berlin
- *   lat: 52.52,
- *   zoom: 12,
- *   scale: 2, // 1600 × 1200 pixels, for high-resolution screens
- * });
- *
+ * const png = await renderToPNG({ style, lon: 13.4, lat: 52.52, zoom: 12 });
  * await writeFile('berlin.png', png);
  * ```
  *
  * @example Draw labels in the style's own fonts
  * ```ts
- * // The VersaTiles styles use Noto Sans. One source is `npm install @fontsource/noto-sans`
- * // (its "latin" files cover Western European scripts; it ships others alongside).
- * const files = 'node_modules/@fontsource/noto-sans/files';
  * const png = await renderToPNG({
  *   style,
  *   lon: 13.4,
  *   lat: 52.52,
  *   zoom: 14,
  *   renderLabels: true,
- *   fonts: {
- *     noto_sans_regular: `${files}/noto-sans-latin-400-normal.woff2`,
- *     noto_sans_bold: `${files}/noto-sans-latin-700-normal.woff2`,
- *   },
+ *   fonts: { noto_sans_regular: 'fonts/NotoSans-Regular.ttf', noto_sans_bold: 'fonts/NotoSans-Bold.ttf' },
  * });
  * ```
  *
@@ -175,18 +159,15 @@ const IMAGE_CACHE_SIZE = 64 * 1024 * 1024;
  * decoded tile and sprite images. Like {@link renderToPNG}, PNG rendering works in Node.js
  * only.
  *
- * @example Render a batch of PNG images
+ * @example Render several views of one style
  * ```ts
  * import { PNGMapRenderer } from '@versatiles/png-renderer';
- * import { inlineSources, osm } from '@versatiles/style';
- * import { writeFile } from 'node:fs/promises';
  *
- * const map = new PNGMapRenderer({ style: await inlineSources(osm()) });
+ * const map = new PNGMapRenderer({ style });
  *
- * for (const [name, lon, lat] of [['berlin', 13.4, 52.52], ['paris', 2.35, 48.86]] as const) {
- *   const png = await map.renderPNG({ lon, lat, zoom: 12, width: 800, height: 600, scale: 2 });
- *   await writeFile(`${name}.png`, png);
- * }
+ * const berlin = await map.renderPNG({ lon: 13.4, lat: 52.52, zoom: 12 });
+ * const potsdam = await map.renderPNG({ lon: 13.06, lat: 52.4, zoom: 12 });
+ * const svg = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12 });
  * ```
  */
 export class PNGMapRenderer extends SVGMapRenderer {
@@ -228,15 +209,13 @@ export class PNGMapRenderer extends SVGMapRenderer {
 	 * usually when it is encoded, so drawing more on it costs little. Reading pixels
 	 * (`getImageData`) paints everything recorded so far, every time it is called.
 	 *
-	 * @example Draw a frame around the map and save it as WebP
+	 * @example Save a map as WebP
 	 * ```ts
-	 * const canvas = await map.renderCanvas({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
-	 * const ctx = canvas.getContext('2d');
-	 * ctx.strokeStyle = '#000';
-	 * ctx.lineWidth = 4;
-	 * ctx.strokeRect(2, 2, 796, 596);
-	 * await writeFile('berlin.webp', await canvas.encode('webp', 90));
+	 * const canvas = await map.renderCanvas({ lon: 13.4, lat: 52.52, zoom: 12 });
+	 * await writeFile('berlin.webp', await canvas.encode('webp'));
 	 * ```
+	 *
+	 * To draw on the map, see the example on {@link SVGMapRenderer.project}.
 	 *
 	 * @param view - Size, centre, zoom and pixel density. All optional.
 	 * @returns A `Canvas` of `@napi-rs/canvas`.
