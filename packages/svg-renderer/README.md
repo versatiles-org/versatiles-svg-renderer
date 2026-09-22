@@ -29,62 +29,31 @@ No native code. The only dependency is `@types/geojson` (types only). The packag
 
 ## Usage
 
-### Node.js
-
 ```typescript
 import { renderToSVG } from '@versatiles/svg-renderer';
-import { inlineSources, osm } from '@versatiles/style';
-import { writeFile } from 'node:fs/promises';
 
-// inlineSources() resolves the style's TileJSON sources into tile URLs, which the
-// renderer needs. Without it, the map comes out empty.
-const style = await inlineSources(osm({ theme: 'colorful' }));
+const url = 'https://tiles.versatiles.org/assets/styles/colorful/style.json';
+const style = await (await fetch(url)).json();
 
-const svg = await renderToSVG({
-	style,
-	width: 800,
-	height: 600,
-	lon: 13.4,
-	lat: 52.5,
-	zoom: 10,
-});
-
-await writeFile('map.svg', svg);
+const svg = await renderToSVG({ style, lon: 13.4, lat: 52.5, zoom: 10 });
 ```
+
+The result is an SVG document as a string: write it to a file, or put it into a web page. This works the same in Node.js and in the browser. Without `width` and `height`, the image is 1024 × 1024 pixels.
 
 > [!IMPORTANT]
-> The style's sources must list their tile URLs directly (`"tiles": [...]`). A source that only points at a TileJSON document (`"url": ".../tiles.json"`) is **not fetched, and the map comes out empty without an error**. Styles built with `@versatiles/style` are in that form, so pass them through its `inlineSources()` as above. Hosted style files usually list their tiles already.
-
-### Browser
-
-```typescript
-import { renderToSVG } from '@versatiles/svg-renderer';
-
-const style = await fetch('https://tiles.versatiles.org/assets/styles/colorful/style.json').then(
-	(r) => r.json(),
-);
-
-document.body.innerHTML = await renderToSVG({
-	style,
-	width: 800,
-	height: 600,
-	lon: 13.4,
-	lat: 52.5,
-	zoom: 10,
-});
-```
+> The style's sources must list their tile URLs (`"tiles": [...]`). A source that only points at a TileJSON document (`"url": "…/tiles.json"`) renders as an **empty map, without an error**. Hosted styles like the one above list their tiles; a style built with `@versatiles/style` needs its `inlineSources()` first.
 
 ### Many views of one style
 
-`renderToSVG` starts from scratch on every call. To render many views of one style — thumbnails, a series of map sections, a server answering requests — create an `SVGMapRenderer` once and render each view with it. It parses the style once, fetches the sprite once, and keeps the tiles it fetched, so overlapping views share them:
+`renderToSVG` starts from scratch on every call. To render many views of one style, create an `SVGMapRenderer` once: it parses the style once and keeps the tiles it has fetched.
 
 ```typescript
 import { SVGMapRenderer } from '@versatiles/svg-renderer';
 
-const map = new SVGMapRenderer({ style, renderLabels: true });
+const map = new SVGMapRenderer({ style });
 
-const berlin = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
-const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12, width: 800, height: 600 });
+const berlin = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12 });
+const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 ```
 
 ## API
