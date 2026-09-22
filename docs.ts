@@ -6,15 +6,19 @@
  * package's API. Nothing imports it: each symbol's documentation names the package to
  * import it from.
  *
- * | Package                           | Provides                                                                                         |
- * | --------------------------------- | ------------------------------------------------------------------------------------------------ |
- * | `@versatiles/svg-renderer`        | {@link renderToSVG}, {@link SVGMapRenderer} (Node.js and browser)                                |
- * | `@versatiles/png-renderer`        | {@link renderToPNG}, {@link PNGMapRenderer}, {@link renderToSVG}, {@link SVGMapRenderer} (Node.js) |
- * | `@versatiles/maplibre-svg-export` | {@link SVGExportControl}, {@link renderToSVG}, {@link SVGMapRenderer} (browser)                  |
+ * | Package                           | Provides                                                                                                         | Runs in           |
+ * | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------- |
+ * | `@versatiles/svg-renderer`        | {@link renderToSVG}, {@link SVGMapRenderer}                                                                      | Node.js, browsers |
+ * | `@versatiles/png-renderer`        | {@link renderToPNG}, {@link renderToCanvas}, {@link PNGMapRenderer}, {@link renderToSVG}, {@link SVGMapRenderer} | Node.js           |
+ * | `@versatiles/maplibre-svg-export` | {@link SVGExportControl}, {@link renderToSVG}, {@link SVGMapRenderer}                                            | browsers          |
  *
- * `renderToSVG` and `renderToPNG` render a single view. To render many views of one style,
- * use `SVGMapRenderer` or `PNGMapRenderer`: they parse the style once and keep the sprite
- * and the tiles between renders.
+ * `renderToSVG`, `renderToPNG` and `renderToCanvas` render a single view. To render many
+ * views of one style, use `SVGMapRenderer` or `PNGMapRenderer`: they parse the style once
+ * and keep the sprite and the tiles between renders. Their `project` and `unproject`
+ * convert between coordinates and positions in the image.
+ *
+ * The option and view types, and `FetchFunction` / `FetchResponse` for the `fetch` option,
+ * are exported by every package whose functions take them.
  *
  * @module
  */
