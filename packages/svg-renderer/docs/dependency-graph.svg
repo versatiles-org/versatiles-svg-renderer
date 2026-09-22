@@ -2,10 +2,9 @@
 <title>Dependency graph</title>
 <style>
 	.background { fill: #ffffff; }
-	.directory { stroke: #c5ccc9; stroke-width: 1; }
-	.depth1 { fill: #f2f4f3; }
-	.depth2 { fill: #e8ecea; }
-	.depth3 { fill: #dfe4e2; }
+	.directory { stroke: #c5ccc9; stroke-width: 1; fill-opacity: 0.05; }
+	.directory, .shade { fill: #000000; }
+	.label-background { fill: #ffffff; }
 	.file { fill: #ffffff; stroke: #9aa6a1; stroke-width: 1; }
 	text { font-family: Helvetica, Arial, 'Liberation Sans', sans-serif; font-size: 12px; }
 	.label { fill: #1b2220; text-anchor: middle; }
@@ -24,9 +23,8 @@
 		.arrowhead-dim { fill: #8b949e; }
 		.background { fill: #0d1117; }
 		.directory { stroke: #39424d; }
-		.depth1 { fill: #161b22; }
-		.depth2 { fill: #1c232c; }
-		.depth3 { fill: #232b35; }
+		.directory, .shade { fill: #ffffff; }
+		.label-background { fill: #0d1117; }
 		.file { fill: #0d1117; stroke: #5c6773; }
 		.label { fill: #e6edf3; }
 		.directory-label { fill: #8b949e; }
@@ -41,13 +39,14 @@
 <marker id="arrow-incoming" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path class="arrowhead-incoming" d="M0,0 L8,4 L0,8 z"/></marker>
 </defs>
 <rect class="background" width="102" height="86"/>
-<rect class="directory depth1 node n1" x="12" y="12" width="77.35" height="62" rx="6"/>
+<rect class="directory node n1" x="12" y="12" width="77.35" height="62" rx="6"/>
 <g class="node n0">
 <rect class="file" x="22" y="40" width="57.35" height="24" rx="4"/>
 <text class="label" x="50.68" y="56" textLength="41.35" lengthAdjust="spacingAndGlyphs">index.ts</text>
 </g>
 <g class="node n1">
-<rect class="depth1" x="19" y="16" width="24.01" height="16" rx="2"/>
+<rect class="label-background" x="19" y="16" width="24.01" height="16" rx="2"/>
+<rect class="shade" x="19" y="16" width="24.01" height="16" rx="2" fill-opacity="0.05"/>
 <text class="directory-label" x="22" y="28" textLength="18.01" lengthAdjust="spacingAndGlyphs">src</text>
 </g>
 </svg>

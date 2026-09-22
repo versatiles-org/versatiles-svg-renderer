@@ -100,7 +100,7 @@ The preview and the export are rendered by [`renderToSVG`](https://github.com/ve
 
 [![Bundle composition](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/bundle-treemap.svg)](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/bundle-treemap.svg)
 
-Sized by the bundle's own source map: **171.1 KB** raw, **45.7 KB** gzipped, across 87 modules.
+Sized by the bundle's own source map: **173.3 KB** raw, **46.4 KB** gzipped, across 88 modules.
 
 ## Dependency Graph
 

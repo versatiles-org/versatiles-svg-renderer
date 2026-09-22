@@ -120,7 +120,7 @@ This repository is an npm workspace:
 | [`packages/maplibre-svg-export`](packages/maplibre-svg-export/README.md) | `@versatiles/maplibre-svg-export`                                                  |
 | `e2e`, `bench`, `dev`, `demo`, `scripts`                                 | end-to-end tests, benchmarks, dev server, plugin demo, build and release scripts   |
 
-Each package's README shows its dependency graph; the plugin's also shows the composition of its browser bundle.
+Each package's README shows its dependency graph; the plugin's also shows the composition of its browser bundle. The [graph of the whole workspace](#dependency-graph) is at the end of this README.
 
 | Command             | Does                                                                                                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -132,7 +132,7 @@ Each package's README shows its dependency graph; the plugin's also shows the co
 | `npm run bench`     | measures warm render times, SVG and PNG, and how they divide into the steps of a render, then redraws `docs/benchmark.svg`; `-- --json <file>` saves, `-- --compare <file>` compares |
 | `npm run profile`   | writes a CPU profile of one scenario to `bench/output/`, e.g. `npm run profile -- berlin-vector --case png-warm`                                                                     |
 | `npm run dev`       | dev server for the plugin at <http://localhost:3000/>, rebuilding on change                                                                                                          |
-| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs (commit the result)                                                                              |
+| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs and of this one (commit the result)                                                              |
 
 ## Releasing
 
@@ -151,3 +151,9 @@ If the workflow fails, fix the cause and use "Re-run failed jobs": versions alre
 - **GitHub**: an environment named `npm`, limited to tags matching `v*`, with the maintainers as required reviewers. A tag ruleset for `v*` that restricts creating, updating and deleting release tags.
 
 </details>
+
+## Dependency Graph
+
+<!--- This chapter is generated automatically --->
+
+[![Dependency graph](docs/dependency-graph.svg)](docs/dependency-graph.svg?raw=true)
