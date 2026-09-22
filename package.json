@@ -31,7 +31,7 @@
     "test:e2e:screenshots": "tsx e2e/screenshots.ts",
     "test:pack": "tsx scripts/pack-test.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json",
-    "upgrade": "vrt deps-upgrade"
+    "upgrade": "ncu --upgrade --workspaces --no-root && vrt deps-upgrade"
   },
   "type": "module",
   "author": "Michael Kreil <versatiles@michael-kreil.de>",
