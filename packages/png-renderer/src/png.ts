@@ -1,6 +1,14 @@
+import type { Image } from '@napi-rs/canvas';
 import type { RenderToSVGOptions } from '@versatiles/renderer-core/render_svg';
 import { drawMap } from '@versatiles/renderer-core/pipeline/render';
 import { CanvasRenderer } from '@versatiles/renderer-core/renderer/canvas';
+import { LRUCache } from '@versatiles/renderer-core/lru_cache';
+import {
+	SVGMapRenderer,
+	viewSize,
+	type SVGMapRendererOptions,
+	type ViewOptions,
+} from '@versatiles/renderer-core/map_renderer';
 import { type CanvasBackend, loadCanvasBackend } from './canvas_backend.js';
 
 /**
@@ -139,4 +147,117 @@ export async function renderToPNG(options: RenderToPNGOptions): Promise<Uint8Arr
 	});
 
 	return renderer.toBuffer();
+}
+
+/** Options for {@link PNGMapRenderer}: those of {@link SVGMapRenderer}, plus fonts. */
+export interface PNGMapRendererOptions extends SVGMapRendererOptions {
+	/**
+	 * Font files to draw labels with, as `{ "<text-font name>": "<path to a font file>" }`.
+	 * See {@link RenderToPNGOptions.fonts}.
+	 */
+	fonts?: Record<string, string>;
+}
+
+/** The view to render as PNG: {@link ViewOptions}, plus the pixel density. */
+export interface PNGViewOptions extends ViewOptions {
+	/**
+	 * Pixel density, like a device pixel ratio. The image is `width * scale` by
+	 * `height * scale` pixels, while the map is laid out as if it were `width` by `height`.
+	 * See {@link RenderToPNGOptions.scale}.
+	 * @defaultValue `1`
+	 */
+	scale?: number;
+}
+
+/**
+ * How much memory decoded tiles and sprite sheets may take, in bytes of pixels (a 512 px
+ * tile takes 1 MB).
+ */
+const IMAGE_CACHE_SIZE = 64 * 1024 * 1024;
+
+/**
+ * Renders many views of one MapLibre style, as PNG or SVG.
+ *
+ * An {@link SVGMapRenderer} that can also render PNG, sharing everything it keeps between
+ * the two formats: the parsed style, the sprite and the tiles. For PNG it also keeps the
+ * decoded tile and sprite images. Like {@link renderToPNG}, PNG rendering works in Node.js
+ * only.
+ *
+ * @example Render a batch of PNG images
+ * ```ts
+ * import { PNGMapRenderer } from '@versatiles/png-renderer';
+ * import { inlineSources, osm } from '@versatiles/style';
+ * import { writeFile } from 'node:fs/promises';
+ *
+ * const map = new PNGMapRenderer({ style: await inlineSources(osm()) });
+ *
+ * for (const [name, lon, lat] of [['berlin', 13.4, 52.52], ['paris', 2.35, 48.86]] as const) {
+ *   const png = await map.renderPNG({ lon, lat, zoom: 12, width: 800, height: 600, scale: 2 });
+ *   await writeFile(`${name}.png`, png);
+ * }
+ * ```
+ */
+export class PNGMapRenderer extends SVGMapRenderer {
+	readonly #fonts: Record<string, string> | undefined;
+	readonly #images = new LRUCache<Image>(
+		IMAGE_CACHE_SIZE,
+		(image) => image.width * image.height * 4,
+	);
+	#backend: Promise<CanvasBackend> | undefined;
+
+	/** @param options - The style, whether to draw labels, the tile cache size, and fonts. */
+	public constructor(options: PNGMapRendererOptions) {
+		super(options);
+		this.#fonts = options.fonts;
+	}
+
+	/**
+	 * Renders one view of the map as PNG.
+	 *
+	 * @param view - Size, centre, zoom and pixel density. All optional.
+	 * @returns The encoded PNG file, as described on {@link renderToPNG}.
+	 * @throws If the `@napi-rs/canvas` binary cannot be loaded, if `width`, `height` or
+	 *   `scale` is not positive, or if a font in `fonts` cannot be loaded.
+	 */
+	public async renderPNG(view: PNGViewOptions = {}): Promise<Uint8Array> {
+		const { width, height } = viewSize(view);
+		const scale = view.scale ?? 1;
+		if (scale <= 0) throw new Error('scale must be positive');
+
+		const backend = await this.#loadBackend();
+		const renderer = new CanvasRenderer({
+			width,
+			height,
+			scale,
+			createCanvas: backend.createCanvas,
+			loadImage: backend.loadImage,
+			images: this.#images,
+		});
+		await this.draw(renderer, view);
+		return renderer.toBuffer();
+	}
+
+	/** Forgets the fetched tiles and sprite, and the decoded images. */
+	public override clearCache(): void {
+		super.clearCache();
+		this.#images.clear();
+	}
+
+	/**
+	 * Loads the canvas backend and registers the fonts, once. A failure is not kept, so a
+	 * later render tries again (e.g. after the font file was fixed).
+	 */
+	#loadBackend(): Promise<CanvasBackend> {
+		if (this.#backend) return this.#backend;
+		const fonts = this.#fonts;
+		const backend = loadCanvasBackend().then((loaded) => {
+			if (fonts) registerFonts(loaded, fonts);
+			return loaded;
+		});
+		this.#backend = backend;
+		backend.catch(() => {
+			if (this.#backend === backend) this.#backend = undefined;
+		});
+		return backend;
+	}
 }

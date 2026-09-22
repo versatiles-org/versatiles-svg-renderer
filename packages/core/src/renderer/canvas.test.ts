@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'vitest';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { describe, expect, test, vi } from 'vitest';
+import { createCanvas, loadImage, type Image } from '@napi-rs/canvas';
+import { LRUCache } from '../lru_cache.js';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { CanvasRenderer } from './canvas.js';
 import { Feature, Point2D } from '../geometry.js';
@@ -601,6 +602,31 @@ describe('CanvasRenderer', () => {
 			const overlap = at(r, 70, 30)[3];
 			expect(single).toBeCloseTo(128, -1);
 			expect(overlap).toBe(single);
+		});
+
+		test('renderers sharing an image cache decode a tile once', async () => {
+			const images = new LRUCache<Image>(Infinity, () => 0);
+			const load = vi.fn(loadImage);
+			for (let i = 0; i < 2; i++) {
+				const r = new CanvasRenderer({
+					width: 256,
+					height: 256,
+					createCanvas,
+					loadImage: load,
+					images,
+				});
+				await r.drawRasterTiles('r', [tile()], rasterStyle());
+			}
+			expect(load).toHaveBeenCalledTimes(1);
+		});
+
+		test('without a shared image cache, each renderer decodes its own tiles', async () => {
+			const load = vi.fn(loadImage);
+			for (let i = 0; i < 2; i++) {
+				const r = new CanvasRenderer({ width: 256, height: 256, createCanvas, loadImage: load });
+				await r.drawRasterTiles('r', [tile(), tile({ x: 128 })], rasterStyle());
+			}
+			expect(load).toHaveBeenCalledTimes(2);
 		});
 
 		test('needs a loadImage to draw tiles at all', async () => {

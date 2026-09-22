@@ -18,6 +18,7 @@ import type {
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { LRUCache } from '../lru_cache.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -66,6 +67,16 @@ export interface CanvasRendererOptions extends RendererOptions {
 	 * tiles and sprite sheets. Required only for styles that use them.
 	 */
 	loadImage?: (source: string) => Promise<Image>;
+	/**
+	 * Where decoded images are kept, keyed by data URI. Pass one to share decoded tiles and
+	 * sprite sheets between renders; without it, each renderer decodes into its own.
+	 */
+	images?: ImageCache;
+}
+
+/** Decoded images by data URI, such as an {@link LRUCache}. */
+export interface ImageCache {
+	getOrLoad(dataUri: string, load: () => Promise<Image>): Promise<Image>;
 }
 
 export class CanvasRenderer implements Renderer {
@@ -87,7 +98,7 @@ export class CanvasRenderer implements Renderer {
 	#scratch: { canvas: Canvas; ctx: SKRSContext2D } | undefined;
 
 	/** Decoded tile and sprite images, keyed by data URI: a tile may repeat within a layer. */
-	readonly #images = new Map<string, Image>();
+	readonly #images: ImageCache;
 
 	public constructor(opt: CanvasRendererOptions) {
 		this.width = opt.width;
@@ -99,6 +110,7 @@ export class CanvasRenderer implements Renderer {
 		);
 		this.#createCanvas = opt.createCanvas;
 		this.#loadImage = opt.loadImage;
+		this.#images = opt.images ?? new LRUCache<Image>(Infinity, () => 0);
 		this.ctx = this.canvas.getContext('2d');
 		// Draw in user units; the scale factor only changes how many device pixels each
 		// unit covers.
@@ -400,14 +412,11 @@ export class CanvasRenderer implements Renderer {
 	}
 
 	async #decode(dataUri: string): Promise<Image> {
-		const cached = this.#images.get(dataUri);
-		if (cached) return cached;
-		if (!this.#loadImage) {
+		const loadImage = this.#loadImage;
+		if (!loadImage) {
 			throw new Error('CanvasRenderer: drawing images needs a `loadImage` in its options');
 		}
-		const image = await this.#loadImage(dataUri);
-		this.#images.set(dataUri, image);
-		return image;
+		return this.#images.getOrLoad(dataUri, () => loadImage(dataUri));
 	}
 
 	public async drawIcons(

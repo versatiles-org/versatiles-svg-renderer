@@ -1,8 +1,11 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi, type Mock } from 'vitest';
 import { createRequire } from 'node:module';
+import { copyFile, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { loadCanvasBackend, missingBackendMessage, nativePackageName } from './canvas_backend.js';
-import { renderToPNG } from './png.js';
+import { PNGMapRenderer, renderToPNG } from './png.js';
 
 const minimalStyle = {
 	version: 8 as const,
@@ -193,5 +196,99 @@ describe('renderToPNG', () => {
 		let painted = 0;
 		for (let i = 3; i < data.length; i += 4) if (data[i]! > 0) painted++;
 		expect(painted).toBeGreaterThan(0);
+	});
+});
+
+describe('PNGMapRenderer', () => {
+	const TILE_URL = 'https://example.com/tiles/{z}/{x}/{y}.png';
+	const rasterStyle: StyleSpecification = {
+		version: 8,
+		sources: { raster: { type: 'raster', tiles: [TILE_URL], tileSize: 512 } },
+		layers: [{ id: 'raster', type: 'raster', source: 'raster' }],
+	};
+	const originalFetch = globalThis.fetch;
+
+	/** Serves a red PNG for every tile, and counts the requests. */
+	async function mockTiles(): Promise<Mock> {
+		const { createCanvas } = await loadCanvasBackend();
+		const canvas = createCanvas(4, 4);
+		const ctx = canvas.getContext('2d');
+		ctx.fillStyle = '#ff0000';
+		ctx.fillRect(0, 0, 4, 4);
+		const png = new Uint8Array(canvas.toBuffer('image/png'));
+		const fetchMock = vi.fn(() =>
+			Promise.resolve(new Response(png, { headers: { 'content-type': 'image/png' } })),
+		);
+		globalThis.fetch = fetchMock;
+		return fetchMock;
+	}
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	test('renders the same PNG as renderToPNG', async () => {
+		await mockTiles();
+		const view = { width: 64, height: 32, lon: 10, lat: 20, zoom: 3, scale: 2 };
+		const expected = await renderToPNG({ style: rasterStyle, ...view });
+		const map = new PNGMapRenderer({ style: rasterStyle });
+		expect(await map.renderPNG(view)).toEqual(expected);
+	});
+
+	test('takes the scale per view', async () => {
+		const map = new PNGMapRenderer({ style: minimalStyle });
+		const pngSize = (png: Uint8Array): number =>
+			new DataView(png.buffer, png.byteOffset).getUint32(16);
+		expect(pngSize(await map.renderPNG({ width: 10, scale: 1 }))).toBe(10);
+		expect(pngSize(await map.renderPNG({ width: 10, scale: 3 }))).toBe(30);
+	});
+
+	test('shares the tiles between PNG and SVG renders', async () => {
+		const fetchMock = await mockTiles();
+		const map = new PNGMapRenderer({ style: rasterStyle });
+		await map.renderPNG({ zoom: 2, width: 256, height: 256 });
+		const tiles = fetchMock.mock.calls.length;
+		expect(tiles).toBeGreaterThan(0);
+		await map.renderPNG({ zoom: 2, width: 256, height: 256, scale: 2 });
+		expect(await map.renderSVG({ zoom: 2, width: 256, height: 256 })).toContain('<image');
+		expect(fetchMock).toHaveBeenCalledTimes(tiles);
+	});
+
+	test('clearCache makes the next render fetch the tiles again', async () => {
+		const fetchMock = await mockTiles();
+		const map = new PNGMapRenderer({ style: rasterStyle });
+		await map.renderPNG({ zoom: 2, width: 256, height: 256 });
+		const tiles = fetchMock.mock.calls.length;
+		map.clearCache();
+		await map.renderPNG({ zoom: 2, width: 256, height: 256 });
+		expect(fetchMock).toHaveBeenCalledTimes(2 * tiles);
+	});
+
+	test.each([
+		['width', { width: 0 }, 'width must be positive'],
+		['height', { height: -1 }, 'height must be positive'],
+		['scale', { scale: 0 }, 'scale must be positive'],
+	])('rejects a non-positive %s', async (_name, view, message) => {
+		const map = new PNGMapRenderer({ style: minimalStyle });
+		await expect(map.renderPNG(view)).rejects.toThrow(message);
+	});
+
+	test('reports a broken font from renderPNG, and tries again on the next render', async () => {
+		const notoSans = createRequire(import.meta.url).resolve(
+			'@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff2',
+		);
+		const dir = await mkdtemp(join(tmpdir(), 'png-renderer-'));
+		const fontFile = join(dir, 'font.woff2');
+		try {
+			const map = new PNGMapRenderer({ style: minimalStyle, fonts: { later_font: fontFile } });
+			await expect(map.renderPNG({ width: 8, height: 8 })).rejects.toThrow(/"later_font"/);
+
+			await copyFile(notoSans, fontFile);
+			await map.renderPNG({ width: 8, height: 8 });
+			const { GlobalFonts } = await loadCanvasBackend();
+			expect(GlobalFonts.has('later_font')).toBe(true);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
 	});
 });

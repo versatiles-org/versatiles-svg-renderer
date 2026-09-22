@@ -1,3 +1,4 @@
+import { LRUCache } from '../lru_cache.js';
 import {
 	fetchTile,
 	resolveTileUrl,
@@ -8,12 +9,6 @@ import {
 
 /** What a tile the server does not have counts towards the cache size, in bytes. */
 const MISSING_TILE_SIZE = 64;
-
-interface Entry {
-	promise: Promise<TileResponse | null>;
-	/** 0 while the tile is still loading. */
-	size: number;
-}
 
 /**
  * Keeps fetched tiles in memory, so that rendering overlapping views does not fetch them
@@ -26,74 +21,43 @@ interface Entry {
  *   the limit is close to the memory they take.
  */
 export class TileCache {
-	readonly #maxBytes: number;
-	readonly #entries = new Map<string, Entry>();
-	#bytes = 0;
+	readonly #cache: LRUCache<TileResult>;
 
 	public constructor(maxBytes: number) {
 		if (!(maxBytes >= 0)) throw new Error('tileCacheSize must be a number ≥ 0');
-		this.#maxBytes = maxBytes;
+		this.#cache = new LRUCache(maxBytes, resultSize);
 	}
 
 	/** Total size of the tiles held, in bytes. */
 	public get bytes(): number {
-		return this.#bytes;
+		return this.#cache.size;
 	}
 
 	/** Number of tiles held, including ones still loading. */
 	public get count(): number {
-		return this.#entries.size;
+		return this.#cache.count;
 	}
 
-	public readonly load: TileLoader = (url, z, x, y) => {
+	public readonly load: TileLoader = async (url, z, x, y) => {
 		const key = resolveTileUrl(url, z, x, y);
-		const cached = this.#entries.get(key);
-		if (cached) {
-			// Re-insert, so the map's order stays least recently used first.
-			this.#entries.delete(key);
-			this.#entries.set(key, cached);
-			return cached.promise;
-		}
-
-		const entry: Entry = { promise: Promise.resolve(null), size: 0 };
-		entry.promise = fetchTile(key)
-			.catch((): TileResult => ({ status: 'failed' }))
-			.then((result) => {
-				this.#settle(key, entry, result);
-				return result.status === 'ok' ? result.tile : null;
-			});
-		this.#entries.set(key, entry);
-		return entry.promise;
+		const result = await this.#cache.getOrLoad(key, () => fetchTile(key));
+		return result.status === 'ok' ? result.tile : null;
 	};
 
 	/** Drops every tile. Fetches still running are not remembered when they finish. */
 	public clear(): void {
-		this.#entries.clear();
-		this.#bytes = 0;
+		this.#cache.clear();
 	}
+}
 
-	#settle(key: string, entry: Entry, result: TileResult): void {
-		// Cleared, or evicted, while loading.
-		if (this.#entries.get(key) !== entry) return;
-
-		const size = result.status === 'ok' ? tileSize(result.tile) : MISSING_TILE_SIZE;
-		if (result.status === 'failed' || size > this.#maxBytes) {
-			this.#entries.delete(key);
-			return;
-		}
-		entry.size = size;
-		this.#bytes += size;
-		this.#evict();
-	}
-
-	#evict(): void {
-		for (const [key, entry] of this.#entries) {
-			if (this.#bytes <= this.#maxBytes) return;
-			// Tiles still loading take no space yet, and keep sharing their fetch.
-			if (entry.size === 0) continue;
-			this.#entries.delete(key);
-			this.#bytes -= entry.size;
-		}
+function resultSize(result: TileResult): number | undefined {
+	switch (result.status) {
+		case 'ok':
+			return tileSize(result.tile);
+		case 'missing':
+			return MISSING_TILE_SIZE;
+		case 'failed':
+			return undefined;
 	}
 }
 
@@ -101,7 +65,6 @@ export class TileCache {
 function tileSize(tile: TileResponse): number {
 	const bytes = tile.buffer.byteLength;
 	if (!tile.contentType.startsWith('image/')) return bytes;
-	// A JS string takes 2 bytes per character in the worst case, but base64 is ASCII, which
-	// engines store at 1 byte per character.
+	// Base64 is ASCII, which JS engines store at 1 byte per character.
 	return bytes + Math.ceil(bytes / 3) * 4;
 }
