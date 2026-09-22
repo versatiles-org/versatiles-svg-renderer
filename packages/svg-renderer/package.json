@@ -1,6 +1,6 @@
 {
   "name": "@versatiles/svg-renderer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Renders MapLibre styles as SVG, in Node.js or the browser.",
   "keywords": [
     "svg",

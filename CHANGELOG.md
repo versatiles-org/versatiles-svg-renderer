@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-22
+
 ### Added
 
 - **`SVGMapRenderer` and `PNGMapRenderer`: render many views of one style.** Create one with the style (and `renderLabels`), then call `renderSVG(view)` or `renderPNG(view)` for each view. The style is parsed once, the sprite is fetched once, and fetched tiles are kept up to `tileCacheSize` (default 128 MB, least recently used dropped first), so overlapping views do not fetch them again. `PNGMapRenderer` also keeps decoded images, and renders SVG too, from the same tiles. `clearCache()` forgets what was fetched. Exported by all three packages (`PNGMapRenderer` by `@versatiles/png-renderer` only).
