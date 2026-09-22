@@ -1,6 +1,5 @@
 import type { Image } from '@napi-rs/canvas';
 import type { RenderToSVGOptions } from '@versatiles/renderer-core/render_svg';
-import { drawMap } from '@versatiles/renderer-core/pipeline/render';
 import { CanvasRenderer } from '@versatiles/renderer-core/renderer/canvas';
 import { LRUCache } from '@versatiles/renderer-core/lru_cache';
 import {
@@ -62,6 +61,10 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  * directly instead of producing SVG — no browser or SVG rasterizer needed. Satellite and
  * other raster tiles in WebP work too, which many SVG rasterizers cannot decode.
  *
+ * Each call starts from scratch: it parses the style and fetches the tiles and the
+ * sprite again. To render many views of one style, use {@link PNGMapRenderer}, which
+ * keeps them between renders.
+ *
  * **Node.js only.** It draws with the native canvas backend `@napi-rs/canvas`, a dependency
  * of this package that npm installs together with it, including the prebuilt binary for
  * the platform. If that binary is missing (e.g. installed with `--omit=optional`, or
@@ -117,36 +120,7 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  *   positive, or if a font in `fonts` cannot be loaded.
  */
 export async function renderToPNG(options: RenderToPNGOptions): Promise<Uint8Array> {
-	const width = options.width ?? 1024;
-	const height = options.height ?? 1024;
-	const scale = options.scale ?? 1;
-
-	if (width <= 0) throw new Error('width must be positive');
-	if (height <= 0) throw new Error('height must be positive');
-	if (scale <= 0) throw new Error('scale must be positive');
-
-	const backend = await loadCanvasBackend();
-	if (options.fonts) registerFonts(backend, options.fonts);
-
-	const renderer = new CanvasRenderer({
-		width,
-		height,
-		scale,
-		createCanvas: backend.createCanvas,
-		loadImage: backend.loadImage,
-	});
-
-	await drawMap({
-		renderer,
-		style: options.style,
-		view: {
-			center: [options.lon ?? 0, options.lat ?? 0],
-			zoom: options.zoom ?? 2,
-		},
-		renderLabels: options.renderLabels ?? false,
-	});
-
-	return renderer.toBuffer();
+	return new PNGMapRenderer(options).renderPNG(options);
 }
 
 /** Options for {@link PNGMapRenderer}: those of {@link SVGMapRenderer}, plus fonts. */

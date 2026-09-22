@@ -42,6 +42,15 @@ const style = await inlineSources(osm({ theme: 'colorful' }));
 const svg = await renderToSVG({ style, width: 800, height: 600, lon: 13.4, lat: 52.5, zoom: 10 });
 ```
 
+To render many views of one style, use `SVGMapRenderer`: it parses the style once and keeps the tiles and sprite between renders.
+
+```typescript
+import { SVGMapRenderer } from '@versatiles/svg-renderer';
+
+const map = new SVGMapRenderer({ style });
+const svg = await map.renderSVG({ width: 800, height: 600, lon: 13.4, lat: 52.5, zoom: 10 });
+```
+
 No native code; its only dependency is a types package. [Full documentation](packages/svg-renderer/README.md)
 
 ### PNG (and SVG), in Node.js
@@ -66,7 +75,7 @@ const png = await renderToPNG({
 });
 ```
 
-Draws with [`@napi-rs/canvas`](https://www.npmjs.com/package/@napi-rs/canvas), which npm installs with it, including the native binary for your platform. [Full documentation](packages/png-renderer/README.md)
+For many views of one style, `PNGMapRenderer` works like `SVGMapRenderer` and renders both PNG and SVG. Draws with [`@napi-rs/canvas`](https://www.npmjs.com/package/@napi-rs/canvas), which npm installs with it, including the native binary for your platform. [Full documentation](packages/png-renderer/README.md)
 
 ### MapLibre plugin, in the browser
 

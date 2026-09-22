@@ -216,20 +216,43 @@ try {
 			),
 		);
 
+		check('renders several views with SVGMapRenderer', () =>
+			runModule(
+				`const { SVGMapRenderer } = await import('@versatiles/svg-renderer');
+				const map = new SVGMapRenderer({ style: ${MINIMAL_STYLE} });
+				for (const zoom of [1, 2]) {
+					const svg = await map.renderSVG({ width: 16, height: 16, zoom });
+					if (!svg.startsWith('<svg')) throw new Error('not an SVG: ' + svg.slice(0, 40));
+				}
+				console.log('2 views');`,
+				consumer,
+			),
+		);
+
 		check('require() of the ES module works (Node ≥ 22.12)', () =>
 			runCommonJS(
-				`const { renderToSVG } = require('@versatiles/svg-renderer');
+				`const { renderToSVG, SVGMapRenderer } = require('@versatiles/svg-renderer');
 				if (typeof renderToSVG !== 'function') throw new Error('renderToSVG missing');
-				console.log('renderToSVG');`,
+				if (typeof SVGMapRenderer !== 'function') throw new Error('SVGMapRenderer missing');
+				console.log('renderToSVG, SVGMapRenderer');`,
 				consumer,
 			),
 		);
 
 		checkTypes(
 			consumer,
-			`import { renderToSVG, type RenderToSVGOptions } from '@versatiles/svg-renderer';
+			`import {
+				renderToSVG,
+				SVGMapRenderer,
+				type RenderToSVGOptions,
+				type SVGMapRendererOptions,
+				type ViewOptions,
+			} from '@versatiles/svg-renderer';
 			const options: RenderToSVGOptions = { style: ${MINIMAL_STYLE}, width: 64 };
-			export const svg: Promise<string> = renderToSVG(options);`,
+			export const svg: Promise<string> = renderToSVG(options);
+			const mapOptions: SVGMapRendererOptions = { style: ${MINIMAL_STYLE}, tileCacheSize: 0 };
+			const view: ViewOptions = { lon: 1, lat: 2, zoom: 3 };
+			export const view1: Promise<string> = new SVGMapRenderer(mapOptions).renderSVG(view);`,
 		);
 
 		check('the style argument is really typed, not `any`', () => {
@@ -278,12 +301,38 @@ try {
 			),
 		);
 
+		check('renders PNG and SVG with PNGMapRenderer', () =>
+			runModule(
+				`${ASSERT_PNG}
+				const { PNGMapRenderer } = await import('@versatiles/png-renderer');
+				const map = new PNGMapRenderer({ style: ${BACKGROUND_STYLE} });
+				const png = assertPng(await map.renderPNG({ width: 32, height: 16, scale: 2 }), 64, 32);
+				const svg = await map.renderSVG({ width: 32, height: 16 });
+				if (!svg.startsWith('<svg')) throw new Error('not an SVG');
+				console.log(png + ', and an SVG');`,
+				consumer,
+			),
+		);
+
 		checkTypes(
 			consumer,
-			`import { renderToPNG, renderToSVG, type RenderToPNGOptions } from '@versatiles/png-renderer';
+			`import {
+				PNGMapRenderer,
+				renderToPNG,
+				renderToSVG,
+				SVGMapRenderer,
+				type PNGMapRendererOptions,
+				type PNGViewOptions,
+				type RenderToPNGOptions,
+			} from '@versatiles/png-renderer';
 			const options: RenderToPNGOptions = { style: ${MINIMAL_STYLE}, width: 64, scale: 2 };
 			export const png: Promise<Uint8Array> = renderToPNG(options);
-			export const svg: Promise<string> = renderToSVG(options);`,
+			export const svg: Promise<string> = renderToSVG(options);
+			const mapOptions: PNGMapRendererOptions = { style: ${MINIMAL_STYLE}, fonts: {} };
+			const view: PNGViewOptions = { zoom: 3, scale: 2 };
+			const map: SVGMapRenderer = new PNGMapRenderer(mapOptions);
+			export const png1: Promise<Uint8Array> = new PNGMapRenderer(mapOptions).renderPNG(view);
+			export const svg1: Promise<string> = map.renderSVG(view);`,
 		);
 	}
 
@@ -301,6 +350,16 @@ try {
 				const svg = await renderToSVG({ style: ${MINIMAL_STYLE}, width: 16, height: 16 });
 				if (!svg.startsWith('<svg')) throw new Error('not an SVG');
 				console.log('renderToSVG');`,
+				consumer,
+			),
+		);
+
+		check('PNGMapRenderer still renders SVG', () =>
+			runModule(
+				`const { PNGMapRenderer } = await import('@versatiles/png-renderer');
+				const svg = await new PNGMapRenderer({ style: ${MINIMAL_STYLE} }).renderSVG({ width: 16, height: 16 });
+				if (!svg.startsWith('<svg')) throw new Error('not an SVG');
+				console.log('renderSVG');`,
 				consumer,
 			),
 		);
@@ -338,6 +397,7 @@ try {
 				`const m = await import('@versatiles/maplibre-svg-export');
 				if (typeof m.SVGExportControl !== 'function') throw new Error('SVGExportControl missing');
 				if (typeof m.renderToSVG !== 'function') throw new Error('renderToSVG missing');
+				if (typeof m.SVGMapRenderer !== 'function') throw new Error('SVGMapRenderer missing');
 				console.log(Object.keys(m).sort().join(', '));`,
 				consumer,
 			),
@@ -356,6 +416,7 @@ try {
 				'VersaTilesSVG.SVGExportControl missing',
 			);
 			assert(typeof global.renderToSVG === 'function', 'VersaTilesSVG.renderToSVG missing');
+			assert(typeof global.SVGMapRenderer === 'function', 'VersaTilesSVG.SVGMapRenderer missing');
 			return Object.keys(global).sort().join(', ');
 		});
 
@@ -370,11 +431,12 @@ try {
 
 		checkTypes(
 			consumer,
-			`import { SVGExportControl, renderToSVG } from '@versatiles/maplibre-svg-export';
+			`import { SVGExportControl, SVGMapRenderer, renderToSVG } from '@versatiles/maplibre-svg-export';
 			// Stands in for maplibre-gl's Map, which the consumer does not need to install.
 			declare const map: { addControl(control: { onAdd(map: never): HTMLElement }): void };
 			map.addControl(new SVGExportControl({ defaultWidth: 800, defaultHeight: 600 }));
-			export const svg: Promise<string> = renderToSVG({ style: ${MINIMAL_STYLE} });`,
+			export const svg: Promise<string> = renderToSVG({ style: ${MINIMAL_STYLE} });
+			export const svg1: Promise<string> = new SVGMapRenderer({ style: ${MINIMAL_STYLE} }).renderSVG();`,
 			['DOM', 'ES2022'],
 		);
 	}

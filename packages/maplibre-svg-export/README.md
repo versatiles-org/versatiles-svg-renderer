@@ -17,7 +17,7 @@ It adds a button to the map. Clicking it opens a panel with a live preview, wher
 
 ### With a script tag
 
-The bundle sets a global `VersaTilesSVG` with `SVGExportControl` and `renderToSVG`:
+The bundle sets a global `VersaTilesSVG` with `SVGExportControl`, and with [`renderToSVG` and `SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api) for rendering maps yourself:
 
 ```html
 <!doctype html>

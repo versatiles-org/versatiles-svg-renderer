@@ -1,2 +1,13 @@
-export { renderToPNG, type RenderToPNGOptions } from './png.js';
+export {
+	PNGMapRenderer,
+	renderToPNG,
+	type PNGMapRendererOptions,
+	type PNGViewOptions,
+	type RenderToPNGOptions,
+} from './png.js';
 export { renderToSVG, type RenderToSVGOptions } from '@versatiles/renderer-core/render_svg';
+export {
+	SVGMapRenderer,
+	type SVGMapRendererOptions,
+	type ViewOptions,
+} from '@versatiles/renderer-core/map_renderer';

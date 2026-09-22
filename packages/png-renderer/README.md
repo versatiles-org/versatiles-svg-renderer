@@ -56,6 +56,28 @@ const svg = await renderToSVG({ style, width: 800, height: 600, lon: 13.4, lat: 
 > [!IMPORTANT]
 > The style's sources must list their tile URLs directly (`"tiles": [...]`). A source that only points at a TileJSON document (`"url": ".../tiles.json"`) is **not fetched, and the map comes out empty without an error**. Styles built with `@versatiles/style` are in that form, so pass them through its `inlineSources()` as above.
 
+### Many views of one style
+
+`renderToPNG` starts from scratch on every call. To render many views of one style, create a `PNGMapRenderer` once. It parses the style once, fetches the sprite once, keeps the tiles it fetched, and keeps decoded images, so overlapping views share them. It renders SVG too, from the same tiles:
+
+```typescript
+import { PNGMapRenderer } from '@versatiles/png-renderer';
+
+const map = new PNGMapRenderer({ style });
+
+for (const [name, lon, lat] of [
+	['berlin', 13.4, 52.52],
+	['potsdam', 13.06, 52.4],
+] as const) {
+	await writeFile(
+		`${name}.png`,
+		await map.renderPNG({ lon, lat, zoom: 12, width: 800, height: 600, scale: 2 }),
+	);
+}
+
+const svg = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
+```
+
 ### Labels in the style's own fonts
 
 A style only _names_ its fonts (`"text-font": ["noto_sans_regular"]`). Map each name to a font file (TTF, OTF, WOFF or WOFF2) with `fonts`. A name left unmapped falls back to a font installed on the machine.
@@ -92,9 +114,19 @@ The result is typed as a `Uint8Array` so the package does not require Node's typ
 
 Label rendering has the same limitations as in SVG output: [see `renderLabels`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-renderlabels).
 
-### `renderToSVG(options): Promise<string>`
+### `new PNGMapRenderer(options)`
 
-The same function as in [`@versatiles/svg-renderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api).
+An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (`style`, `renderLabels`, `tileCacheSize`), plus `fonts` as above.
+
+- **`renderPNG(view?): Promise<Uint8Array>`** renders one view as PNG. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `scale`, with the same defaults as `renderToPNG`.
+- **`renderSVG(view?): Promise<string>`** renders one view as SVG, sharing the tiles and the sprite with the PNG renders.
+- **`clearCache()`** forgets the fetched tiles and sprite, and the decoded images.
+
+A font that cannot be loaded is reported by `renderPNG`, and the next `renderPNG` tries again.
+
+### `renderToSVG(options): Promise<string>` and `new SVGMapRenderer(options)`
+
+The same as in [`@versatiles/svg-renderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api).
 
 ## Platforms
 

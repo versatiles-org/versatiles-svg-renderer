@@ -12,4 +12,9 @@ describe('maplibre exports', () => {
 		expect(mod.renderToSVG).toBeDefined();
 		expect(typeof mod.renderToSVG).toBe('function');
 	});
+
+	test('exports the SVGMapRenderer class', async () => {
+		const mod = await import('./index.js');
+		expect(typeof mod.SVGMapRenderer).toBe('function');
+	});
 });

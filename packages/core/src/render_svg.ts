@@ -1,9 +1,8 @@
-import { SVGRenderer } from './renderer/svg.js';
-import { renderMap } from './pipeline/render.js';
-import type { SVGMapRendererOptions, ViewOptions } from './map_renderer.js';
+import { SVGMapRenderer, type SVGMapRendererOptions, type ViewOptions } from './map_renderer.js';
 
 /** Options for {@link renderToSVG}: the style and the view, in one object. */
-export interface RenderToSVGOptions extends SVGMapRendererOptions, ViewOptions {}
+export interface RenderToSVGOptions
+	extends Omit<SVGMapRendererOptions, 'tileCacheSize'>, ViewOptions {}
 
 /**
  * Renders a MapLibre style to an SVG image.
@@ -16,6 +15,10 @@ export interface RenderToSVGOptions extends SVGMapRendererOptions, ViewOptions {
  * Works in Node.js (22 or later) and in the browser. The same function is exported by
  * `@versatiles/svg-renderer`, `@versatiles/png-renderer` and
  * `@versatiles/maplibre-svg-export`; the examples import it from the first.
+ *
+ * Each call starts from scratch: it parses the style and fetches the tiles and the
+ * sprite again. To render many views of one style, use {@link SVGMapRenderer}, which
+ * keeps them between renders.
  *
  * @example Render a map in Node.js
  * ```ts
@@ -61,19 +64,5 @@ export interface RenderToSVGOptions extends SVGMapRendererOptions, ViewOptions {
  * @throws If `width` or `height` is not positive.
  */
 export async function renderToSVG(options: RenderToSVGOptions): Promise<string> {
-	const width = options.width ?? 1024;
-	const height = options.height ?? 1024;
-
-	if (width <= 0) throw new Error('width must be positive');
-	if (height <= 0) throw new Error('height must be positive');
-
-	return await renderMap({
-		renderer: new SVGRenderer({ width, height }),
-		style: options.style,
-		view: {
-			center: [options.lon ?? 0, options.lat ?? 0],
-			zoom: options.zoom ?? 2,
-		},
-		renderLabels: options.renderLabels ?? false,
-	});
+	return new SVGMapRenderer(options).renderSVG(options);
 }

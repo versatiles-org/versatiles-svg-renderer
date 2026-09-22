@@ -74,6 +74,19 @@ document.body.innerHTML = await renderToSVG({
 });
 ```
 
+### Many views of one style
+
+`renderToSVG` starts from scratch on every call. To render many views of one style — thumbnails, a series of map sections, a server answering requests — create an `SVGMapRenderer` once and render each view with it. It parses the style once, fetches the sprite once, and keeps the tiles it fetched, so overlapping views share them:
+
+```typescript
+import { SVGMapRenderer } from '@versatiles/svg-renderer';
+
+const map = new SVGMapRenderer({ style, renderLabels: true });
+
+const berlin = await map.renderSVG({ lon: 13.4, lat: 52.52, zoom: 12, width: 800, height: 600 });
+const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12, width: 800, height: 600 });
+```
+
 ## API
 
 ### `renderToSVG(options): Promise<string>`
@@ -87,6 +100,21 @@ document.body.innerHTML = await renderToSVG({
 | `lat`          | `number`             | `0`          | Center latitude                           |
 | `zoom`         | `number`             | `2`          | Zoom level                                |
 | `renderLabels` | `boolean`            | `false`      | Enable rendering of text labels and icons |
+
+### `new SVGMapRenderer(options)`
+
+Renders many views of one style. The options stay the same for every view:
+
+| Option          | Type                 | Default              | Description                                                                               |
+| --------------- | -------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
+| `style`         | `StyleSpecification` | _(required)_         | MapLibre style specification. Read once: to render a changed style, create a new instance |
+| `renderLabels`  | `boolean`            | `false`              | Enable rendering of text labels and icons                                                 |
+| `tileCacheSize` | `number`             | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
+
+- **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat` and `zoom`, with the same defaults as `renderToSVG`. Renders may run concurrently.
+- **`clearCache()`** forgets the fetched tiles and sprite, e.g. after they were updated on the server.
+
+Tiles are kept for the lifetime of the instance, regardless of their HTTP caching headers; beyond `tileCacheSize`, the least recently used ones are dropped. A tile the server does not have (404) is remembered as missing; a failed request (network error, server error) is not, so the next render tries again.
 
 ### About `renderLabels`
 
