@@ -11,3 +11,4 @@ e2e/output/
 doc-typescript/
 dev/render-comparison-output/
 release/
+bench/output/

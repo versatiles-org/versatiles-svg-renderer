@@ -13,6 +13,7 @@
     "packages/*"
   ],
   "scripts": {
+    "bench": "tsx --expose-gc bench/bench.ts",
     "build": "rm -rf packages/*/dist && rollup -c rollup.config.ts --configPlugin @rollup/plugin-typescript",
     "build:browser-tarball": "mkdir -p release && COPYFILE_DISABLE=1 tar -czf release/maplibre-svg-export.tar.gz -C packages/maplibre-svg-export/dist maplibre-svg-export.js maplibre-svg-export.umd.min.js maplibre-svg-export.d.ts -C .. README.md LICENSE",
     "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm run test && npm run test:pack && npm run test:e2e",
@@ -23,6 +24,7 @@
     "docs": "npm run build && npm run docs --workspaces",
     "format": "prettier --write --log-level warn .",
     "lint": "eslint --color .",
+    "profile": "tsx bench/profile.ts",
     "release": "tsx scripts/release.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -30,7 +32,7 @@
     "test:e2e:maplibre": "tsx e2e/maplibre-control.ts",
     "test:e2e:screenshots": "tsx e2e/screenshots.ts",
     "test:pack": "tsx scripts/pack-test.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
     "upgrade": "ncu --upgrade --workspaces --no-root && vrt deps-upgrade"
   },
   "type": "module",
