@@ -114,17 +114,17 @@ This repository is an npm workspace:
 
 Each package's README shows its dependency graph; the plugin's also shows the composition of its browser bundle.
 
-| Command             | Does                                                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `npm run build`     | builds every package into `packages/*/dist/`                                                                             |
-| `npm test`          | unit tests                                                                                                               |
-| `npm run test:pack` | packs every package and uses it from a clean project (`-- --docker` adds Linux checks)                                   |
-| `npm run test:e2e`  | visual comparison with MapLibre GL JS, and the plugin in a real browser                                                  |
-| `npm run check`     | format, lint, typecheck, build and all tests                                                                             |
-| `npm run bench`     | measures render times per scenario, cold and warm, SVG and PNG; `-- --json <file>` saves, `-- --compare <file>` compares |
-| `npm run profile`   | writes a CPU profile of one scenario to `bench/output/`, e.g. `npm run profile -- berlin-vector --case png-warm`         |
-| `npm run dev`       | dev server for the plugin at <http://localhost:3000/>, rebuilding on change                                              |
-| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs (commit the result)                  |
+| Command             | Does                                                                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run build`     | builds every package into `packages/*/dist/`                                                                                                                   |
+| `npm test`          | unit tests                                                                                                                                                     |
+| `npm run test:pack` | packs every package and uses it from a clean project (`-- --docker` adds Linux checks)                                                                         |
+| `npm run test:e2e`  | visual comparison with MapLibre GL JS, and the plugin in a real browser                                                                                        |
+| `npm run check`     | format, lint, typecheck, build and all tests                                                                                                                   |
+| `npm run bench`     | measures warm render times per scenario, SVG and PNG, and how they divide into the steps of a render; `-- --json <file>` saves, `-- --compare <file>` compares |
+| `npm run profile`   | writes a CPU profile of one scenario to `bench/output/`, e.g. `npm run profile -- berlin-vector --case png-warm`                                               |
+| `npm run dev`       | dev server for the plugin at <http://localhost:3000/>, rebuilding on change                                                                                    |
+| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs (commit the result)                                                        |
 
 ## Releasing
 

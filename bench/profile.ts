@@ -15,10 +15,10 @@
  *   are right, line numbers are not.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { Session } from 'node:inspector/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { CASES, cases, prepare, type CaseName } from './fixtures.js';
+import { profileRuns } from './profiler.js';
 
 const { values: args, positionals } = parseArgs({
 	allowPositionals: true,
@@ -43,17 +43,9 @@ const c = cases(scenario!).find((c) => c.name === caseName)!;
 await c.setup();
 await c.run();
 
-const session = new Session();
-session.connect();
-await session.post('Profiler.enable');
-// In microseconds. The default (1000) misses most of a render's short functions.
-await session.post('Profiler.setSamplingInterval', { interval: Number(args.interval) });
-await session.post('Profiler.start');
 const start = performance.now();
-for (let i = 0; i < runs; i++) await c.run();
+const profile = await profileRuns(c.run, runs, Number(args.interval));
 const elapsed = performance.now() - start;
-const { profile } = await session.post('Profiler.stop');
-session.disconnect();
 
 const dir = resolve(import.meta.dirname, 'output');
 mkdirSync(dir, { recursive: true });

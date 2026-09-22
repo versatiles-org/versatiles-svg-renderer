@@ -9,17 +9,17 @@ import { PNGMapRenderer, renderToPNG } from '../packages/png-renderer/src/index.
 import { installFetchCache, uninstallFetchCache } from '../e2e/fetch-cache.js';
 import { fonts, getStyle, regionId, regions, type Region } from '../e2e/styles.js';
 
-/** The size of the e2e screenshots. */
-export const WIDTH = 800;
-export const HEIGHT = 600;
+/** The size of the rendered image, in pixels. */
+export const WIDTH = 1024;
+export const HEIGHT = 768;
 
-/** Measured unless `--scenarios` names others: one of each kind of work. */
-export const DEFAULT_SCENARIOS = [
-	'berlin-vector',
-	'berlin-labels-vector',
-	'berlin-satellite',
-	'europe-vector-globe',
-];
+/**
+ * Measured unless `--scenarios` names others: every vector and satellite scenario. The
+ * GeoJSON one draws only a handful of test shapes, which says little about speed.
+ */
+export function defaultScenarioIds(): string[] {
+	return regions.filter((region) => region.type !== 'geojson').map(regionId);
+}
 
 export const CASES = ['svg-cold', 'svg-warm', 'png-cold', 'png-warm'] as const;
 export type CaseName = (typeof CASES)[number];
@@ -42,8 +42,8 @@ export interface Case {
 	name: CaseName;
 	/** Runs once before any measured run, unmeasured: the warm cases fill their caches. */
 	setup: () => Promise<void>;
-	/** What gets measured. Returns the size of the output, in bytes. */
-	run: () => Promise<number>;
+	/** What gets measured. Returns the rendered SVG or PNG. */
+	run: () => Promise<string | Uint8Array>;
 }
 
 export function scenarioIds(): string[] {
@@ -125,32 +125,28 @@ export function cases(scenario: Scenario): Case[] {
 		{
 			name: 'svg-cold',
 			setup: noSetup,
-			run: async () => byteLength(await renderToSVG({ style, renderLabels, ...view })),
+			run: () => renderToSVG({ style, renderLabels, ...view }),
 		},
 		{
 			name: 'svg-warm',
 			setup: async () => {
 				await svgMap.renderSVG(view);
 			},
-			run: async () => byteLength(await svgMap.renderSVG(view)),
+			run: () => svgMap.renderSVG(view),
 		},
 		{
 			name: 'png-cold',
 			setup: noSetup,
-			run: async () => (await renderToPNG({ style, renderLabels, fonts, ...view })).length,
+			run: () => renderToPNG({ style, renderLabels, fonts, ...view }),
 		},
 		{
 			name: 'png-warm',
 			setup: async () => {
 				await pngMap.renderPNG(view);
 			},
-			run: async () => (await pngMap.renderPNG(view)).length,
+			run: () => pngMap.renderPNG(view),
 		},
 	];
-}
-
-function byteLength(svg: string): number {
-	return Buffer.byteLength(svg, 'utf8');
 }
 
 function urlOf(input: string | URL | Request): string {
