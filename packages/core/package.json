@@ -5,6 +5,9 @@
   "description": "The renderer shared by the published packages. Never published: each package bundles it.",
   "type": "module",
   "license": "MIT",
+  "scripts": {
+    "docs": "vrt deps-graph --svg docs/dependency-graph.svg | vrt doc-insert README.md '## Dependency Graph' && prettier --write --log-level warn README.md"
+  },
   "exports": {
     "./*": "./src/*.ts"
   }

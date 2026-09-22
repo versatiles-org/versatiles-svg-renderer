@@ -146,6 +146,12 @@ This error means the binary for the platform was not installed. It names the pla
 
 `renderToSVG` keeps working in either case, because the binary is only loaded when a PNG is rendered.
 
+## Dependency Graph
+
+<!--- This chapter is generated automatically --->
+
+[![Dependency graph](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/png-renderer/docs/dependency-graph.svg)](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/png-renderer/docs/dependency-graph.svg)
+
 ## License
 
 MIT. Part of [VersaTiles](https://github.com/versatiles-org/versatiles-svg-renderer): source code, issues and the changelog are on GitHub.

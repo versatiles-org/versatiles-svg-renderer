@@ -22,6 +22,11 @@
   "author": "Michael Kreil <versatiles@michael-kreil.de>",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "docs": "npm run docs:bundle && npm run docs:graph",
+    "docs:bundle": "vrt bundle-treemap dist/maplibre-svg-export.umd.min.js --depth 3 --min-size 4000 --svg docs/bundle-treemap.svg | sed -e 's#](docs/#](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/#g' -e 's#?raw=true##g' | vrt doc-insert README.md '## Bundle Composition' && prettier --write --log-level warn README.md",
+    "docs:graph": "vrt deps-graph --svg docs/dependency-graph.svg | sed -e 's#](docs/#](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/#g' -e 's#?raw=true##g' | vrt doc-insert README.md '## Dependency Graph' && prettier --write --log-level warn README.md"
+  },
   "exports": {
     ".": {
       "types": "./dist/maplibre-svg-export.d.ts",

@@ -23,6 +23,9 @@
   "author": "Michael Kreil <versatiles@michael-kreil.de>",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "docs": "vrt deps-graph --svg docs/dependency-graph.svg | sed -e 's#](docs/#](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/png-renderer/docs/#g' -e 's#?raw=true##g' | vrt doc-insert README.md '## Dependency Graph' && prettier --write --log-level warn README.md"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

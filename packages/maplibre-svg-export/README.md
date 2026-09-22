@@ -94,6 +94,20 @@ Both only set the starting values of the panel's size inputs; the user can chang
 
 The preview and the export are rendered by [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md) from the map's current style, centre and zoom. Its notes on [labels](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-renderlabels) and [projections](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#projections) apply here too.
 
+## Bundle Composition
+
+<!--- This chapter is generated automatically --->
+
+[![Bundle composition](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/bundle-treemap.svg)](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/bundle-treemap.svg)
+
+Sized by the bundle's own source map: **171.1 KB** raw, **45.7 KB** gzipped, across 87 modules.
+
+## Dependency Graph
+
+<!--- This chapter is generated automatically --->
+
+[![Dependency graph](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/dependency-graph.svg)](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/dependency-graph.svg)
+
 ## License
 
 MIT. Part of [VersaTiles](https://github.com/versatiles-org/versatiles-svg-renderer): source code, issues and the changelog are on GitHub.

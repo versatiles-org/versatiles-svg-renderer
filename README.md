@@ -104,23 +104,25 @@ A visual comparison report between this renderer and MapLibre GL JS is published
 
 This repository is an npm workspace:
 
-| Path                            | What                                                                               |
-| ------------------------------- | ---------------------------------------------------------------------------------- |
-| `packages/core`                 | the renderer, shared by all packages (private, bundled into each, never published) |
-| `packages/svg-renderer`         | `@versatiles/svg-renderer`                                                         |
-| `packages/png-renderer`         | `@versatiles/png-renderer`                                                         |
-| `packages/maplibre-svg-export`  | `@versatiles/maplibre-svg-export`                                                  |
-| `e2e`, `dev`, `demo`, `scripts` | end-to-end tests, dev server, plugin demo, build and release scripts               |
+| Path                                                                     | What                                                                               |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [`packages/core`](packages/core/README.md)                               | the renderer, shared by all packages (private, bundled into each, never published) |
+| [`packages/svg-renderer`](packages/svg-renderer/README.md)               | `@versatiles/svg-renderer`                                                         |
+| [`packages/png-renderer`](packages/png-renderer/README.md)               | `@versatiles/png-renderer`                                                         |
+| [`packages/maplibre-svg-export`](packages/maplibre-svg-export/README.md) | `@versatiles/maplibre-svg-export`                                                  |
+| `e2e`, `dev`, `demo`, `scripts`                                          | end-to-end tests, dev server, plugin demo, build and release scripts               |
 
-| Command             | Does                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `npm run build`     | builds every package into `packages/*/dist/`                                           |
-| `npm test`          | unit tests                                                                             |
-| `npm run test:pack` | packs every package and uses it from a clean project (`-- --docker` adds Linux checks) |
-| `npm run test:e2e`  | visual comparison with MapLibre GL JS, and the plugin in a real browser                |
-| `npm run check`     | format, lint, typecheck, build and all tests                                           |
-| `npm run dev`       | dev server for the plugin at http://localhost:3000/, rebuilding on change              |
-| `npm run docs`      | regenerates the graphics and generated sections of this README (commit the result)     |
+Each package's README shows its dependency graph; the plugin's also shows the composition of its browser bundle.
+
+| Command             | Does                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `npm run build`     | builds every package into `packages/*/dist/`                                                            |
+| `npm test`          | unit tests                                                                                              |
+| `npm run test:pack` | packs every package and uses it from a clean project (`-- --docker` adds Linux checks)                  |
+| `npm run test:e2e`  | visual comparison with MapLibre GL JS, and the plugin in a real browser                                 |
+| `npm run check`     | format, lint, typecheck, build and all tests                                                            |
+| `npm run dev`       | dev server for the plugin at <http://localhost:3000/>, rebuilding on change                             |
+| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs (commit the result) |
 
 ## Releasing
 
@@ -139,17 +141,3 @@ If the workflow fails, fix the cause and use "Re-run failed jobs": versions alre
 - **GitHub**: an environment named `npm`, limited to tags matching `v*`, with the maintainers as required reviewers. A tag ruleset for `v*` that restricts creating, updating and deleting release tags.
 
 </details>
-
-## Bundle Composition
-
-<!--- This chapter is generated automatically --->
-
-[![Bundle composition](docs/bundle-treemap.svg)](docs/bundle-treemap.svg?raw=true)
-
-Sized by the bundle's own source map: **354.4 KB** raw, **74.8 KB** gzipped, across 82 modules.
-
-## Dependency Graph
-
-<!--- This chapter is generated automatically --->
-
-[![Dependency graph](docs/dependency-graph.svg)](docs/dependency-graph.svg?raw=true)
