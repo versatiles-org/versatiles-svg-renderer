@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { Point2D } from './geometry.js';
-import { getGlobeness, Projection } from './projection.js';
+import { getGlobeness, mercatorToLonLat, Projection } from './projection.js';
 
 function mercator(lng: number, lat: number): [number, number] {
 	const p = new Point2D(lng, lat).getProject2Pixel();
@@ -236,5 +236,97 @@ describe('Projection', () => {
 		const first = triangles.find(({ source }) => source[0][0] === 0 && source[0][1] === 0)!;
 		expect(first.target[0][0]).toBeCloseTo(400, 6);
 		expect(first.target[0][1]).toBeCloseTo(300, 6);
+	});
+});
+
+describe('Projection.unproject', () => {
+	/** A grid of screen positions across the image, corners included. */
+	function grid(p: Projection): [number, number][] {
+		const points: [number, number][] = [];
+		for (let i = 0; i <= 6; i++) {
+			for (let j = 0; j <= 4; j++) points.push([(p.width * i) / 6, (p.height * j) / 4]);
+		}
+		return points;
+	}
+
+	test.each([
+		['mercator', new Projection({ width: 800, height: 600, center: [13.4, 52.5], zoom: 10 })],
+		[
+			'the globe',
+			new Projection({ width: 800, height: 600, center: [10, 20], zoom: 3, globeness: 1 }),
+		],
+		[
+			'the transition',
+			new Projection({
+				width: 800,
+				height: 600,
+				center: [139.7, 35.7],
+				zoom: 11.5,
+				globeness: 0.5,
+			}),
+		],
+	])('is the inverse of project on %s', (_name, p) => {
+		const circle = p.clipCircle;
+		for (const [x, y] of grid(p)) {
+			const m = p.unproject(x, y);
+			// Next to the globe (the corners, at zoom 3) there is no map.
+			if (circle && Math.hypot(x - circle.x, y - circle.y) > circle.radius) {
+				expect(m).toBeUndefined();
+				continue;
+			}
+			if (!m) throw new Error(`no map at ${String(x)}, ${String(y)}`);
+			const back = p.project(m[0], m[1]);
+			expect(back.x).toBeCloseTo(x, 5);
+			expect(back.y).toBeCloseTo(y, 5);
+		}
+	});
+
+	test('finds nothing next to the globe, and the front side on it', () => {
+		const p = new Projection({ width: 800, height: 600, center: [10, 20], zoom: 1, globeness: 1 });
+		const circle = p.clipCircle!;
+		expect(p.unproject(circle.x + circle.radius + 2, circle.y)).toBeUndefined();
+		expect(p.unproject(0, 0)).toBeUndefined();
+
+		const inside = p.unproject(circle.x + circle.radius * 0.9, circle.y);
+		if (!inside) throw new Error('expected a point on the globe');
+		expect(p.isVisible(p.toSphere(inside[0], inside[1]))).toBe(true);
+
+		// The center of the screen is the center of the view.
+		const [mx, my] = p.unproject(400, 300)!;
+		const [cx, cy] = mercator(10, 20);
+		expect(mx).toBeCloseTo(cx, 9);
+		expect(my).toBeCloseTo(cy, 9);
+	});
+
+	test('finds nothing beyond the poles of the mercator map', () => {
+		const p = new Projection({ width: 512, height: 2048, center: [0, 0], zoom: 0 });
+		expect(p.unproject(256, 1024)).toBeDefined();
+		expect(p.unproject(256, 5)).toBeUndefined();
+		expect(p.unproject(256, 2043)).toBeUndefined();
+	});
+
+	test('wraps the mercator map east-west', () => {
+		const p = new Projection({ width: 2048, height: 512, center: [170, 0], zoom: 0 });
+		// The image is four worlds wide; each point is shown four times.
+		const [mx] = p.unproject(2000, 256)!;
+		expect(mx).toBeGreaterThanOrEqual(0);
+		expect(mx).toBeLessThan(1);
+		// project gives the copy nearest the center: a whole number of worlds away.
+		const worlds = (2000 - p.project(mx, 0.5).x) / p.worldSize;
+		expect(worlds).toBeCloseTo(Math.round(worlds), 9);
+	});
+});
+
+describe('mercatorToLonLat', () => {
+	test.each([
+		[0, 0],
+		[13.4, 52.52],
+		[-122.4, 37.8],
+		[179.9, -85],
+	])('inverts getProject2Pixel for %s, %s', (lon, lat) => {
+		const [mx, my] = mercator(lon, lat);
+		const [lon2, lat2] = mercatorToLonLat(mx, my);
+		expect(lon2).toBeCloseTo(lon, 9);
+		expect(lat2).toBeCloseTo(lat, 9);
 	});
 });

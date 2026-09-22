@@ -147,6 +147,19 @@ function interpolationFactor(input: number, lower: number, upper: number, base: 
 	return (Math.pow(base, progress) - 1) / (Math.pow(base, difference) - 1);
 }
 
+/** A mercator point wrapped east-west, or `undefined` if it lies beyond the poles. */
+function inWorld([mx, my]: [number, number]): [number, number] | undefined {
+	if (my < 0 || my > 1) return undefined;
+	return [mx - Math.floor(mx), my];
+}
+
+/** Mercator world coordinates (0..1) → longitude and latitude in degrees. */
+export function mercatorToLonLat(mx: number, my: number): [number, number] {
+	const lon = mx * 360 - 180;
+	const lat = (Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180) / Math.PI;
+	return [lon, lat];
+}
+
 export class Projection {
 	public readonly width: number;
 
@@ -296,6 +309,71 @@ export class Projection {
 			(d * flatX + (globeX - d * flatX) * t) / w + this.width / 2,
 			(d * flatY + (globeY - d * flatY) * t) / w + this.height / 2,
 		);
+	}
+
+	/**
+	 * Inverse of {@link project}: the mercator point shown at a screen position, or
+	 * `undefined` where the screen shows no map: next to the globe, or beyond the poles of
+	 * the mercator map. `mx` is wrapped into 0..1.
+	 */
+	public unproject(x: number, y: number): [number, number] | undefined {
+		const t = this.globeness;
+		const flat = this.#unprojectFlat(x, y);
+		if (t === 0) return inWorld(flat);
+		if (t === 1) return this.#unprojectGlobe(x, y);
+
+		// The transition has no closed form: find the point by Newton's method, starting
+		// from the flat solution, which is close at these zoom levels.
+		let [mx, my] = flat;
+		const h = 1e-9;
+		for (let i = 0; i < 30; i++) {
+			const p = this.project(mx, my);
+			const ex = p.x - x;
+			const ey = p.y - y;
+			if (Math.abs(ex) < 1e-7 && Math.abs(ey) < 1e-7) break;
+			const px = this.project(mx + h, my);
+			const py = this.project(mx, my + h);
+			// The Jacobian of project, by finite differences.
+			const a = (px.x - p.x) / h;
+			const b = (py.x - p.x) / h;
+			const c = (px.y - p.y) / h;
+			const d = (py.y - p.y) / h;
+			const det = a * d - b * c;
+			if (det === 0) return undefined;
+			mx -= (d * ex - b * ey) / det;
+			my -= (a * ey - c * ex) / det;
+		}
+		const check = this.project(mx, my);
+		if (Math.abs(check.x - x) > 1e-3 || Math.abs(check.y - y) > 1e-3) return undefined;
+		return inWorld([mx, my]);
+	}
+
+	/** Inverse of the flat (mercator) part of {@link project}. */
+	#unprojectFlat(x: number, y: number): [number, number] {
+		return [
+			this.#centerX + (x - this.width / 2) / this.worldSize,
+			this.#centerY + (y - this.height / 2) / this.worldSize,
+		];
+	}
+
+	/**
+	 * Inverse of the globe part of {@link project}: where the line of sight through the
+	 * screen position meets the globe, on its front side.
+	 */
+	#unprojectGlobe(x: number, y: number): [number, number] | undefined {
+		const d = this.#cameraDistance;
+		const r = this.#radius;
+		// project gives x' = d·r·v₀ / w and y' = -d·r·v₁ / w with w = d + r·(1 - v₂). With
+		// k = (d + r) / r and u = k - v₂, that is v₀ = a·u and v₁ = b·u, and |v| = 1 makes it
+		// (a² + b² + 1)·u² - 2k·u + k² - 1 = 0. The smaller root is the front side.
+		const a = (x - this.width / 2) / d;
+		const b = -(y - this.height / 2) / d;
+		const k = (d + r) / r;
+		const s = a * a + b * b;
+		const discriminant = 1 - s * (k * k - 1);
+		if (discriminant < 0) return undefined;
+		const u = (k - Math.sqrt(discriminant)) / (s + 1);
+		return this.fromSphere([a * u, b * u, k - u]);
 	}
 
 	/**

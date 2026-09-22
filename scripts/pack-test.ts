@@ -269,7 +269,8 @@ try {
 			export const withFetch = renderToSVG({ style: ${MINIMAL_STYLE}, fetch: fetchFn });
 			const view: ViewOptions = { lon: 1, lat: 2, zoom: 3 };
 			export const view1: Promise<string> = new SVGMapRenderer(mapOptions).renderSVG(view);
-			export const xy: [number, number] | undefined = new SVGMapRenderer(mapOptions).project(view, [1, 2]);`,
+			export const xy: [number, number] | undefined = new SVGMapRenderer(mapOptions).project(view, [1, 2]);
+			export const lonLat: [number, number] | undefined = new SVGMapRenderer(mapOptions).unproject(view, [3, 4]);`,
 		);
 
 		check('the style argument is really typed, not `any`', () => {

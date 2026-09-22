@@ -186,7 +186,7 @@ An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/
 - **`renderPNG(view?): Promise<Uint8Array>`** renders one view as PNG. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `scale`, with the same defaults as `renderToPNG`.
 - **`renderCanvas(view?): Promise<Canvas>`** renders one view onto a canvas, to draw on or to encode in another format; see [above](#drawing-on-the-map-or-saving-another-format).
 - **`renderSVG(view?): Promise<string>`** renders one view as SVG, sharing the tiles and the sprite with the PNG renders.
-- **`project(view, [lon, lat])`** tells where a coordinate lands in the image of `view`, as on [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions).
+- **`project(view, [lon, lat])`** and **`unproject(view, [x, y])`** convert between coordinates and positions in the image of `view`, as on [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions).
 - **`clearCache()`** forgets the fetched tiles and sprite, and the decoded images.
 
 A font that cannot be loaded is reported by `renderPNG`, and the next `renderPNG` tries again.

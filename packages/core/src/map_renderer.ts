@@ -5,7 +5,7 @@ import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
 import { TileCache } from './sources/tile_cache.js';
-import { Projection } from './projection.js';
+import { mercatorToLonLat, Projection } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 
@@ -236,6 +236,23 @@ export class SVGMapRenderer {
 		if (!projection.isVisible(onSphere)) return undefined;
 		const { x, y } = projection.project(mercator.x, mercator.y, onSphere);
 		return [x, y];
+	}
+	/**
+	 * The opposite of {@link SVGMapRenderer.project}: the coordinate shown at a position in
+	 * the image of `view`, e.g. where a user clicked on it.
+	 *
+	 * Where the image shows no map — next to the globe, or beyond the poles of the mercator
+	 * map (about ±85°) — this returns `undefined`. The longitude is between -180 and 180.
+	 *
+	 * @param view - The view the image was rendered with.
+	 * @param xy - A position in the units of `width` and `height`.
+	 * @returns `[lon, lat]` in degrees, or `undefined` where there is no map.
+	 * @throws If `width` or `height` is not positive.
+	 */
+	public unproject(view: ViewOptions, xy: [number, number]): [number, number] | undefined {
+		const { width, height } = viewSize(view);
+		const mercator = projectionOf(this.#style, width, height, view).unproject(xy[0], xy[1]);
+		return mercator && mercatorToLonLat(mercator[0], mercator[1]);
 	}
 
 	/**

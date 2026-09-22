@@ -358,6 +358,54 @@ describe('SVGMapRenderer.project', () => {
 	});
 });
 
+describe('SVGMapRenderer.unproject', () => {
+	const flat: StyleSpecification = { version: 8, sources: {}, layers: [] };
+	const globe: StyleSpecification = { ...flat, projection: { type: 'globe' } };
+
+	test.each([
+		['mercator', flat, { width: 400, height: 300, lon: 10, lat: 20, zoom: 3 }],
+		['the globe', globe, { width: 400, height: 300, lon: 10, lat: 20, zoom: 3 }],
+		[
+			'the transition to mercator',
+			globe,
+			{ width: 400, height: 300, lon: 139.7, lat: 35.7, zoom: 11.5 },
+		],
+	])('undoes project on %s', (_name, style, view) => {
+		const map = new SVGMapRenderer({ style });
+		const spread = view.zoom > 10 ? 0.01 : 5;
+		for (const [dLon, dLat] of [
+			[0, 0],
+			[1, 0.5],
+			[-0.7, -1],
+		] as const) {
+			const lonLat: [number, number] = [view.lon + dLon * spread, view.lat + dLat * spread];
+			const [lon, lat] = map.unproject(view, map.project(view, lonLat)!)!;
+			expect(lon).toBeCloseTo(lonLat[0], 6);
+			expect(lat).toBeCloseTo(lonLat[1], 6);
+		}
+	});
+
+	test('gives the center of the view for the middle of the image', () => {
+		const view = { width: 400, height: 300, lon: 10, lat: 20, zoom: 3 };
+		for (const style of [flat, globe]) {
+			const [lon, lat] = new SVGMapRenderer({ style }).unproject(view, [200, 150])!;
+			expect(lon).toBeCloseTo(10, 6);
+			expect(lat).toBeCloseTo(20, 6);
+		}
+	});
+
+	test('gives nothing next to the globe', () => {
+		const map = new SVGMapRenderer({ style: globe });
+		expect(map.unproject({ width: 400, height: 400, zoom: 0 }, [2, 2])).toBeUndefined();
+	});
+
+	test('rejects a non-positive size, like project', () => {
+		expect(() => new SVGMapRenderer({ style: flat }).unproject({ height: 0 }, [0, 0])).toThrow(
+			'height must be positive',
+		);
+	});
+});
+
 describe('viewSize', () => {
 	test('defaults to 1024 × 1024', () => {
 		expect(viewSize({})).toEqual({ width: 1024, height: 1024 });
