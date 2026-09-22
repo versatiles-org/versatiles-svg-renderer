@@ -12,13 +12,15 @@ vi.mock('./tiles.js', async (importOriginal) => {
 });
 
 let mockVtLayers: Record<string, unknown> = {};
+/** Layers of particular tiles, by their buffer; any other tile has `mockVtLayers`. */
+const mockVtLayersByBuffer = new Map<ArrayBuffer, Record<string, unknown>>();
 
 vi.mock('@mapbox/vector-tile', () => {
 	return {
 		VectorTile: class {
 			layers: Record<string, unknown>;
-			constructor() {
-				this.layers = mockVtLayers;
+			constructor(pbf: { buffer: ArrayBuffer }) {
+				this.layers = mockVtLayersByBuffer.get(pbf.buffer) ?? mockVtLayers;
 			}
 		},
 	};
@@ -26,8 +28,9 @@ vi.mock('@mapbox/vector-tile', () => {
 
 vi.mock('pbf', () => {
 	return {
-		// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-		PbfReader: class {},
+		PbfReader: class {
+			constructor(readonly buffer: ArrayBuffer) {}
+		},
 	};
 });
 
@@ -264,5 +267,46 @@ describe('loadVectorSource', () => {
 		const fB = layerFeatures.get('layerB') ?? { points: [], linestrings: [], polygons: [] };
 		expect(fA.points.length).toBe(1);
 		expect(fB.linestrings.length).toBe(1);
+	});
+
+	test('orders features by tile, not by the order the tiles arrive', async () => {
+		// Four tiles at zoom 1, each with one point in its middle, named after the tile.
+		const buffers = new Map<string, ArrayBuffer>();
+		for (const key of ['0/0', '0/1', '1/0', '1/1']) {
+			const buffer = new ArrayBuffer(1);
+			buffers.set(key, buffer);
+			mockVtLayersByBuffer.set(buffer, {
+				places: {
+					length: 1,
+					feature: () => ({
+						type: 1,
+						properties: { tile: key },
+						loadGeometry: () => [[{ x: 2048, y: 2048 }]],
+					}),
+				},
+			});
+		}
+
+		async function load(delay: (key: string) => number): Promise<unknown[]> {
+			vi.mocked(getTile).mockImplementation(async (_url, _z, x, y) => {
+				const key = `${String(x)}/${String(y)}`;
+				await new Promise((resolve) => setTimeout(resolve, delay(key)));
+				return { buffer: buffers.get(key)!, contentType: 'application/x-protobuf' };
+			});
+			const layerFeatures: LayerFeatures = new Map();
+			await loadVectorSource(
+				{ type: 'vector', tiles: ['https://example.com/{z}/{x}/{y}.pbf'] },
+				makeJob(1024, 1024, 1),
+				layerFeatures,
+			);
+			return layerFeatures.get('places')!.points.map((f) => f.properties.tile);
+		}
+
+		const order = ['0/0', '0/1', '1/0', '1/1'];
+		const forwards = await load((key) => order.indexOf(key) * 5);
+		const backwards = await load((key) => (3 - order.indexOf(key)) * 5);
+		expect(forwards).toHaveLength(4);
+		expect(backwards).toEqual(forwards);
+		mockVtLayersByBuffer.clear();
 	});
 });

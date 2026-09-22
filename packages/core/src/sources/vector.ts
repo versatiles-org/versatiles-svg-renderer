@@ -27,80 +27,92 @@ export async function loadVectorSource(
 
 	const { width, height } = job.renderer;
 
-	await Promise.all(
-		getTileProjections(source, job).map(async ({ x, y, z, project, clipToTile }): Promise<void> => {
-			const tile = await loadTile(tiles[0]!, z, x, y);
-			if (!tile) return;
+	// The tiles load in parallel, but are decoded in tile order, not in the order they
+	// arrive: the same tiles must always give the same features in the same order, or
+	// overlapping features would be drawn in a different order from one render to the next.
+	const projections = getTileProjections(source, job);
+	const loaded = await Promise.all(projections.map(({ x, y, z }) => loadTile(tiles[0]!, z, x, y)));
+	projections.forEach((projection, i) => {
+		const tile = loaded[i];
+		if (tile) addTileFeatures(tile.buffer, projection, layerFeatures, width, height);
+	});
+}
 
-			const vectorTile = new VectorTile(new PbfReader(tile.buffer));
-			for (const [name, layer] of Object.entries(vectorTile.layers)) {
-				let features = layerFeatures.get(name);
-				if (!features) {
-					features = { points: [], linestrings: [], polygons: [] };
-					layerFeatures.set(name, features);
-				}
+/** Decodes one vector tile and adds its features, projected to the screen. */
+function addTileFeatures(
+	buffer: ArrayBuffer,
+	{ project, clipToTile }: TileProjection,
+	layerFeatures: LayerFeatures,
+	width: number,
+	height: number,
+): void {
+	const vectorTile = new VectorTile(new PbfReader(buffer));
+	for (const [name, layer] of Object.entries(vectorTile.layers)) {
+		let features = layerFeatures.get(name);
+		if (!features) {
+			features = { points: [], linestrings: [], polygons: [] };
+			layerFeatures.set(name, features);
+		}
 
-				for (let i = 0; i < layer.length; i++) {
-					const featureSrc = layer.feature(i);
-					let type: 'LineString' | 'Point' | 'Polygon';
-					let list: Feature[];
-					switch (featureSrc.type) {
-						case VTFeatureType.Unknown:
-							throw Error('Unknown feature type in vector tile');
-						case VTFeatureType.Point:
-							type = 'Point';
-							list = features.points;
-							break;
-						case VTFeatureType.LineString:
-							type = 'LineString';
-							list = features.linestrings;
-							break;
-						case VTFeatureType.Polygon:
-							type = 'Polygon';
-							list = features.polygons;
-							break;
-					}
+		for (let i = 0; i < layer.length; i++) {
+			const featureSrc = layer.feature(i);
+			let type: 'LineString' | 'Point' | 'Polygon';
+			let list: Feature[];
+			switch (featureSrc.type) {
+				case VTFeatureType.Unknown:
+					throw Error('Unknown feature type in vector tile');
+				case VTFeatureType.Point:
+					type = 'Point';
+					list = features.points;
+					break;
+				case VTFeatureType.LineString:
+					type = 'LineString';
+					list = features.linestrings;
+					break;
+				case VTFeatureType.Polygon:
+					type = 'Polygon';
+					list = features.polygons;
+					break;
+			}
 
-					let rings: XY[][] = featureSrc.loadGeometry();
-					let outline: Point2D[][] | undefined;
-					// Clip polygons and lines to the tile, like MapLibre's stencil clipping: otherwise
-					// the parts in the tile buffer are drawn twice, which shows when translucent.
-					if (clipToTile && type !== 'Point' && exceedsSquare(rings, 0, TILE_EXTENT)) {
-						if (type === 'Polygon') {
-							outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
-							rings = clipPolygon(rings, 0, TILE_EXTENT);
-						} else {
-							rings = rings.flatMap((line) => clipLine(line, 0, TILE_EXTENT));
-						}
-					}
-					const geometry = project(type, rings);
-					if (geometry.length === 0) continue;
-
-					// Split MultiPoint into individual Point features
-					if (type === 'Point' && geometry.length > 1) {
-						for (const ring of geometry) {
-							const feature = new Feature({
-								type,
-								geometry: [ring],
-								id: featureSrc.id,
-								properties: featureSrc.properties,
-							});
-							if (feature.doesOverlap([0, 0, width, height])) list.push(feature);
-						}
-					} else {
-						const feature = new Feature({
-							type,
-							geometry,
-							outline,
-							id: featureSrc.id,
-							properties: featureSrc.properties,
-						});
-						if (feature.doesOverlap([0, 0, width, height])) list.push(feature);
-					}
+			let rings: XY[][] = featureSrc.loadGeometry();
+			let outline: Point2D[][] | undefined;
+			// Clip polygons and lines to the tile, like MapLibre's stencil clipping: otherwise
+			// the parts in the tile buffer are drawn twice, which shows when translucent.
+			if (clipToTile && type !== 'Point' && exceedsSquare(rings, 0, TILE_EXTENT)) {
+				if (type === 'Polygon') {
+					outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
+					rings = clipPolygon(rings, 0, TILE_EXTENT);
+				} else {
+					rings = rings.flatMap((line) => clipLine(line, 0, TILE_EXTENT));
 				}
 			}
-		}),
-	);
+			const geometry = project(type, rings);
+			if (geometry.length === 0) continue;
+
+			// Split MultiPoint into individual Point features
+			if (type === 'Point' && geometry.length > 1) {
+				for (const ring of geometry) {
+					const feature = new Feature({
+						type,
+						geometry: [ring],
+						id: featureSrc.id,
+						properties: featureSrc.properties,
+					});
+					if (feature.doesOverlap([0, 0, width, height])) list.push(feature);
+				}
+			} else {
+				const feature = new Feature({
+					type,
+					geometry,
+					outline,
+					id: featureSrc.id,
+					properties: featureSrc.properties,
+				});
+				if (feature.doesOverlap([0, 0, width, height])) list.push(feature);
+			}
+		}
+	}
 }
 
 interface TileProjection {
