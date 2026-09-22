@@ -31,14 +31,14 @@ export const CASE_DESCRIPTIONS: Record<CaseName, string> = {
 	'png-warm': 'PNGMapRenderer.renderPNG, as svg-warm',
 };
 
-export interface Scenario {
+interface Scenario {
 	id: string;
 	region: Region;
 	style: StyleSpecification;
 }
 
 /** One way of rendering a scenario. */
-export interface Case {
+interface Case {
 	name: CaseName;
 	/** Runs once before any measured run, unmeasured: the warm cases fill their caches. */
 	setup: () => Promise<void>;

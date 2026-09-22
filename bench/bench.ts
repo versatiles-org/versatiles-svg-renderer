@@ -8,6 +8,9 @@
  * The times come from runs without a profiler. The steps come from CPU profiles of
  * further runs (see `steps.ts`), and their shares are applied to the measured time.
  *
+ * A run of the default scenarios and cases, with steps, also redraws the chart of the
+ * README, `docs/benchmark.svg` (see `chart.ts`).
+ *
  *   npm run bench                                  # vector and satellite scenarios, warm cases
  *   npm run bench -- --scenarios berlin-vector --details
  *   npm run bench -- --scenarios all --runs 20
@@ -23,10 +26,12 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
-import { dirname } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { profileRuns } from './profiler.js';
 import { OTHER, stepShares } from './steps.js';
+import { averageRender, type Report, type Result } from './report.js';
+import { renderChart } from './chart.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import {
 	CASE_DESCRIPTIONS,
@@ -39,34 +44,6 @@ import {
 	WIDTH,
 	type CaseName,
 } from './fixtures.js';
-
-interface Result {
-	scenario: string;
-	case: CaseName;
-	/** Milliseconds, over all measured runs. */
-	median: number;
-	min: number;
-	max: number;
-	mean: number;
-	/** Standard deviation relative to the mean. */
-	cv: number;
-	/** Size of the output, in bytes. */
-	bytes: number;
-	/** Milliseconds per run spent in each step, on average. */
-	steps: Record<string, number>;
-}
-
-interface Report {
-	date: string;
-	commit: string;
-	node: string;
-	platform: string;
-	cpu: string;
-	/** The size of the rendered image, as "1024x768". Missing in reports from before. */
-	size?: string;
-	runs: number;
-	results: Result[];
-}
 
 /** Differences of the median below this are shown, but not marked as a change. */
 const NOTABLE_CHANGE = 0.05;
@@ -107,13 +84,17 @@ const runs = positiveInteger(args.runs, 'runs');
 const warmup = positiveInteger(args.warmup, 'warmup');
 const profileRunCount = positiveInteger(args['profile-runs'], 'profile-runs');
 const SIZE = `${String(WIDTH)}x${String(HEIGHT)}`;
+/** The chart of the README. */
+const CHART = resolve(import.meta.dirname, '../docs/benchmark.svg');
+/** Reports saved before the size was recorded were all measured at 800×600. */
+const LEGACY_SIZE = '800x600';
 const baseline = args.compare
-	? (JSON.parse(readFileSync(args.compare, 'utf8')) as Report)
+	? (JSON.parse(readFileSync(args.compare, 'utf8')) as Omit<Report, 'size'> & { size?: string })
 	: undefined;
 // Render times grow with the image size, so a baseline of another size compares nothing.
-if (baseline && (baseline.size ?? '800x600') !== SIZE) {
+if (baseline && (baseline.size ?? LEGACY_SIZE) !== SIZE) {
 	throw new Error(
-		`${args.compare ?? ''} was measured at ${baseline.size ?? '800x600'}, this run renders at ${SIZE}`,
+		`${args.compare ?? ''} was measured at ${baseline.size ?? LEGACY_SIZE}, this run renders at ${SIZE}`,
 	);
 }
 
@@ -166,13 +147,7 @@ for (const scenario of scenarios) {
 
 if (!args['no-steps']) {
 	for (const name of caseNames) {
-		const ofCase = results.filter((r) => r.case === name);
-		const n = ofCase.length;
-		const steps: Record<string, number> = {};
-		for (const r of ofCase) {
-			for (const [step, ms] of Object.entries(r.steps)) steps[step] = (steps[step] ?? 0) + ms / n;
-		}
-		const mean = ofCase.reduce((sum, r) => sum + r.mean, 0) / n;
+		const { scenarios: n, mean, steps } = averageRender(results, name);
 		console.log(
 			`\n${name}, average of ${String(n)} scenario${n === 1 ? '' : 's'}: ${mean.toFixed(1)} ms per render`,
 		);
@@ -180,18 +155,28 @@ if (!args['no-steps']) {
 	}
 }
 
+const report: Report = {
+	date: new Date().toISOString(),
+	commit: git(['rev-parse', '--short', 'HEAD']) + (git(['status', '--porcelain']) ? '+dirty' : ''),
+	node: process.version,
+	platform: `${process.platform}-${process.arch}`,
+	cpu: cpus()[0]?.model ?? 'unknown',
+	size: SIZE,
+	runs,
+	results,
+};
+
+// Only a full run redraws the chart, so that trying out a few scenarios does not replace it.
+if (!args.scenarios && !args.cases && !args['no-steps']) {
+	writeFileSync(CHART, renderChart(report));
+	console.log(`\nRedrew ${relative(process.cwd(), CHART)}`);
+} else {
+	console.log(
+		`\nThe chart is only redrawn by a run of the default scenarios and cases, with steps.`,
+	);
+}
+
 if (args.json) {
-	const report: Report = {
-		date: new Date().toISOString(),
-		commit:
-			git(['rev-parse', '--short', 'HEAD']) + (git(['status', '--porcelain']) ? '+dirty' : ''),
-		node: process.version,
-		platform: `${process.platform}-${process.arch}`,
-		cpu: cpus()[0]?.model ?? 'unknown',
-		size: SIZE,
-		runs,
-		results,
-	};
 	mkdirSync(dirname(args.json), { recursive: true });
 	writeFileSync(args.json, JSON.stringify(report, null, '\t') + '\n');
 	console.log(`\nSaved to ${args.json}`);
@@ -211,7 +196,7 @@ function statistics(times: number[]): Omit<Result, 'scenario' | 'case' | 'bytes'
 	return { median, min: sorted[0]!, max: sorted.at(-1)!, mean, cv: Math.sqrt(variance) / mean };
 }
 
-function formatResult(result: Result, base: Report | undefined): string {
+function formatResult(result: Result, base: Pick<Report, 'results'> | undefined): string {
 	const ms = (t: number): string => `${t.toFixed(1)} ms`;
 	let line =
 		`  ${result.case.padEnd(8)}  ${ms(result.median).padStart(10)}` +

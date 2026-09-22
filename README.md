@@ -100,6 +100,14 @@ A visual comparison report between this renderer and MapLibre GL JS is published
 
 [View Report](https://versatiles.org/versatiles-svg-renderer/e2e/report.html)
 
+## Performance
+
+How long a warm render takes, divided into its steps: the average over the vector and satellite scenarios of the visual comparison, rendered at 1024 × 768 px by an `SVGMapRenderer` or `PNGMapRenderer` that has rendered the view before, so every cache hits. The PNG output is split by an estimate: the canvas only draws its pixels when the image is encoded.
+
+![Average render time by step, SVG and PNG](docs/benchmark.svg)
+
+The numbers depend on the machine, so the chart names it. `npm run bench` measures again and redraws the chart.
+
 ## Development
 
 This repository is an npm workspace:
@@ -114,17 +122,17 @@ This repository is an npm workspace:
 
 Each package's README shows its dependency graph; the plugin's also shows the composition of its browser bundle.
 
-| Command             | Does                                                                                                                                                           |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run build`     | builds every package into `packages/*/dist/`                                                                                                                   |
-| `npm test`          | unit tests                                                                                                                                                     |
-| `npm run test:pack` | packs every package and uses it from a clean project (`-- --docker` adds Linux checks)                                                                         |
-| `npm run test:e2e`  | visual comparison with MapLibre GL JS, and the plugin in a real browser                                                                                        |
-| `npm run check`     | format, lint, typecheck, build and all tests                                                                                                                   |
-| `npm run bench`     | measures warm render times per scenario, SVG and PNG, and how they divide into the steps of a render; `-- --json <file>` saves, `-- --compare <file>` compares |
-| `npm run profile`   | writes a CPU profile of one scenario to `bench/output/`, e.g. `npm run profile -- berlin-vector --case png-warm`                                               |
-| `npm run dev`       | dev server for the plugin at <http://localhost:3000/>, rebuilding on change                                                                                    |
-| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs (commit the result)                                                        |
+| Command             | Does                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run build`     | builds every package into `packages/*/dist/`                                                                                                                                         |
+| `npm test`          | unit tests                                                                                                                                                                           |
+| `npm run test:pack` | packs every package and uses it from a clean project (`-- --docker` adds Linux checks)                                                                                               |
+| `npm run test:e2e`  | visual comparison with MapLibre GL JS, and the plugin in a real browser                                                                                                              |
+| `npm run check`     | format, lint, typecheck, build and all tests                                                                                                                                         |
+| `npm run bench`     | measures warm render times, SVG and PNG, and how they divide into the steps of a render, then redraws `docs/benchmark.svg`; `-- --json <file>` saves, `-- --compare <file>` compares |
+| `npm run profile`   | writes a CPU profile of one scenario to `bench/output/`, e.g. `npm run profile -- berlin-vector --case png-warm`                                                                     |
+| `npm run dev`       | dev server for the plugin at <http://localhost:3000/>, rebuilding on change                                                                                                          |
+| `npm run docs`      | builds, then regenerates the graphics and generated sections of the package READMEs (commit the result)                                                                              |
 
 ## Releasing
 

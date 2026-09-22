@@ -10,7 +10,7 @@
 import type { Profile } from './profiler.js';
 
 /** A function, by its name and the end of its file's path. */
-export interface FunctionRef {
+interface FunctionRef {
 	name: string;
 	file: string;
 }

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 454" width="720" height="454" role="img" aria-labelledby="title">
+<title id="title">Average render time by step. SVG: 74.7 ms, PNG: 179.1 ms.</title>
+<style>
+	.s1 { fill: #2a78d6 } .s2 { fill: #eb6834 } .s3 { fill: #1baf7a } .s4 { fill: #eda100 }
+	.s5 { fill: #e87ba4 } .s6 { fill: #008300 } .s7 { fill: #4a3aa7 } .s8 { fill: #e34948 }
+	.other { fill: #b3b2ad }
+	text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif }
+	.label { font-size: 12px; fill: #52514e }
+	.value, .total { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; fill: #0b0b0b }
+	.total { font-size: 12px; fill: #52514e }
+	.title { font-size: 13px; font-weight: 600; fill: #0b0b0b }
+	.caption { font-size: 11px; fill: #7a7974 }
+	.leader { stroke: #c9c8c3; stroke-width: 1; fill: none }
+	.baseline { stroke: #c9c8c3; stroke-width: 1 }
+	@media (prefers-color-scheme: dark) {
+		.s1 { fill: #3987e5 } .s2 { fill: #d95926 } .s3 { fill: #199e70 } .s4 { fill: #c98500 }
+		.s5 { fill: #d55181 } .s6 { fill: #008300 } .s7 { fill: #9085e9 } .s8 { fill: #e66767 }
+		.other { fill: #6b6a65 }
+		.label, .total { fill: #c3c2b7 }
+		.value, .title { fill: #ffffff }
+		.caption { fill: #908f87 }
+		.leader, .baseline { stroke: #4a4a46 }
+	}
+</style>
+<line class="baseline" x1="200" x2="520" y1="384" y2="384"/>
+<g aria-label="SVG">
+<path class="s1" d="M270.0,384.0 V374.7 H294.0 V384.0 Z"/>
+<path class="leader" d="M267.0,379.3 H258.0 L230.0,380.0"/>
+<rect class="s1" x="218.0" y="376.0" width="8" height="8" rx="2"/>
+<text x="212.0" y="384.0" text-anchor="end"><tspan class="label">decode tiles</tspan><tspan dx="8" class="value">5.0 ms</tspan></text>
+<path class="s2" d="M270.0,372.7 V357.0 H294.0 V372.7 Z"/>
+<path class="leader" d="M267.0,365.9 H258.0 L230.0,363.0"/>
+<rect class="s2" x="218.0" y="359.0" width="8" height="8" rx="2"/>
+<text x="212.0" y="367.0" text-anchor="end"><tspan class="label">clip</tspan><tspan dx="8" class="value">9.5 ms</tspan></text>
+<path class="s3" d="M270.0,355.0 V329.7 H294.0 V355.0 Z"/>
+<path class="leader" d="M267.0,343.3 H258.0 L230.0,343.3"/>
+<rect class="s3" x="218.0" y="339.3" width="8" height="8" rx="2"/>
+<text x="212.0" y="347.3" text-anchor="end"><tspan class="label">project &amp; build</tspan><tspan dx="8" class="value">14.7 ms</tspan></text>
+<path class="s4" d="M270.0,327.7 V301.2 H294.0 V327.7 Z"/>
+<path class="leader" d="M267.0,315.4 H258.0 L230.0,318.3"/>
+<rect class="s4" x="218.0" y="314.3" width="8" height="8" rx="2"/>
+<text x="212.0" y="322.3" text-anchor="end"><tspan class="label">fill · draw</tspan><tspan dx="8" class="value">15.3 ms</tspan></text>
+<path class="s5" d="M270.0,299.2 V277.3 H294.0 V299.2 Z"/>
+<path class="leader" d="M267.0,289.2 H258.0 L230.0,301.3"/>
+<rect class="s5" x="218.0" y="297.3" width="8" height="8" rx="2"/>
+<text x="212.0" y="305.3" text-anchor="end"><tspan class="label">line · draw</tspan><tspan dx="8" class="value">12.9 ms</tspan></text>
+<path class="s6" d="M270.0,275.3 V258.5 H294.0 V275.3 Z"/>
+<path class="leader" d="M267.0,267.9 H258.0 L230.0,284.3"/>
+<rect class="s6" x="218.0" y="280.3" width="8" height="8" rx="2"/>
+<text x="212.0" y="288.3" text-anchor="end"><tspan class="label">garbage collection</tspan><tspan dx="8" class="value">10.1 ms</tspan></text>
+<path class="s8" d="M270.0,256.5 V255.6 H294.0 V256.5 Z"/>
+<path class="leader" d="M267.0,257.0 H258.0 L230.0,267.3"/>
+<rect class="s8" x="218.0" y="263.3" width="8" height="8" rx="2"/>
+<text x="212.0" y="271.3" text-anchor="end"><tspan class="label">encode / serialize</tspan><tspan dx="8" class="value">1.6 ms</tspan></text>
+<path class="other" d="M270.0,253.6 V249.0 Q270.0,245.0 274.0,245.0 H290.0 Q294.0,245.0 294.0,249.0 V253.6 Z"/>
+<path class="leader" d="M267.0,250.3 H258.0 L230.0,250.3"/>
+<rect class="other" x="218.0" y="246.3" width="8" height="8" rx="2"/>
+<text x="212.0" y="254.3" text-anchor="end"><tspan class="label">other</tspan><tspan dx="8" class="value">5.7 ms</tspan></text>
+<text class="total" x="282.0" y="233.0" text-anchor="middle">74.7 ms</text>
+<text class="title" x="282.0" y="408.0" text-anchor="middle">SVG</text>
+</g>
+<g aria-label="PNG">
+<path class="s1" d="M426.0,384.0 V375.1 H450.0 V384.0 Z"/>
+<path class="leader" d="M453.0,379.5 H462.0 L490.0,380.0"/>
+<rect class="s1" x="494.0" y="376.0" width="8" height="8" rx="2"/>
+<text x="508.0" y="384.0"><tspan class="value">4.8 ms</tspan><tspan dx="8" class="label">decode tiles</tspan></text>
+<path class="s2" d="M426.0,373.1 V358.0 H450.0 V373.1 Z"/>
+<path class="leader" d="M453.0,366.5 H462.0 L490.0,363.0"/>
+<rect class="s2" x="494.0" y="359.0" width="8" height="8" rx="2"/>
+<text x="508.0" y="367.0"><tspan class="value">9.2 ms</tspan><tspan dx="8" class="label">clip</tspan></text>
+<path class="s3" d="M426.0,356.0 V331.1 H450.0 V356.0 Z"/>
+<path class="leader" d="M453.0,344.6 H462.0 L490.0,344.6"/>
+<rect class="s3" x="494.0" y="340.6" width="8" height="8" rx="2"/>
+<text x="508.0" y="348.6"><tspan class="value">14.4 ms</tspan><tspan dx="8" class="label">project &amp; build</tspan></text>
+<path class="s4" d="M426.0,329.1 V293.7 H450.0 V329.1 Z"/>
+<path class="leader" d="M453.0,312.4 H462.0 L490.0,312.4"/>
+<rect class="s4" x="494.0" y="308.4" width="8" height="8" rx="2"/>
+<text x="508.0" y="316.4"><tspan class="value">20.1 ms</tspan><tspan dx="8" class="label">fill · draw</tspan></text>
+<path class="s5" d="M426.0,291.7 V270.7 H450.0 V291.7 Z"/>
+<path class="leader" d="M453.0,282.2 H462.0 L490.0,282.4"/>
+<rect class="s5" x="494.0" y="278.4" width="8" height="8" rx="2"/>
+<text x="508.0" y="286.4"><tspan class="value">12.4 ms</tspan><tspan dx="8" class="label">line · draw</tspan></text>
+<path class="s6" d="M426.0,268.7 V260.1 H450.0 V268.7 Z"/>
+<path class="leader" d="M453.0,265.4 H462.0 L490.0,265.4"/>
+<rect class="s6" x="494.0" y="261.4" width="8" height="8" rx="2"/>
+<text x="508.0" y="269.4"><tspan class="value">5.7 ms</tspan><tspan dx="8" class="label">garbage collection</tspan></text>
+<path class="s7" d="M426.0,258.1 V163.2 H450.0 V258.1 Z"/>
+<path class="leader" d="M453.0,211.6 H462.0 L490.0,211.6"/>
+<rect class="s7" x="494.0" y="207.6" width="8" height="8" rx="2"/>
+<text x="508.0" y="215.6"><tspan class="value">52.1 ms</tspan><tspan dx="8" class="label">rasterize</tspan></text>
+<path class="s8" d="M426.0,161.2 V61.9 H450.0 V161.2 Z"/>
+<path class="leader" d="M453.0,112.5 H462.0 L490.0,112.5"/>
+<rect class="s8" x="494.0" y="108.5" width="8" height="8" rx="2"/>
+<text x="508.0" y="116.5"><tspan class="value">54.4 ms</tspan><tspan dx="8" class="label">encode / serialize</tspan></text>
+<path class="other" d="M426.0,59.9 V54.7 Q426.0,50.7 430.0,50.7 H446.0 Q450.0,50.7 450.0,54.7 V59.9 Z"/>
+<path class="leader" d="M453.0,56.3 H462.0 L490.0,56.3"/>
+<rect class="other" x="494.0" y="52.3" width="8" height="8" rx="2"/>
+<text x="508.0" y="60.3"><tspan class="value">6.0 ms</tspan><tspan dx="8" class="label">other</tspan></text>
+<text class="total" x="438.0" y="38.7" text-anchor="middle">179.1 ms</text>
+<text class="title" x="438.0" y="408.0" text-anchor="middle">PNG</text>
+</g>
+<text class="caption" x="360" y="442" text-anchor="middle">Average warm render of 15 scenarios at 1024×768 px · Apple M4 Pro · Node v24.16.0 · 2026-09-22 · dafbe020d+dirty</text>
+</svg>
