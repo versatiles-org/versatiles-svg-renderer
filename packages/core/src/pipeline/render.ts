@@ -157,6 +157,32 @@ interface LayerValues {
 	getLayout: (key: string, feature?: LayerFeature) => unknown;
 }
 
+/**
+ * `features` in the order MapLibre draws them: by their `*-sort-key`, lowest first, and in
+ * source order where the keys are equal. A feature without a key counts as `0`.
+ */
+export function sortByKey(
+	features: LayerFeature[],
+	getKey: (feature: LayerFeature) => unknown,
+): LayerFeature[] {
+	const keys = features.map((feature) => {
+		const key = getKey(feature);
+		return typeof key === 'number' && !Number.isNaN(key) ? key : 0;
+	});
+	if (keys.every((key) => key === keys[0])) return features;
+	return features
+		.map((feature, i) => ({ feature, key: keys[i]! }))
+		.sort((a, b) => a.key - b.key)
+		.map(({ feature }) => feature);
+}
+
+/** Applies `text-transform`, with the locale-aware case mapping MapLibre uses. */
+export function transformText(text: string, transform: unknown): string {
+	if (transform === 'uppercase') return text.toLocaleUpperCase();
+	if (transform === 'lowercase') return text.toLocaleLowerCase();
+	return text;
+}
+
 function evaluateLayer(layer: Layer): LayerValues {
 	const { layerStyle, availableImages } = layer;
 	const { paint, layout } = layerStyle.evaluate({ zoom: layer.job.view.zoom }, availableImages);
@@ -217,8 +243,9 @@ function renderFillLayer(layer: Layer): void {
 	const polygonFeatures = filterFeatures(layer, fillable);
 	if (polygonFeatures.length === 0) return;
 
-	const { getPaint } = evaluateLayer(layer);
-	const styled = polygonFeatures.map((feature): Parameters<Renderer['drawPolygons']>[1][number] => [
+	const { getPaint, getLayout } = evaluateLayer(layer);
+	const sorted = sortByKey(polygonFeatures, (feature) => getLayout('fill-sort-key', feature));
+	const styled = sorted.map((feature): Parameters<Renderer['drawPolygons']>[1][number] => [
 		feature,
 		{
 			color: getPaint('fill-color', feature) as MaplibreColor,
@@ -245,31 +272,30 @@ function renderLineLayer(layer: Layer): void {
 	if (lineStringFeatures.length === 0) return;
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
-	const styled = lineStringFeatures.flatMap(
-		(feature): Parameters<Renderer['drawLineStrings']>[1] => {
-			const style: LineStyle = {
-				blur: getPaint('line-blur', feature) as number,
-				color: getPaint('line-color', feature) as MaplibreColor,
-				translate: getPaint('line-translate', feature) as [number, number],
-				cap: getLayout('line-cap', feature) as 'butt' | 'round' | 'square',
-				dasharray: getPaint('line-dasharray', feature) as number[] | undefined,
-				join: getLayout('line-join', feature) as 'bevel' | 'miter' | 'round',
-				miterLimit: getLayout('line-miter-limit', feature) as number,
-				offset: getPaint('line-offset', feature) as number,
-				opacity: getPaint('line-opacity', feature) as number,
-				width: getPaint('line-width', feature) as number,
-			};
-			const gapWidth = getPaint('line-gap-width', feature) as number;
-			if (!(gapWidth > 0)) return [[feature, style]];
-			// With a gap, MapLibre draws the line as a band on each side of it, from gap/2 to
-			// gap/2 + width: two lines of the same width, offset by ±(gap + width)/2.
-			const shift = (gapWidth + style.width) / 2;
-			return [
-				[feature, { ...style, offset: style.offset - shift }],
-				[feature, { ...style, offset: style.offset + shift }],
-			];
-		},
-	);
+	const sorted = sortByKey(lineStringFeatures, (feature) => getLayout('line-sort-key', feature));
+	const styled = sorted.flatMap((feature): Parameters<Renderer['drawLineStrings']>[1] => {
+		const style: LineStyle = {
+			blur: getPaint('line-blur', feature) as number,
+			color: getPaint('line-color', feature) as MaplibreColor,
+			translate: getPaint('line-translate', feature) as [number, number],
+			cap: getLayout('line-cap', feature) as 'butt' | 'round' | 'square',
+			dasharray: getPaint('line-dasharray', feature) as number[] | undefined,
+			join: getLayout('line-join', feature) as 'bevel' | 'miter' | 'round',
+			miterLimit: getLayout('line-miter-limit', feature) as number,
+			offset: getPaint('line-offset', feature) as number,
+			opacity: getPaint('line-opacity', feature) as number,
+			width: getPaint('line-width', feature) as number,
+		};
+		const gapWidth = getPaint('line-gap-width', feature) as number;
+		if (!(gapWidth > 0)) return [[feature, style]];
+		// With a gap, MapLibre draws the line as a band on each side of it, from gap/2 to
+		// gap/2 + width: two lines of the same width, offset by ±(gap + width)/2.
+		const shift = (gapWidth + style.width) / 2;
+		return [
+			[feature, { ...style, offset: style.offset - shift }],
+			[feature, { ...style, offset: style.offset + shift }],
+		];
+	});
 	layer.job.renderer.drawLineStrings(layer.layerStyle.id, styled);
 }
 
@@ -294,8 +320,9 @@ function renderCircleLayer(layer: Layer): void {
 	const pointFeatures = filterFeatures(layer, points);
 	if (pointFeatures.length === 0) return;
 
-	const { getPaint } = evaluateLayer(layer);
-	const styled = pointFeatures.map((feature): Parameters<Renderer['drawCircles']>[1][number] => [
+	const { getPaint, getLayout } = evaluateLayer(layer);
+	const sorted = sortByKey(pointFeatures, (feature) => getLayout('circle-sort-key', feature));
+	const styled = sorted.map((feature): Parameters<Renderer['drawCircles']>[1][number] => [
 		feature,
 		{
 			color: getPaint('circle-color', feature) as MaplibreColor,
@@ -304,6 +331,7 @@ function renderCircleLayer(layer: Layer): void {
 			translate: getPaint('circle-translate', feature) as [number, number],
 			strokeWidth: getPaint('circle-stroke-width', feature) as number,
 			strokeColor: getPaint('circle-stroke-color', feature) as MaplibreColor,
+			strokeOpacity: getPaint('circle-stroke-opacity', feature) as number,
 		},
 	]);
 	layer.job.renderer.drawCircles(layer.layerStyle.id, styled);
@@ -319,10 +347,11 @@ async function renderSymbolLayer(layer: Layer): Promise<void> {
 		...(features?.polygons ?? []),
 	];
 	if (allFeatures.length === 0) return;
-	const symbolFeatures = filterFeatures(layer, allFeatures);
-	if (symbolFeatures.length === 0) return;
+	const filtered = filterFeatures(layer, allFeatures);
+	if (filtered.length === 0) return;
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
+	const symbolFeatures = sortByKey(filtered, (feature) => getLayout('symbol-sort-key', feature));
 	const icons = symbolFeatures.flatMap((feature): Parameters<Renderer['drawIcons']>[1] => {
 		const iconImage = getLayout('icon-image', feature);
 		const iconName =
@@ -352,7 +381,10 @@ async function renderSymbolLayer(layer: Layer): Promise<void> {
 	const labels = symbolFeatures.flatMap((feature): Parameters<Renderer['drawLabels']>[1] => {
 		const textField = getLayout('text-field', feature);
 		const textRaw = textField != null ? (textField as { toString(): string }).toString() : '';
-		const text = resolveTokens(textRaw, feature.properties);
+		const text = transformText(
+			resolveTokens(textRaw, feature.properties),
+			getLayout('text-transform', feature),
+		);
 		if (!text) return [];
 		return [
 			[

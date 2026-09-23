@@ -104,11 +104,13 @@ export interface LineStyle {
 
 export interface CircleStyle {
 	color: MaplibreColor;
+	/** Opacity of the fill only; the stroke has its own, as in MapLibre. */
 	opacity: number;
 	radius: number;
 	translate: [number, number];
 	strokeWidth: number;
 	strokeColor: MaplibreColor;
+	strokeOpacity: number;
 }
 
 export interface RasterStyle {

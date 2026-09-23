@@ -77,6 +77,7 @@ function circleStyle(overrides: Partial<CircleStyle> = {}): CircleStyle {
 		translate: [0, 0],
 		strokeWidth: 0,
 		strokeColor: mc('#00FF00'),
+		strokeOpacity: 1,
 		...overrides,
 	};
 }

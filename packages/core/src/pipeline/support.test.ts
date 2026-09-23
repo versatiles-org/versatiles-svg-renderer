@@ -65,12 +65,13 @@ describe('checkStyle', () => {
 		const style = makeStyle([
 			fill('a', { 'fill-pattern': 'x' }),
 			fill('b', { 'fill-pattern': 'x' }),
-			fill('c', { 'fill-pattern': 'x', 'fill-sort-key': 1 }),
+			// A property no renderer knows, to have a second one.
+			fill('c', { 'fill-pattern': 'x', 'fill-future': 1 }),
 			fill('d', { 'fill-pattern': 'x' }),
 			fill('e', { 'fill-pattern': 'x' }),
 		]);
 		expect(checkStyle(style, false)).toEqual([
-			'These layer properties are not supported and are ignored: fill-pattern ("a", "b", "c", 2 more), fill-sort-key ("c").',
+			'These layer properties are not supported and are ignored: fill-pattern ("a", "b", "c", 2 more), fill-future ("c").',
 		]);
 	});
 

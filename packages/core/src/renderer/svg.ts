@@ -17,6 +17,7 @@ import type {
 import type { SpriteAtlas } from '../sources/sprite.js';
 import type { ClipCircle } from '../projection.js';
 import { mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { circleShape } from './circle.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -295,36 +296,36 @@ export class SVGRenderer {
 
 		// Merge only *consecutive* same-attribute features (see drawPolygons) so the
 		// paint order of overlapping circles matches MapLibre's source order.
-		const groups: { points: [number, number][]; attrs: string }[] = [];
+		const groups: { points: [number, number][]; elements: string[] }[] = [];
 		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
-			if (style.opacity <= 0) return;
 			const color = new Color(style.color);
-			if (style.radius <= 0 || color.alpha <= 0) return;
+			const strokeColor = new Color(style.strokeColor);
+			const { fill, stroke } = circleShape(style, color.opacity, strokeColor.opacity);
+			if (!fill && !stroke) return;
 
 			const translate =
 				style.translate[0] === 0 && style.translate[1] === 0
 					? ''
 					: ` transform="translate(${formatPoint(style.translate)})"`;
-			const strokeColor = new Color(style.strokeColor);
-			const hasStroke = style.strokeWidth > 0;
-			// MapLibre draws the stroke *outside* the radius (fill to `radius`, stroke
-			// over `[radius, radius + strokeWidth]`), whereas an SVG stroke is centered
-			// on the circle path. Grow the drawn radius by half the stroke width so the
-			// fill still reaches `radius` and the stroke lands on the same ring.
-			const drawRadius = hasStroke ? style.radius + style.strokeWidth / 2 : style.radius;
-			const roundedRadius = formatScaled(drawRadius);
-			const strokeAttrs = hasStroke
-				? ` ${strokeAttr(strokeColor, formatScaled(style.strokeWidth))}`
+			const fillAttrs = fill
+				? `fill="${color.rgb}"${opacityAttr('fill-opacity', fill.opacity)}`
+				: 'fill="none"';
+			const strokeAttrs = stroke
+				? ` stroke="${strokeColor.rgb}" stroke-width="${formatScaled(stroke.width)}"${opacityAttr('stroke-opacity', stroke.opacity)}`
 				: '';
-			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
-			const key = [color.hex, roundedRadius, strokeAttrs, opacityAttr, translate].join('\0');
+			// One element when fill and stroke share a radius, else the fill and a ring.
+			const elements =
+				!fill || !stroke || fill.radius === stroke.radius
+					? [`r="${formatScaled((stroke ?? fill)!.radius)}" ${fillAttrs}${strokeAttrs}${translate}`]
+					: [
+							`r="${formatScaled(fill.radius)}" ${fillAttrs}${translate}`,
+							`r="${formatScaled(stroke.radius)}" fill="none"${strokeAttrs}${translate}`,
+						];
+			const key = elements.join('\0');
 
 			if (key !== currentKey) {
-				groups.push({
-					points: [],
-					attrs: `r="${roundedRadius}" ${fillAttr(color)}${strokeAttrs}${translate}${opacityAttr}`,
-				});
+				groups.push({ points: [], elements });
 				currentKey = key;
 			}
 			const group = groups[groups.length - 1]!;
@@ -335,9 +336,11 @@ export class SVGRenderer {
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { points, attrs } of groups) {
+		for (const { points, elements } of groups) {
 			for (const [x, y] of points) {
-				this.#svg.push(`<circle cx="${formatNum(x)}" cy="${formatNum(y)}" ${attrs} />`);
+				for (const attrs of elements) {
+					this.#svg.push(`<circle cx="${formatNum(x)}" cy="${formatNum(y)}" ${attrs} />`);
+				}
 			}
 		}
 		this.#svg.push('</g>');
@@ -667,6 +670,11 @@ export class SVGRenderer {
 		parts.push(...this.#svg, '</g>', '</svg>');
 		return parts.join('\n');
 	}
+}
+
+/** ` name="opacity"`, or nothing for a fully opaque value. */
+function opacityAttr(name: string, opacity: number): string {
+	return opacity < 1 ? ` ${name}="${opacity.toFixed(3)}"` : '';
 }
 
 function fillAttr(color: Color): string {

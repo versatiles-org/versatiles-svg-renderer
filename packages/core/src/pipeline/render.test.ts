@@ -20,7 +20,7 @@ vi.mock('../sources/sprite.js', () => ({
 
 const { getLayerFeatures, getRasterTiles } = await import('../sources/index.js');
 const { loadSpriteAtlas } = await import('../sources/sprite.js');
-const { renderMap } = await import('./render.js');
+const { renderMap, sortByKey, transformText } = await import('./render.js');
 
 function makeStyle(layers: StyleSpecification['layers']): StyleSpecification {
 	return { version: 8, sources: {}, layers };
@@ -84,6 +84,41 @@ function setSourceFeatures(features: SourceFeatures): void {
 function setLayerFeatures(features: LayerFeatures): void {
 	setSourceFeatures(new Map([['src', features]]));
 }
+
+describe('sortByKey', () => {
+	const features = ['a', 'b', 'c', 'd'].map((name) => makePointFeature([[[0, 0]]], { name }));
+	const names = (list: Feature[]) => list.map((f) => f.properties.name);
+
+	test('orders by key, lowest first, keeping source order for equal keys', () => {
+		const keys: Record<string, number> = { a: 2, b: 1, c: 2, d: 0 };
+		expect(names(sortByKey(features, (f) => keys[f.properties.name as string]))).toEqual([
+			'd',
+			'b',
+			'a',
+			'c',
+		]);
+	});
+
+	test('counts a missing key as 0, and keeps the list when all keys are equal', () => {
+		const keys: Record<string, unknown> = { a: 1, b: undefined, c: -1, d: null };
+		expect(names(sortByKey(features, (f) => keys[f.properties.name as string]))).toEqual([
+			'c',
+			'b',
+			'd',
+			'a',
+		]);
+		expect(sortByKey(features, () => undefined)).toBe(features);
+	});
+});
+
+describe('transformText', () => {
+	test('changes the case as text-transform says', () => {
+		expect(transformText('Straße', 'uppercase')).toBe('STRASSE');
+		expect(transformText('Berlin', 'lowercase')).toBe('berlin');
+		expect(transformText('Berlin', 'none')).toBe('Berlin');
+		expect(transformText('Berlin', undefined)).toBe('Berlin');
+	});
+});
 
 describe('renderMap', () => {
 	beforeEach(() => {
@@ -394,6 +429,84 @@ describe('renderMap', () => {
 			]);
 		});
 
+		test('draws the features of fill, line and circle layers in sort-key order', async () => {
+			const square = (name: string, key: number) =>
+				makePolygonFeature(
+					[
+						[
+							[0, 0],
+							[10, 0],
+							[10, 10],
+							[0, 0],
+						],
+					],
+					{ name, key },
+				);
+			const line = (name: string, key: number) =>
+				makeLineFeature(
+					[
+						[
+							[0, 0],
+							[10, 10],
+						],
+					],
+					{ name, key },
+				);
+			const point = (name: string, key: number) => makePointFeature([[[5, 5]]], { name, key });
+			setLayerFeatures(
+				new Map([
+					[
+						'l',
+						makeFeatures({
+							polygons: [square('a', 3), square('b', 1), square('c', 2)],
+							linestrings: [line('a', 3), line('b', 1), line('c', 2)],
+							points: [point('a', 3), point('b', 1), point('c', 2)],
+						}),
+					],
+				]),
+			);
+			const key = ['get', 'key'] as ['get', string];
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'f',
+						type: 'fill',
+						source: 'src',
+						'source-layer': 'l',
+						layout: { 'fill-sort-key': key },
+					},
+					{
+						id: 'l',
+						type: 'line',
+						source: 'src',
+						'source-layer': 'l',
+						layout: { 'line-sort-key': key },
+					},
+					{
+						id: 'c',
+						type: 'circle',
+						source: 'src',
+						'source-layer': 'l',
+						layout: { 'circle-sort-key': key },
+					},
+				]),
+			);
+			const spies = [
+				vi.spyOn(job.renderer, 'drawPolygons'),
+				vi.spyOn(job.renderer, 'drawLineStrings'),
+				vi.spyOn(job.renderer, 'drawCircles'),
+			];
+			await renderMap(job);
+			for (const spy of spies) {
+				const drawn = spy.mock.calls[0]![1] as [Feature, unknown][];
+				// The fill layer draws the linestrings too (fillable); only the polygons count here.
+				const ordered = drawn
+					.map(([f]) => f)
+					.filter((f) => f.type !== 'LineString' || spy !== spies[0]);
+				expect(ordered.map((f) => f.properties.name)).toEqual(['b', 'c', 'a']);
+			}
+		});
+
 		test('skips line layer when no linestrings exist', async () => {
 			const features = new Map<string, Features>();
 			features.set('roads', makeFeatures({ linestrings: [] }));
@@ -563,6 +676,33 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test('applies text-transform and symbol-sort-key', async () => {
+			const points = ['b', 'a'].map((name, i) =>
+				makePointFeature([[[10 + i * 50, 10]]], { name, rank: name === 'a' ? 1 : 2 }),
+			);
+			setLayerFeatures(new Map([['places', makeFeatures({ points })]]));
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'labels',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'places',
+						layout: {
+							'text-field': '{name}',
+							'text-transform': 'uppercase',
+							'symbol-sort-key': ['get', 'rank'],
+						},
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+			expect(drawLabels.mock.calls[0]![1].map(([, style]) => style.text)).toEqual(['A', 'B']);
+		});
+
 		test("places a polygon's label inside each of its polygons, styled as a polygon", async () => {
 			const park = makePolygonFeature(
 				[

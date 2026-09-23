@@ -18,6 +18,7 @@ import type {
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { circleShape } from './circle.js';
 import { LRUCache } from '../lru_cache.js';
 import {
 	affineFromTriangles,
@@ -266,30 +267,31 @@ export class CanvasRenderer implements Renderer {
 		if (features.length === 0) return;
 
 		for (const [feature, style] of features) {
-			if (style.opacity <= 0) continue;
 			const color = new Color(style.color);
-			if (style.radius <= 0 || color.alpha <= 0) continue;
-
 			const strokeColor = new Color(style.strokeColor);
-			const hasStroke = style.strokeWidth > 0;
-			// MapLibre draws the stroke *outside* the radius (fill to `radius`, stroke over
-			// `[radius, radius + strokeWidth]`), whereas a canvas stroke is centered on the
-			// path. Grow the drawn radius by half the stroke width so the fill still reaches
-			// `radius` and the stroke lands on the same ring.
-			const radius = hasStroke ? style.radius + style.strokeWidth / 2 : style.radius;
+			const { fill, stroke } = circleShape(style, color.opacity, strokeColor.opacity);
+			if (!fill && !stroke) continue;
 
-			this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
-				ctx.fillStyle = color.hex;
+			this.#paint(this.ctx, style.translate, 1, (ctx) => {
+				ctx.fillStyle = color.rgb;
+				ctx.strokeStyle = strokeColor.rgb;
 				for (const ring of feature.geometry) {
 					const point = ring[0];
 					if (!point) continue;
-					const [x, y] = roundPoint(point.x, point.y);
-					ctx.beginPath();
-					ctx.arc(x / UNITS_PER_PX, y / UNITS_PER_PX, radius, 0, 2 * Math.PI);
-					ctx.fill();
-					if (hasStroke && strokeColor.alpha > 0) {
-						ctx.strokeStyle = strokeColor.hex;
-						ctx.lineWidth = style.strokeWidth;
+					const [ux, uy] = roundPoint(point.x, point.y);
+					const x = ux / UNITS_PER_PX;
+					const y = uy / UNITS_PER_PX;
+					if (fill) {
+						ctx.globalAlpha = fill.opacity;
+						ctx.beginPath();
+						ctx.arc(x, y, fill.radius, 0, 2 * Math.PI);
+						ctx.fill();
+					}
+					if (stroke) {
+						ctx.globalAlpha = stroke.opacity;
+						ctx.lineWidth = stroke.width;
+						ctx.beginPath();
+						ctx.arc(x, y, stroke.radius, 0, 2 * Math.PI);
 						ctx.stroke();
 					}
 				}

@@ -647,6 +647,7 @@ describe('SVGRenderer', () => {
 				translate: [0, 0] as [number, number],
 				strokeWidth: 0,
 				strokeColor: mc('#000000'),
+				strokeOpacity: 1,
 				...overrides,
 			};
 		}
@@ -708,6 +709,28 @@ describe('SVGRenderer', () => {
 			const r2 = makeRenderer();
 			r2.drawCircles('circle-test', [[feature, defaultCircleStyle({ radius: 5, strokeWidth: 0 })]]);
 			expect(r2.getString()).toContain('r="5"');
+		});
+
+		test('fades the fill with opacity and the stroke with strokeOpacity, separately', () => {
+			const feature = makePointFeature([[100, 50]]);
+			const r = makeRenderer();
+			r.drawCircles('c', [[feature, defaultCircleStyle({ strokeWidth: 2, opacity: 0.5 })]]);
+			// One circle: the opaque stroke covers the fill, which is faded on its own.
+			expect(r.getString().match(/<circle [^>]*>/g)).toEqual([
+				expect.stringMatching(
+					/r="6" fill="#FF0000" fill-opacity="0.500" stroke="#[0-9A-F]{6}" stroke-width="2"( \/>|$)/,
+				),
+			]);
+
+			const r2 = makeRenderer();
+			r2.drawCircles('c', [[feature, defaultCircleStyle({ strokeWidth: 2, strokeOpacity: 0.5 })]]);
+			// The fill ends at the radius, and a separate ring carries the translucent stroke.
+			const circles = r2.getString().match(/<circle [^>]*>/g)!;
+			expect(circles).toHaveLength(2);
+			expect(circles[0]).toContain('r="5" fill="#FF0000"');
+			expect(circles[0]).not.toContain('stroke');
+			expect(circles[1]).toContain('r="6" fill="none"');
+			expect(circles[1]).toContain('stroke-opacity="0.500"');
 		});
 
 		test('no stroke attributes when strokeWidth is 0', () => {

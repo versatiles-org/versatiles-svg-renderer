@@ -10,7 +10,14 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
  */
 export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> = {
 	background: ['background-color', 'background-opacity'],
-	fill: ['fill-antialias', 'fill-color', 'fill-opacity', 'fill-outline-color', 'fill-translate'],
+	fill: [
+		'fill-antialias',
+		'fill-color',
+		'fill-opacity',
+		'fill-outline-color',
+		'fill-sort-key',
+		'fill-translate',
+	],
 	line: [
 		'line-blur',
 		'line-cap',
@@ -21,6 +28,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'line-miter-limit',
 		'line-offset',
 		'line-opacity',
+		'line-sort-key',
 		'line-translate',
 		'line-width',
 	],
@@ -37,7 +45,9 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'circle-color',
 		'circle-opacity',
 		'circle-radius',
+		'circle-sort-key',
 		'circle-stroke-color',
+		'circle-stroke-opacity',
 		'circle-stroke-width',
 		'circle-translate',
 	],
@@ -52,6 +62,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'icon-rotate',
 		'icon-size',
 		'symbol-placement',
+		'symbol-sort-key',
 		'text-anchor',
 		'text-color',
 		'text-field',
@@ -62,6 +73,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-opacity',
 		'text-rotate',
 		'text-size',
+		'text-transform',
 	],
 };
 
@@ -106,7 +118,6 @@ const WITHOUT_EFFECT = new Set([
 /** Properties whose default value is what the renderer draws; any other value is not supported. */
 const SUPPORTED_VALUES: Readonly<Record<string, unknown>> = {
 	'symbol-placement': 'point',
-	'text-transform': 'none',
 	'icon-text-fit': 'none',
 };
 
