@@ -15,7 +15,9 @@ import type {
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
 import type { LineStyle } from '../renderer/types.js';
 import { GEOJSON_LAYER } from '../geometry.js';
-import type { Feature as LayerFeature, Features, SourceFeatures } from '../geometry.js';
+import { Feature as LayerFeature } from '../geometry.js';
+import type { Features, SourceFeatures } from '../geometry.js';
+import { labelAnchors } from './label_anchors.js';
 import { Projection } from '../projection.js';
 
 function resolveTokens(text: string, properties: Record<string, unknown>): string {
@@ -371,7 +373,27 @@ async function renderSymbolLayer(layer: Layer): Promise<void> {
 		];
 	});
 
+	// Styles are evaluated for the feature itself (`geometry-type` must see a polygon as a
+	// polygon); only then is each symbol moved to the points it is placed at.
+	const placed = new Map<LayerFeature, LayerFeature[]>();
+	const place = <S>([feature, style]: [LayerFeature, S]): [LayerFeature, S][] => {
+		let points = placed.get(feature);
+		if (!points) {
+			points = labelAnchors(feature, getLayout('symbol-placement', feature) as string).map(
+				(point) =>
+					new LayerFeature({
+						type: 'Point',
+						geometry: [[point]],
+						id: feature.id,
+						properties: feature.properties,
+					}),
+			);
+			placed.set(feature, points);
+		}
+		return points.map((point) => [point, style]);
+	};
+
 	// Icons first, underneath the text.
-	await job.renderer.drawIcons(`${layerStyle.id}-icons`, icons, spriteAtlas);
-	job.renderer.drawLabels(`${layerStyle.id}-labels`, labels);
+	await job.renderer.drawIcons(`${layerStyle.id}-icons`, icons.flatMap(place), spriteAtlas);
+	job.renderer.drawLabels(`${layerStyle.id}-labels`, labels.flatMap(place));
 }

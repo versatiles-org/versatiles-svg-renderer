@@ -1043,19 +1043,17 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('&lt;b&gt;A&amp;B&lt;/b&gt;');
 		});
 
-		test('uses midpoint for line features', () => {
+		test("draws at the feature's first point, where the pipeline placed it", () => {
 			const feature = new Feature({
-				type: 'LineString',
+				type: 'Point',
 				properties: {},
-				geometry: [[new Point2D(0, 0), new Point2D(50, 50), new Point2D(100, 100)]],
+				geometry: [[new Point2D(50, 60)]],
 			});
 			const r = makeRenderer();
 			r.drawLabels('symbol-test', [[feature, defaultSymbolStyle()]]);
 			const svg = r.getString();
-			expect(svg).toContain('<text');
-			// midpoint is (50,50), scaled by 10 → 500, formatNum → "50"
 			expect(svg).toContain('x="50"');
-			expect(svg).toContain('y="50"');
+			expect(svg).toContain('y="60"');
 		});
 
 		test('applies opacity attribute when < 1', () => {

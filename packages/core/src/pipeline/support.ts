@@ -51,6 +51,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'icon-opacity',
 		'icon-rotate',
 		'icon-size',
+		'symbol-placement',
 		'text-anchor',
 		'text-color',
 		'text-field',
@@ -148,8 +149,11 @@ export function checkStyle(style: StyleSpecification, renderLabels: boolean): st
 			...(layer as { layout?: Record<string, unknown> }).layout,
 		};
 		for (const [name, value] of Object.entries(properties)) {
-			if (supported.includes(name) || WITHOUT_EFFECT.has(name)) continue;
-			if (name in SUPPORTED_VALUES && value === SUPPORTED_VALUES[name]) continue;
+			if (name in SUPPORTED_VALUES) {
+				if (value === SUPPORTED_VALUES[name]) continue;
+			} else if (supported.includes(name) || WITHOUT_EFFECT.has(name)) {
+				continue;
+			}
 			const label =
 				typeof value === 'string' && name in SUPPORTED_VALUES ? `${name}: "${value}"` : name;
 			if (!layersByProperty.has(label)) layersByProperty.set(label, []);

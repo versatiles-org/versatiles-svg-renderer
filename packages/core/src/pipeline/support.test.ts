@@ -34,7 +34,7 @@ describe('SUPPORTED_PROPERTIES', () => {
 		for (const [type, properties] of Object.entries(SUPPORTED_PROPERTIES)) {
 			for (const property of properties) {
 				const prefix = property.split('-')[0];
-				expect(type === 'symbol' ? ['text', 'icon'] : [type]).toContain(prefix);
+				expect(type === 'symbol' ? ['symbol', 'text', 'icon'] : [type]).toContain(prefix);
 			}
 		}
 	});

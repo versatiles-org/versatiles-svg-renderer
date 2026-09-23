@@ -353,9 +353,9 @@ export class SVGRenderer {
 			const color = new Color(style.color);
 			if (color.alpha <= 0) continue;
 
-			const ring = feature.geometry[0];
-			if (!ring || ring.length === 0) continue;
-			const point = ring[Math.floor(ring.length / 2)]!;
+			// The pipeline places each symbol: its feature is a single point.
+			const point = feature.geometry[0]?.[0];
+			if (!point) continue;
 			const [px, py] = roundXY(point.x, point.y);
 
 			const fontSize = formatScaled(style.size);
@@ -413,9 +413,9 @@ export class SVGRenderer {
 			const sprite = spriteAtlas.get(style.image);
 			if (!sprite) continue;
 
-			const ring = feature.geometry[0];
-			if (!ring || ring.length === 0) continue;
-			const point = ring[Math.floor(ring.length / 2)]!;
+			// The pipeline places each symbol: its feature is a single point.
+			const point = feature.geometry[0]?.[0];
+			if (!point) continue;
 
 			const scale = style.size / sprite.pixelRatio;
 			const iconW = sprite.width * scale;

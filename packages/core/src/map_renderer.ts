@@ -29,9 +29,10 @@ export interface SVGMapRendererOptions {
 	 * Draw the style's symbol layers: text labels and icons.
 	 *
 	 * Off by default, because labels are the least faithful part of the output. They are
-	 * drawn as horizontal text at the middle of their feature: labels that MapLibre curves
-	 * along a line (`symbol-placement: "line"`, typically street names) come out straight,
-	 * and there is no collision detection, so crowded label layers can overlap.
+	 * placed as in MapLibre: at points, and inside each polygon at the point farthest from
+	 * its edges. But labels that MapLibre curves along a line (`symbol-placement: "line"`,
+	 * typically street names) come out straight, once in the middle of the line, and there
+	 * is no collision detection, so crowded label layers can overlap.
 	 *
 	 * The SVG names each label's font (`text-font`) and leaves resolving it to whatever
 	 * displays the SVG, so labels use the intended typeface only where that font is

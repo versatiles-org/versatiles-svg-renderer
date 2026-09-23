@@ -21,6 +21,10 @@ export interface Renderer {
 	drawPolygons(id: string, features: [Feature, FillStyle][]): void;
 	drawLineStrings(id: string, features: [Feature, LineStyle][]): void;
 	drawCircles(id: string, features: [Feature, CircleStyle][]): void;
+	/**
+	 * Draws text labels, and (below) icons. Each feature is a single point: the pipeline
+	 * has already placed the symbol, one per point, line or polygon.
+	 */
 	drawLabels(id: string, features: [Feature, SymbolStyle][]): void;
 	/**
 	 * These two may be asynchronous. Their images arrive as data URIs, which a raster

@@ -190,7 +190,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Style's fonts                         | ⚠️¹ | ✅² | [#43] |
 | Dropping overlaps                     | ❌  | ❌  | [#38] |
 | Labels along lines                    | ❌  | ❌  | [#39] |
-| Label position in polygons            | ⚠️  | ⚠️  | [#40] |
+| Label position in polygons            | ✅  | ✅  |       |
 | Line breaks, wrapping                 | ❌  | ❌  | [#41] |
 | `format` expressions                  | ⚠️³ | ⚠️³ | [#42] |
 | **Expressions**                       |     |     |       |
@@ -208,7 +208,6 @@ Labels and icons are only drawn with `renderLabels: true`. Interaction, animatio
 [#37]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/37
 [#38]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/38
 [#39]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/39
-[#40]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/40
 [#41]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/41
 [#42]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/42
 [#43]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/43

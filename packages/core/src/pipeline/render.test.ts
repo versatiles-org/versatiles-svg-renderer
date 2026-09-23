@@ -563,6 +563,56 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test("places a polygon's label inside each of its polygons, styled as a polygon", async () => {
+			const park = makePolygonFeature(
+				[
+					[
+						[0, 0],
+						[100, 0],
+						[100, 100],
+						[0, 100],
+						[0, 0],
+					],
+					[
+						[200, 0],
+						[240, 0],
+						[240, 40],
+						[200, 40],
+						[200, 0],
+					],
+				],
+				{ name: 'Park' },
+			);
+			setLayerFeatures(new Map([['parks', makeFeatures({ polygons: [park] })]]));
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'labels',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'parks',
+						layout: {
+							'text-field': '{name}',
+							'text-size': ['match', ['geometry-type'], 'Polygon', 20, 10],
+						},
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+
+			const drawn = drawLabels.mock.calls[0]![1].map(([feature, style]) => {
+				const point = feature.geometry[0]![0]!;
+				return [Math.round(point.x), Math.round(point.y), style.size];
+			});
+			expect(drawn).toEqual([
+				[50, 50, 20],
+				[220, 20, 20],
+			]);
+		});
+
 		test('renders symbol layer with text-field', async () => {
 			const point = makePointFeature([[[50, 50]]], { name: 'Berlin' });
 			const features = new Map<string, Features>();
