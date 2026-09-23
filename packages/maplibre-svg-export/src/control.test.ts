@@ -340,6 +340,20 @@ describe('SVGExportControl', () => {
 			expect(iframe.srcdoc).toContain('<svg>mock</svg>');
 		});
 
+		test("passes the map's global state", async () => {
+			const control = new SVGExportControl();
+			const map = createMockMap({ getGlobalState: vi.fn(() => ({ language: 'de' })) });
+			control
+				.onAdd(map as never)
+				.querySelector('button')!
+				.click();
+
+			await vi.waitFor(() => {
+				expect(renderToSVG).toHaveBeenCalled();
+			});
+			expect(vi.mocked(renderToSVG).mock.calls[0]![0].globalState).toEqual({ language: 'de' });
+		});
+
 		test('shows no warnings for a supported, north-up map', async () => {
 			const control = new SVGExportControl();
 			const map = createMockMap();

@@ -1,6 +1,16 @@
 import { describe, expect, test } from 'vitest';
-import type { Color, Feature, LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { StyleLayer, createStyleLayer, PossiblyEvaluatedPropertyValue } from './style_layer.js';
+import type {
+	Color,
+	Feature,
+	LayerSpecification,
+	StyleSpecification,
+} from '@maplibre/maplibre-gl-style-spec';
+import {
+	StyleLayer,
+	createStyleLayer,
+	getGlobalState,
+	PossiblyEvaluatedPropertyValue,
+} from './style_layer.js';
 
 function makeBackground(paint?: Record<string, unknown>): LayerSpecification {
 	return { id: 'bg', type: 'background', paint };
@@ -152,6 +162,54 @@ describe('StyleLayer', () => {
 			const sortKey = layout.get('fill-sort-key');
 			expect(sortKey).toBe(5);
 		});
+	});
+});
+
+describe('global state', () => {
+	test("takes the defaults of the style's state, overridden by the given values", () => {
+		const style = {
+			version: 8,
+			sources: {},
+			layers: [],
+			state: { language: { default: 'en' }, theme: { default: 'light' } },
+		} as StyleSpecification;
+		expect(getGlobalState(style)).toEqual({ language: 'en', theme: 'light' });
+		expect(getGlobalState(style, { theme: 'dark', extra: 1 })).toEqual({
+			language: 'en',
+			theme: 'dark',
+			extra: 1,
+		});
+		expect(getGlobalState({ ...style, state: undefined })).toEqual({});
+	});
+
+	test('is read by paint properties', () => {
+		const spec = makeBackground({ 'background-color': ['global-state', 'color'] });
+		const color = (state: Record<string, unknown>) =>
+			(
+				new StyleLayer(spec, state).evaluate({ zoom: 1 }, []).paint.get('background-color') as Color
+			).toString();
+		expect(color({ color: '#ff0000' })).toBe('rgba(255,0,0,1)');
+		expect(color({ color: '#0000ff' })).toBe('rgba(0,0,255,1)');
+	});
+
+	test('is read by filters', () => {
+		const spec = {
+			...makeFill(),
+			filter: ['==', ['get', 'kind'], ['global-state', 'kind']],
+		} as LayerSpecification;
+		const feature = { type: 1, properties: { kind: 'park' }, geometry: [] } as unknown as Feature;
+		const matches = (kind: string) =>
+			new StyleLayer(spec, { kind }).filterFn!.filter({ zoom: 1 }, feature);
+		expect(matches('park')).toBe(true);
+		expect(matches('lake')).toBe(false);
+	});
+
+	test('is read by visibility', () => {
+		const spec = makeFill({
+			layout: { visibility: ['case', ['global-state', 'show'], 'visible', 'none'] },
+		});
+		expect(new StyleLayer(spec, { show: true }).isHidden(5)).toBe(false);
+		expect(new StyleLayer(spec, { show: false }).isHidden(5)).toBe(true);
 	});
 });
 

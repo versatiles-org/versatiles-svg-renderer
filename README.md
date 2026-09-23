@@ -195,7 +195,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `format` expressions                  | ⚠️³ | ⚠️³ | [#42] |
 | **Expressions**                       |     |     |       |
 | Filters, zoom expressions             | ✅  | ✅  |       |
-| `global-state`                        | ❌  | ❌  | [#55] |
+| `global-state`                        | ✅  | ✅  |       |
 
 ¹ The SVG names the font; the viewer has to provide it.
 ² With the `fonts` option; otherwise installed fonts.
@@ -222,5 +222,4 @@ Labels and icons are only drawn with `renderLabels: true`. Interaction, animatio
 [#52]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/52
 [#53]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/53
 [#54]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/54
-[#55]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/55
 [#57]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/57

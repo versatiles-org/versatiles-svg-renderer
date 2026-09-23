@@ -70,6 +70,7 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 | `renderLabels` | `boolean`            | `false`                    | Enable rendering of text labels and icons                                              |
 | `fetch`        | `FetchFunction`      | global `fetch`             | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
 | `onWarning`    | `(message) => void`  | `console.warn`             | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
+| `globalState`  | `GlobalState`        | style's `state`            | Values for `global-state` expressions, over the style's defaults                       |
 
 ### `new SVGMapRenderer(options)`
 
@@ -82,6 +83,7 @@ Renders many views of one style. The options stay the same for every view:
 | `tileCacheSize` | `number`             | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
 | `fetch`         | `FetchFunction`      | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
 | `onWarning`     | `(message) => void`  | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                  |
+| `globalState`   | `GlobalState`        | style's `state`      | Values for `global-state` expressions, over the style's defaults                          |
 
 - **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat` and `zoom`, with the same defaults as `renderToSVG`. Renders may run concurrently.
 - **`project(view, [lon, lat]): [x, y] | undefined`** tells where a coordinate lands in the image of `view`, in the units of `width` and `height`, to place your own drawing on the map. On the globe, a point on the far side gives `undefined`.

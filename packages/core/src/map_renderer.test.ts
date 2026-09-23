@@ -170,6 +170,33 @@ describe('SVGMapRenderer', () => {
 		expect(await new SVGMapRenderer({ style }).renderSVG()).toBe(await plain.renderSVG());
 	});
 
+	test("renders with the style's global state, overridden by the option", async () => {
+		const withColor = (color: string): StyleSpecification => {
+			const style = makeStyle();
+			style.layers[0] = {
+				id: 'background',
+				type: 'background',
+				paint: { 'background-color': color },
+			};
+			return style;
+		};
+		const style = makeStyle();
+		style.state = { color: { default: '#ff0000' } };
+		style.layers[0] = {
+			id: 'background',
+			type: 'background',
+			paint: { 'background-color': ['global-state', 'color'] },
+		};
+		const render = (options: object) => new SVGMapRenderer({ style, ...options }).renderSVG();
+
+		expect(await render({})).toBe(
+			await new SVGMapRenderer({ style: withColor('#ff0000') }).renderSVG(),
+		);
+		expect(await render({ globalState: { color: '#0000ff' } })).toBe(
+			await new SVGMapRenderer({ style: withColor('#0000ff') }).renderSVG(),
+		);
+	});
+
 	test('fetches the sprite only once for several renders', async () => {
 		const fetchMock = mockFetch();
 		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });

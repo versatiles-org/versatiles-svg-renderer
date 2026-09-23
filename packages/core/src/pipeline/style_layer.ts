@@ -1,4 +1,5 @@
 import {
+	createVisibilityExpression,
 	normalizePropertyExpression,
 	featureFilter,
 	latest,
@@ -9,7 +10,22 @@ import {
 	type StylePropertyExpression,
 	type StylePropertySpecification,
 	type ICanonicalTileID,
+	type StyleSpecification,
+	type VisibilityExpression,
 } from '@maplibre/maplibre-gl-style-spec';
+
+/** Values of the style's global state, by name, as read by `global-state` expressions. */
+export type GlobalState = Record<string, unknown>;
+
+/**
+ * The global state to render `style` with: the defaults of its `state`, overridden by
+ * `overrides`, as `setGlobalStateProperty` does in MapLibre GL JS.
+ */
+export function getGlobalState(style: StyleSpecification, overrides?: GlobalState): GlobalState {
+	const state: GlobalState = {};
+	for (const [name, schema] of Object.entries(style.state ?? {})) state[name] = schema.default;
+	return { ...state, ...overrides };
+}
 
 /**
  * Wraps a source/composite expression for per-feature evaluation.
@@ -84,9 +100,13 @@ export class StyleLayer {
 
 	private readonly paintExpressions: Map<string, StylePropertyExpression>;
 	private readonly layoutExpressions: Map<string, StylePropertyExpression>;
-	private readonly visibility: string;
+	private readonly visibility: VisibilityExpression;
 
-	constructor(spec: LayerSpecification) {
+	/**
+	 * @param globalState - The values `global-state` expressions read, in the layer's
+	 *   properties, filter and visibility.
+	 */
+	constructor(spec: LayerSpecification, globalState: GlobalState = {}) {
 		this.id = spec.id;
 		this.type = spec.type;
 		this.minzoom = spec.minzoom;
@@ -98,10 +118,14 @@ export class StyleLayer {
 			this.source = (spec as Record<string, unknown>).source as string;
 			this.sourceLayer = (spec as Record<string, unknown>)['source-layer'] as string;
 			this.filter = (spec as Record<string, unknown>).filter as FilterSpecification | undefined;
-			this.filterFn = featureFilter(this.filter, `layers.${this.id}.filter`);
+			this.filterFn = featureFilter(this.filter, `layers.${this.id}.filter`, globalState);
 		}
 
-		this.visibility = (spec.layout?.visibility ?? 'visible') as string;
+		this.visibility = createVisibilityExpression(
+			spec.layout?.visibility ?? 'visible',
+			`layers.${this.id}.layout.visibility`,
+			globalState,
+		);
 
 		// Initialize paint property expressions
 		const paintSpec = (
@@ -112,7 +136,10 @@ export class StyleLayer {
 			for (const [name, propSpec] of Object.entries(paintSpec)) {
 				const raw = paintValues[name];
 				const value = raw === undefined ? propSpec.default : raw;
-				this.paintExpressions.set(name, normalizePropertyExpression(value, name, propSpec));
+				this.paintExpressions.set(
+					name,
+					normalizePropertyExpression(value, name, propSpec, globalState),
+				);
 			}
 		}
 
@@ -126,7 +153,10 @@ export class StyleLayer {
 				if (name === 'visibility') continue;
 				const raw = layoutValues[name];
 				const value = raw === undefined ? propSpec.default : raw;
-				this.layoutExpressions.set(name, normalizePropertyExpression(value, name, propSpec));
+				this.layoutExpressions.set(
+					name,
+					normalizePropertyExpression(value, name, propSpec, globalState),
+				);
 			}
 		}
 	}
@@ -134,7 +164,7 @@ export class StyleLayer {
 	isHidden(zoom: number): boolean {
 		if (this.minzoom != null && zoom < this.minzoom) return true;
 		if (this.maxzoom != null && zoom >= this.maxzoom) return true;
-		return this.visibility === 'none';
+		return this.visibility.evaluate() === 'none';
 	}
 
 	evaluate(params: { zoom: number }, availableImages: string[]): EvaluatedLayer {
@@ -165,10 +195,13 @@ function evaluateExpressions(
 	return properties;
 }
 
-export function createStyleLayer(spec: LayerSpecification): StyleLayer {
-	return new StyleLayer(spec);
+export function createStyleLayer(spec: LayerSpecification, globalState?: GlobalState): StyleLayer {
+	return new StyleLayer(spec, globalState);
 }
 
-export function getLayerStyles(layers: LayerSpecification[]): StyleLayer[] {
-	return layers.map(createStyleLayer);
+export function getLayerStyles(
+	layers: LayerSpecification[],
+	globalState?: GlobalState,
+): StyleLayer[] {
+	return layers.map((spec) => createStyleLayer(spec, globalState));
 }

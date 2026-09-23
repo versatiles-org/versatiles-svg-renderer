@@ -6,7 +6,7 @@ import { getTile, type TileLoader } from '../sources/tiles.js';
 import { defaultFetch, type FetchFunction } from '../sources/fetch.js';
 import { resolveSources } from '../sources/resolve.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { getLayerStyles } from './style_layer.js';
+import { getGlobalState, getLayerStyles } from './style_layer.js';
 import type {
 	EvaluatedProperties,
 	PossiblyEvaluatedPropertyValue,
@@ -49,7 +49,7 @@ export function createRenderContext(
 	fetchFn: FetchFunction = defaultFetch,
 ): RenderContext {
 	return {
-		layers: getLayerStyles(style.layers),
+		layers: getLayerStyles(style.layers, getGlobalState(style)),
 		getSprite: () => loadSpriteAtlas(style, fetchFn),
 		getSources: async () => (await resolveSources(style.sources, fetchFn)).sources,
 		loadTile: (url, z, x, y) => getTile(url, z, x, y, fetchFn),

@@ -1,6 +1,6 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { drawMap, type RenderContext } from './pipeline/render.js';
-import { getLayerStyles } from './pipeline/style_layer.js';
+import { getGlobalState, getLayerStyles, type GlobalState } from './pipeline/style_layer.js';
 import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
@@ -71,6 +71,13 @@ export interface SVGMapRendererOptions {
 	 * @defaultValue `console.warn`
 	 */
 	onWarning?: (message: string) => void;
+	/**
+	 * Values for the style's global state, read by `global-state` expressions, e.g. to
+	 * switch the language or a theme of a style. They override the defaults in the style's
+	 * `state`, like `map.setGlobalStateProperty(name, value)` in MapLibre GL JS.
+	 * @defaultValue the defaults of the style's `state`
+	 */
+	globalState?: GlobalState;
 }
 
 /** Default for {@link SVGMapRendererOptions.tileCacheSize}: 128 MB. */
@@ -197,7 +204,10 @@ export class SVGMapRenderer {
 		this.#fetch = toFetchFunction(options.fetch);
 		this.#tiles = new TileCache(options.tileCacheSize ?? DEFAULT_TILE_CACHE_SIZE, this.#fetch);
 		this.#context = {
-			layers: getLayerStyles(options.style.layers),
+			layers: getLayerStyles(
+				options.style.layers,
+				getGlobalState(options.style, options.globalState),
+			),
 			getSprite: () => this.#getSprite(),
 			getSources: () => this.#getSources(),
 			loadTile: this.#tiles.load,

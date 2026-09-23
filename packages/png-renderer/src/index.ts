@@ -13,4 +13,5 @@ export {
 	type ViewOptions,
 } from '@versatiles/renderer-core/map_renderer';
 export type { FetchFunction, FetchResponse } from '@versatiles/renderer-core/sources/fetch';
+export type { GlobalState } from '@versatiles/renderer-core/pipeline/style_layer';
 export type { Canvas } from '@napi-rs/canvas';

@@ -342,6 +342,7 @@ export class SVGExportControl implements MapLibreControl {
 				lat: center.lat,
 				zoom,
 				renderLabels,
+				globalState: map.getGlobalState?.(),
 				onWarning: (message) => warnings.push(message),
 			});
 
