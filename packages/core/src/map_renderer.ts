@@ -90,25 +90,39 @@ export interface ViewOptions {
 	height?: number;
 	/**
 	 * Longitude of the map centre, in degrees.
-	 * @defaultValue `0`
+	 * @defaultValue the longitude of the style's `center`, else `0`
 	 */
 	lon?: number;
 	/**
 	 * Latitude of the map centre, in degrees.
-	 * @defaultValue `0`
+	 * @defaultValue the latitude of the style's `center`, else `0`
 	 */
 	lat?: number;
 	/**
 	 * Zoom level, as in MapLibre: each step doubles the scale. Fractional values are
 	 * allowed.
-	 * @defaultValue `2`
+	 * @defaultValue the style's `zoom`, else `2`
 	 */
 	zoom?: number;
 }
 
-/** The center and zoom of a view, with defaults applied. */
-function viewCenter(view: ViewOptions): { center: [number, number]; zoom: number } {
-	return { center: [view.lon ?? 0, view.lat ?? 0], zoom: view.zoom ?? 2 };
+/**
+ * The center and zoom of a view, with defaults applied: as in MapLibre GL JS, the style's
+ * own `center` and `zoom` where the view does not set them.
+ */
+function viewCenter(
+	style: StyleSpecification,
+	view: ViewOptions,
+): { center: [number, number]; zoom: number } {
+	const [styleLon, styleLat] = Array.isArray(style.center) ? style.center : [];
+	return {
+		center: [view.lon ?? finiteOr(styleLon, 0), view.lat ?? finiteOr(styleLat, 0)],
+		zoom: view.zoom ?? finiteOr(style.zoom, 2),
+	};
+}
+
+function finiteOr(value: unknown, fallback: number): number {
+	return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 /** The projection of a view: shared by rendering and {@link SVGMapRenderer.project}. */
@@ -118,7 +132,12 @@ function projectionOf(
 	height: number,
 	view: ViewOptions,
 ): Projection {
-	return Projection.fromStyle({ width, height, ...viewCenter(view), projection: style.projection });
+	return Projection.fromStyle({
+		width,
+		height,
+		...viewCenter(style, view),
+		projection: style.projection,
+	});
 }
 
 /**
@@ -216,7 +235,7 @@ export class SVGMapRenderer {
 			{
 				renderer,
 				style: this.#style,
-				view: viewCenter(view),
+				view: viewCenter(this.#style, view),
 				renderLabels: this.#renderLabels,
 				projection: projectionOf(this.#style, renderer.width, renderer.height, view),
 			},

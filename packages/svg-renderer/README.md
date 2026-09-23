@@ -59,17 +59,17 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 
 ### `renderToSVG(options): Promise<string>`
 
-| Option         | Type                 | Default        | Description                                                                            |
-| -------------- | -------------------- | -------------- | -------------------------------------------------------------------------------------- |
-| `style`        | `StyleSpecification` | _(required)_   | MapLibre style specification                                                           |
-| `width`        | `number`             | `1024`         | Output width in pixels                                                                 |
-| `height`       | `number`             | `1024`         | Output height in pixels                                                                |
-| `lon`          | `number`             | `0`            | Center longitude                                                                       |
-| `lat`          | `number`             | `0`            | Center latitude                                                                        |
-| `zoom`         | `number`             | `2`            | Zoom level                                                                             |
-| `renderLabels` | `boolean`            | `false`        | Enable rendering of text labels and icons                                              |
-| `fetch`        | `FetchFunction`      | global `fetch` | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
-| `onWarning`    | `(message) => void`  | `console.warn` | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
+| Option         | Type                 | Default                    | Description                                                                            |
+| -------------- | -------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| `style`        | `StyleSpecification` | _(required)_               | MapLibre style specification                                                           |
+| `width`        | `number`             | `1024`                     | Output width in pixels                                                                 |
+| `height`       | `number`             | `1024`                     | Output height in pixels                                                                |
+| `lon`          | `number`             | style's `center`, else `0` | Center longitude                                                                       |
+| `lat`          | `number`             | style's `center`, else `0` | Center latitude                                                                        |
+| `zoom`         | `number`             | style's `zoom`, else `2`   | Zoom level                                                                             |
+| `renderLabels` | `boolean`            | `false`                    | Enable rendering of text labels and icons                                              |
+| `fetch`        | `FetchFunction`      | global `fetch`             | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
+| `onWarning`    | `(message) => void`  | `console.warn`             | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
 
 ### `new SVGMapRenderer(options)`
 

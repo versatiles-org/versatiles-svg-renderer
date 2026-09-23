@@ -137,6 +137,39 @@ describe('SVGMapRenderer', () => {
 		expect(await map.renderSVG()).toBe(await renderToSVG({ style }));
 	});
 
+	test("uses the style's center and zoom where the view does not set them", async () => {
+		const style: StyleSpecification = { ...makeStyle(), center: [10, 20], zoom: 3 };
+		const map = new SVGMapRenderer({ style });
+		const plain = new SVGMapRenderer({ style: makeStyle() });
+		expect(await map.renderSVG()).not.toBe(await plain.renderSVG());
+		expect(await map.renderSVG()).toBe(await plain.renderSVG({ lon: 10, lat: 20, zoom: 3 }));
+		expect(await map.renderSVG({ lat: 5 })).toBe(
+			await plain.renderSVG({ lon: 10, lat: 5, zoom: 3 }),
+		);
+		expect(await map.renderSVG({ lon: 1, lat: 2, zoom: 4 })).toBe(
+			await plain.renderSVG({ lon: 1, lat: 2, zoom: 4 }),
+		);
+	});
+
+	test("projects with the style's center and zoom as defaults", () => {
+		const map = new SVGMapRenderer({ style: { ...makeStyle(), center: [10, 20], zoom: 3 } });
+		expect(map.project({ width: 100, height: 100 }, [10, 20])).toEqual([50, 50]);
+		expect(map.unproject({ width: 100, height: 100 }, [50, 50])).toEqual([
+			10,
+			expect.closeTo(20, 9),
+		]);
+	});
+
+	test("ignores a style's center or zoom that is not a number", async () => {
+		const style = {
+			...makeStyle(),
+			center: ['x', null],
+			zoom: Number.NaN,
+		} as unknown as StyleSpecification;
+		const plain = new SVGMapRenderer({ style: makeStyle() });
+		expect(await new SVGMapRenderer({ style }).renderSVG()).toBe(await plain.renderSVG());
+	});
+
 	test('fetches the sprite only once for several renders', async () => {
 		const fetchMock = mockFetch();
 		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
