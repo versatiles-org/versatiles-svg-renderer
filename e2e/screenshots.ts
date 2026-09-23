@@ -32,6 +32,7 @@ const SH = HEIGHT * SCALE;
 const PIXELMATCH_THRESHOLD: Record<Region['type'], number> = {
 	vector: 0.03,
 	geojson: 0.03,
+	features: 0.03,
 	satellite: 0.1,
 };
 
@@ -105,6 +106,13 @@ const fontFaces = Object.entries(fonts)
 	})
 	.join('\n');
 
+// What the renderers report as not drawn, collected per region: both renderers report the
+// same parts of the style, so each warning is printed once, below the region's line.
+const warnings = new Set<string>();
+const collectWarning = (message: string): void => {
+	warnings.add(message);
+};
+
 // Render the region's SVG and rasterize it; returns the screenshot + SVG size (KB).
 async function renderSvgShot(
 	region: Region,
@@ -119,6 +127,7 @@ async function renderSvgShot(
 		lat: region.lat,
 		zoom: region.zoom,
 		renderLabels: region.labels ?? false,
+		onWarning: collectWarning,
 	});
 	writeFileSync(resolve(svgDir, `${id}.svg`), svg);
 
@@ -163,6 +172,7 @@ async function renderPngShot(
 		zoom: region.zoom,
 		renderLabels: region.labels ?? false,
 		fonts,
+		onWarning: collectWarning,
 	});
 	writeFileSync(resolve(pngDir, `${id}.png`), buffer);
 	// `renderToPNG` returns a Uint8Array (its public type carries no Node globals); pngjs
@@ -352,7 +362,13 @@ let failed = false;
 
 // For each region: render all three ways, diff each renderer against MapLibre and the two
 // renderers against each other, and report one line per region.
-for (const region of regions) {
+// `E2E_REGIONS=parity-features,berlin-vector` runs only these regions (by their id).
+const selectedIds = process.env.E2E_REGIONS?.split(',').map((id) => id.trim());
+const selectedRegions = selectedIds
+	? regions.filter((region) => selectedIds.includes(regionId(region)))
+	: regions;
+
+for (const region of selectedRegions) {
 	const id = regionId(region);
 	const style = await getStyle(region);
 
@@ -405,6 +421,8 @@ for (const region of regions) {
 		return `${color(`${name} ${metrics[name].toFixed(2)}%`)}${note}`;
 	});
 	console.log(`  ${id}: ${parts.join('  ')}`);
+	for (const warning of warnings) console.log(dim(`    not drawn: ${warning}`));
+	warnings.clear();
 
 	results.push({ region, id, metrics, svgSizeKB, pngSizeKB });
 }
@@ -500,7 +518,9 @@ console.log(`\nReport saved to: ${reportPath}`);
 
 // Update the committed baseline, or fail the run on any degradation/ceiling breach.
 if (process.env.UPDATE_BASELINE) {
-	writeFileSync(baselinePath, JSON.stringify(updatedBaseline, null, '\t') + '\n');
+	// A run of selected regions updates only their entries.
+	const blessed = selectedIds ? { ...rawBaseline, ...updatedBaseline } : updatedBaseline;
+	writeFileSync(baselinePath, JSON.stringify(blessed, null, '\t') + '\n');
 	console.log(`Baseline updated: ${baselinePath}`);
 } else if (failed) {
 	console.log(red('\nE2E comparison failed — see ✗/▲ above (or bless with UPDATE_BASELINE=1).'));

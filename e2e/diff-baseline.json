@@ -44,6 +44,11 @@
 		"png": 1.65,
 		"drift": 0.84
 	},
+	"parity-features": {
+		"svg": 0.08,
+		"png": 0.08,
+		"drift": 0
+	},
 	"world-vector-globe": {
 		"svg": 0.35,
 		"png": 0.64,

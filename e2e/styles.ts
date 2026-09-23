@@ -9,7 +9,11 @@ export interface Region {
 	lon: number;
 	lat: number;
 	zoom: number;
-	type: 'vector' | 'satellite' | 'geojson';
+	/**
+	 * `features`: a hand-made style that checks single MapLibre features, one per cell of a
+	 * grid (see {@link featuresStyle}).
+	 */
+	type: 'vector' | 'satellite' | 'geojson' | 'features';
 	/** Style projection; defaults to 'mercator'. */
 	projection?: 'mercator' | 'globe';
 	/**
@@ -33,6 +37,8 @@ export const regions: Region[] = [
 	{ name: 'berlin', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite' },
 
 	{ name: 'berlin', lon: 13.388, lat: 52.514, zoom: 14, type: 'geojson' },
+
+	{ name: 'parity', lon: 0, lat: 0, zoom: 12, type: 'features' },
 
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.
@@ -93,6 +99,9 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 				break;
 			case 'satellite':
 				style = await inlineSources(satellite({ projection, osmOverlay: false }));
+				break;
+			case 'features':
+				style = featuresStyle();
 				break;
 			case 'geojson':
 				style = {
@@ -274,4 +283,176 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 		styleCache.set(cacheKey, style);
 	}
 	return style;
+}
+
+/**
+ * A style with one MapLibre feature per cell of a 3 × 2 grid, around 0°/0° at zoom 12 (the
+ * view is about 0.137° wide and 0.103° high). Each cell isolates one feature, so a
+ * mismatch in the diff image points straight at it:
+ *
+ * | fill-sort-key        | line-sort-key  | circle-sort-key |
+ * | circle(-stroke)-opacity | line-gap-width | global-state    |
+ */
+function featuresStyle(): StyleSpecification {
+	const columns = [-0.045, 0, 0.045];
+	const rows = [0.025, -0.025];
+	const colors = ['#e41a1c', '#4daf4a', '#377eb8'];
+	type Geometry = Feature['geometry'];
+	const feature = (geometry: Geometry, properties: Record<string, unknown> = {}): Feature => ({
+		type: 'Feature',
+		properties,
+		geometry,
+	});
+	const box = (lon: number, lat: number, size: number): Geometry => ({
+		type: 'Polygon',
+		coordinates: [
+			[
+				[lon - size, lat + size],
+				[lon + size, lat + size],
+				[lon + size, lat - size],
+				[lon - size, lat - size],
+				[lon - size, lat + size],
+			],
+		],
+	});
+	const collection = (features: Feature[]) => ({
+		type: 'geojson' as const,
+		data: { type: 'FeatureCollection' as const, features },
+	});
+
+	// Row 1: three overlapping shapes each, in source order red, green, blue, with sort keys
+	// 3, 2, 1: MapLibre draws blue first and red on top.
+	const [x1, x2, x3] = columns as [number, number, number];
+	const [y1, y2] = rows as [number, number];
+	const sortKeyed = (make: (i: number) => Geometry) =>
+		collection(colors.map((color, i) => feature(make(i), { color, key: 3 - i })));
+
+	return {
+		version: 8,
+		state: {
+			color: { default: '#8800cc' },
+			which: { default: 'shown' },
+			hidden: { default: true },
+		},
+		sources: {
+			fills: sortKeyed((i) => box(x1 - 0.006 + i * 0.006, y1 + 0.006 - i * 0.006, 0.008)),
+			lines: sortKeyed((i) => ({
+				type: 'LineString',
+				coordinates: [
+					[x2 - 0.015, y1 + 0.012 - i * 0.012],
+					[x2 + 0.015, y1 - 0.012 + i * 0.012],
+				],
+			})),
+			circles: sortKeyed((i) => ({
+				type: 'Point',
+				coordinates: [x3 - 0.004 + i * 0.004, y1 + 0.003 - i * 0.003],
+			})),
+			backdrop: collection([feature(box(x1, y2, 0.016))]),
+			opacities: collection(
+				[
+					{ opacity: 0.5, strokeOpacity: 1 },
+					{ opacity: 1, strokeOpacity: 0.4 },
+					{ opacity: 0, strokeOpacity: 0.7 },
+				].map((props, i) =>
+					feature({ type: 'Point', coordinates: [x1 - 0.01 + i * 0.01, y2] }, props),
+				),
+			),
+			gap: collection([
+				feature({
+					type: 'LineString',
+					coordinates: [
+						[x2 - 0.016, y2 - 0.008],
+						[x2 - 0.006, y2 + 0.01],
+						[x2 + 0.004, y2 - 0.01],
+						[x2 + 0.016, y2 + 0.006],
+					],
+				}),
+			]),
+			state: collection([
+				feature(box(x3 - 0.009, y2 + 0.006, 0.005), { which: 'shown' }),
+				feature(box(x3 + 0.009, y2 + 0.006, 0.005), { which: 'filtered' }),
+				feature(box(x3, y2 - 0.01, 0.005), { which: 'hidden' }),
+			]),
+		},
+		layers: [
+			{ id: 'background', type: 'background', paint: { 'background-color': '#ffffff' } },
+			{
+				id: 'fill-sort-key',
+				type: 'fill',
+				source: 'fills',
+				layout: { 'fill-sort-key': ['get', 'key'] },
+				paint: { 'fill-color': ['get', 'color'] },
+			},
+			{
+				id: 'line-sort-key',
+				type: 'line',
+				source: 'lines',
+				layout: { 'line-sort-key': ['get', 'key'], 'line-cap': 'butt' },
+				paint: { 'line-color': ['get', 'color'], 'line-width': 14 },
+			},
+			{
+				id: 'circle-sort-key',
+				type: 'circle',
+				source: 'circles',
+				layout: { 'circle-sort-key': ['get', 'key'] },
+				paint: { 'circle-color': ['get', 'color'], 'circle-radius': 30 },
+			},
+			{
+				id: 'backdrop',
+				type: 'fill',
+				source: 'backdrop',
+				paint: { 'fill-color': '#333333' },
+			},
+			{
+				id: 'circle-opacity',
+				type: 'circle',
+				source: 'opacities',
+				paint: {
+					'circle-color': '#ffaa00',
+					'circle-radius': 18,
+					'circle-opacity': ['get', 'opacity'],
+					'circle-stroke-color': '#00ccff',
+					'circle-stroke-width': 8,
+					'circle-stroke-opacity': ['get', 'strokeOpacity'],
+				},
+			},
+			{
+				id: 'line-gap-width',
+				type: 'line',
+				source: 'gap',
+				layout: { 'line-cap': 'butt', 'line-join': 'round' },
+				paint: { 'line-color': '#0055aa', 'line-width': 4, 'line-gap-width': 12 },
+			},
+			{
+				id: 'global-state',
+				type: 'fill',
+				source: 'state',
+				filter: ['!=', ['get', 'which'], 'hidden'],
+				paint: {
+					'fill-color': [
+						'case',
+						['==', ['get', 'which'], ['global-state', 'which']],
+						['global-state', 'color'],
+						'#dddddd',
+					],
+				},
+			},
+			{
+				// Outlines only the square the global state selects.
+				id: 'global-state-filter',
+				type: 'line',
+				source: 'state',
+				filter: ['==', ['get', 'which'], ['global-state', 'which']],
+				paint: { 'line-color': '#000000', 'line-width': 4 },
+			},
+			{
+				id: 'global-state-visibility',
+				type: 'fill',
+				source: 'state',
+				filter: ['==', ['get', 'which'], 'hidden'],
+				layout: { visibility: ['case', ['global-state', 'hidden'], 'none', 'visible'] },
+				paint: { 'fill-color': '#ff0000' },
+			},
+		],
+	};
 }

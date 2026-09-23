@@ -37,6 +37,15 @@ white before diffing: it leaves unpainted areas transparent — most visibly aro
 the globe — while both screenshots come off a white page, so an unflattened diff
 would report every unpainted pixel as a mismatch.
 
+The `parity-features` region is a hand-made style that checks single MapLibre
+features, one per cell of a grid: sort keys, circle opacities, `line-gap-width` and
+`global-state`. When a renderer gains a feature MapLibre has, give it a cell there, so
+its diff is measured without the noise of a real map.
+
+To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector npm run
+test:e2e:screenshots`. With `UPDATE_BASELINE=1`, such a run re-blesses only those
+regions.
+
 Labels and icons are switched off in every region but `berlin-labels-vector`.
 MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
 difference is large and inherent; confining it to one region keeps it measured
