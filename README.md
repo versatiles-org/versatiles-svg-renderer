@@ -180,7 +180,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `fill-extrusion`                      | ❌  | ❌  | [#45] |
 | `heatmap`                             | ❌  | ❌  | [#46] |
 | `hillshade`, `color-relief`           | ❌  | ❌  | [#47] |
-| Patterns (`*-pattern`)                | ❌  | ❌  | [#44] |
+| `fill-pattern`, `background-pattern`  | ✅  | ✅  |       |
+| `line-pattern`                        | ❌  | ❌  | [#44] |
 | `line-gap-width`                      | ⚠️⁴ | ⚠️⁴ | [#61] |
 | Line layers on polygons               | ⚠️⁵ | ⚠️⁵ | [#60] |
 | `line-gradient`                       | ❌  | ❌  | [#53] |

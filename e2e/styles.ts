@@ -286,16 +286,17 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 }
 
 /**
- * A style with one MapLibre feature per cell of a 3 × 2 grid, around 0°/0° at zoom 12 (the
+ * A style with one MapLibre feature per cell of a 3 × 3 grid, around 0°/0° at zoom 12 (the
  * view is about 0.137° wide and 0.103° high). Each cell isolates one feature, so a
  * mismatch in the diff image points straight at it:
  *
- * | fill-sort-key        | line-sort-key  | circle-sort-key |
- * | circle(-stroke)-opacity | line-gap-width | global-state    |
+ * | fill-sort-key           | line-sort-key               | circle-sort-key              |
+ * | circle(-stroke)-opacity | line-gap-width              | global-state                 |
+ * | fill-pattern            | translucent pattern, outline | data-driven, missing image |
  */
 function featuresStyle(): StyleSpecification {
 	const columns = [-0.045, 0, 0.045];
-	const rows = [0.025, -0.025];
+	const rows = [0.033, 0, -0.033];
 	const colors = ['#e41a1c', '#4daf4a', '#377eb8'];
 	type Geometry = Feature['geometry'];
 	const feature = (geometry: Geometry, properties: Record<string, unknown> = {}): Feature => ({
@@ -323,12 +324,13 @@ function featuresStyle(): StyleSpecification {
 	// Row 1: three overlapping shapes each, in source order red, green, blue, with sort keys
 	// 3, 2, 1: MapLibre draws blue first and red on top.
 	const [x1, x2, x3] = columns as [number, number, number];
-	const [y1, y2] = rows as [number, number];
+	const [y1, y2, y3] = rows as [number, number, number];
 	const sortKeyed = (make: (i: number) => Geometry) =>
 		collection(colors.map((color, i) => feature(make(i), { color, key: 3 - i })));
 
 	return {
 		version: 8,
+		sprite: [{ id: 'base', url: 'https://tiles.versatiles.org/assets/sprites/base' }],
 		state: {
 			color: { default: '#8800cc' },
 			which: { default: 'shown' },
@@ -368,6 +370,13 @@ function featuresStyle(): StyleSpecification {
 					],
 				}),
 			]),
+			patterns: collection([
+				feature(box(x1, y3, 0.012), { pattern: 'base:pattern-hatched' }),
+				feature(box(x2, y3, 0.012), { pattern: 'base:pattern-striped' }),
+				feature(box(x3 - 0.007, y3, 0.006), { pattern: 'base:pattern-hatched_thin' }),
+				feature(box(x3 + 0.007, y3, 0.006), { pattern: 'base:missing' }),
+			]),
+			patternBackdrop: collection([feature(box(x2, y3, 0.008))]),
 			state: collection([
 				feature(box(x3 - 0.009, y2 + 0.006, 0.005), { which: 'shown' }),
 				feature(box(x3 + 0.009, y2 + 0.006, 0.005), { which: 'filtered' }),
@@ -422,6 +431,31 @@ function featuresStyle(): StyleSpecification {
 				source: 'gap',
 				layout: { 'line-cap': 'butt', 'line-join': 'round' },
 				paint: { 'line-color': '#0055aa', 'line-width': 4, 'line-gap-width': 12 },
+			},
+			{
+				id: 'pattern-backdrop',
+				type: 'fill',
+				source: 'patternBackdrop',
+				paint: { 'fill-color': '#ffcc00' },
+			},
+			{
+				// Opaque patterns; the missing image draws nothing.
+				id: 'fill-pattern',
+				type: 'fill',
+				source: 'patterns',
+				filter: ['!=', ['get', 'pattern'], 'base:pattern-striped'],
+				paint: { 'fill-pattern': ['get', 'pattern'] },
+			},
+			{
+				id: 'fill-pattern-translucent',
+				type: 'fill',
+				source: 'patterns',
+				filter: ['==', ['get', 'pattern'], 'base:pattern-striped'],
+				paint: {
+					'fill-pattern': 'base:pattern-striped',
+					'fill-opacity': 0.6,
+					'fill-outline-color': '#ff0000',
+				},
 			},
 			{
 				id: 'global-state',

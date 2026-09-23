@@ -104,6 +104,46 @@ describe('SVGRenderer', () => {
 	});
 
 	describe('drawPolygons', () => {
+		test('fills with a pattern of the sprite image, anchored at the origin', () => {
+			const sprite = {
+				width: 16,
+				height: 8,
+				x: 4,
+				y: 2,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 32,
+				sheetHeight: 16,
+			};
+			const r = makeRenderer();
+			const square = makePolygonFeature([
+				[
+					[0, 0],
+					[20, 0],
+					[20, 20],
+					[0, 0],
+				],
+			]);
+			const pattern = { name: 'base:hatch', sprite, origin: [-1003, 5] as [number, number] };
+			const style: FillStyle = { color: mc('#336699'), opacity: 1, translate: [0, 0], pattern };
+			r.drawPolygons('p', [
+				[square, style],
+				[square, style],
+			]);
+			r.drawBackgroundFill({ color: mc('#000'), opacity: 1, pattern });
+			const svg = r.getString();
+			// Display size 8 x 4; the origin's phase within one copy: -1003 mod 8 = 5, 5 mod 4 = 1.
+			expect(svg).toContain(
+				'<pattern id="pattern-0" patternUnits="userSpaceOnUse" x="5" y="1" width="8" height="4">' +
+					'<use xlink:href="#sprite-base:hatch" transform="scale(0.5)" /></pattern>',
+			);
+			// One definition, used by both fills and the background.
+			expect(svg.match(/<pattern /g)).toHaveLength(1);
+			expect(svg.match(/fill="url\(#pattern-0\)"/g)).toHaveLength(2);
+			expect(svg).toContain('<symbol id="sprite-base:hatch">');
+		});
+
 		test('generates path elements', () => {
 			const r = makeRenderer();
 			const feature = makePolygonFeature([

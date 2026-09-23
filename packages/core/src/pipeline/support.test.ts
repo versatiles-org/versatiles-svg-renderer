@@ -63,22 +63,22 @@ describe('checkStyle', () => {
 
 	test('reports unsupported properties in one warning, with the layers using them', () => {
 		const style = makeStyle([
-			fill('a', { 'fill-pattern': 'x' }),
-			fill('b', { 'fill-pattern': 'x' }),
-			// A property no renderer knows, to have a second one.
-			fill('c', { 'fill-pattern': 'x', 'fill-future': 1 }),
-			fill('d', { 'fill-pattern': 'x' }),
-			fill('e', { 'fill-pattern': 'x' }),
+			fill('a', { 'fill-past': 'x' }),
+			fill('b', { 'fill-past': 'x' }),
+			// Properties no renderer knows.
+			fill('c', { 'fill-past': 'x', 'fill-future': 1 }),
+			fill('d', { 'fill-past': 'x' }),
+			fill('e', { 'fill-past': 'x' }),
 		]);
 		expect(checkStyle(style, false)).toEqual([
-			'These layer properties are not supported and are ignored: fill-pattern ("a", "b", "c", 2 more), fill-future ("c").',
+			'These layer properties are not supported and are ignored: fill-past ("a", "b", "c", 2 more), fill-future ("c").',
 		]);
 	});
 
 	test('skips hidden layers', () => {
 		const style = makeStyle([
 			{
-				...fill('a', { 'fill-pattern': 'x' }),
+				...fill('a', { 'fill-past': 'x' }),
 				layout: { visibility: 'none' },
 			},
 			{ id: 'h', type: 'heatmap', source: 's', layout: { visibility: 'none' } },

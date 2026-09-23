@@ -6,6 +6,7 @@ import { CanvasRenderer } from './canvas.js';
 import { Feature, Point2D } from '../geometry.js';
 import type {
 	CircleStyle,
+	FillPattern,
 	FillStyle,
 	IconStyle,
 	LineStyle,
@@ -106,12 +107,12 @@ describe('CanvasRenderer', () => {
 			expect([r.canvas.width, r.canvas.height]).toEqual([256, 256]);
 		});
 
-		test('scale multiplies the bitmap but not the map units', () => {
+		test('scale multiplies the bitmap but not the map units', async () => {
 			const r = makeRenderer({ width: 100, height: 50, scale: 2 });
 			expect([r.canvas.width, r.canvas.height]).toEqual([200, 100]);
 			expect([r.width, r.height]).toEqual([100, 50]);
 			// A 10-unit square drawn at the origin covers 20 device pixels.
-			r.drawPolygons('p', [
+			await r.drawPolygons('p', [
 				[
 					makePolygonFeature([
 						[
@@ -130,23 +131,23 @@ describe('CanvasRenderer', () => {
 	});
 
 	describe('drawBackgroundFill', () => {
-		test('covers the whole canvas', () => {
+		test('covers the whole canvas', async () => {
 			const r = makeRenderer();
-			r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 1 });
+			await r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 1 });
 			expect(at(r, 0, 0)).toEqual([0, 0, 255, 255]);
 			expect(at(r, 255, 255)).toEqual([0, 0, 255, 255]);
 		});
 
-		test('applies layer opacity', () => {
+		test('applies layer opacity', async () => {
 			const r = makeRenderer();
-			r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 0.5 });
+			await r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 0.5 });
 			expect(at(r, 128, 128)[3]).toBeCloseTo(128, -1);
 		});
 
-		test('a fully transparent background does not erase what is below', () => {
+		test('a fully transparent background does not erase what is below', async () => {
 			const r = makeRenderer();
-			r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 1 });
-			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 0 });
+			await r.drawBackgroundFill({ color: mc('#0000FF'), opacity: 1 });
+			await r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 0 });
 			expect(at(r, 128, 128)).toEqual([0, 0, 255, 255]);
 		});
 	});
@@ -162,14 +163,14 @@ describe('CanvasRenderer', () => {
 				],
 			]);
 
-		test('fills the polygon and nothing outside it', () => {
+		test('fills the polygon and nothing outside it', async () => {
 			const r = makeRenderer();
-			r.drawPolygons('fill-test', [[square(), fillStyle()]]);
+			await r.drawPolygons('fill-test', [[square(), fillStyle()]]);
 			expect(at(r, 128, 128)).toEqual([255, 0, 0, 255]);
 			expect(at(r, 20, 20)[3]).toBe(0);
 		});
 
-		test('an inner ring is a hole (nonzero fill rule, as in SVG)', () => {
+		test('an inner ring is a hole (nonzero fill rule, as in SVG)', async () => {
 			const r = makeRenderer();
 			const donut = makePolygonFeature([
 				[
@@ -185,48 +186,48 @@ describe('CanvasRenderer', () => {
 					[100, 100],
 				],
 			]);
-			r.drawPolygons('fill-test', [[donut, fillStyle()]]);
+			await r.drawPolygons('fill-test', [[donut, fillStyle()]]);
 			expect(at(r, 60, 128)[0]).toBeGreaterThan(200); // ring
 			expect(at(r, 125, 125)[3]).toBe(0); // hole
 		});
 
-		test('applies fill-translate', () => {
+		test('applies fill-translate', async () => {
 			const r = makeRenderer();
-			r.drawPolygons('fill-test', [[square(), fillStyle({ translate: [20, 0] })]]);
+			await r.drawPolygons('fill-test', [[square(), fillStyle({ translate: [20, 0] })]]);
 			expect(at(r, 55, 128)[3]).toBe(0); // vacated by the shift
 			expect(at(r, 210, 128)[0]).toBeGreaterThan(200); // newly covered
 		});
 
-		test('skips zero opacity and fully transparent colours', () => {
+		test('skips zero opacity and fully transparent colours', async () => {
 			const r = makeRenderer();
-			r.drawPolygons('fill-test', [[square(), fillStyle({ opacity: 0 })]]);
-			r.drawPolygons('fill-test', [[square(), fillStyle({ color: mc('#FF0000', 0) })]]);
+			await r.drawPolygons('fill-test', [[square(), fillStyle({ opacity: 0 })]]);
+			await r.drawPolygons('fill-test', [[square(), fillStyle({ color: mc('#FF0000', 0) })]]);
 			expect(at(r, 128, 128)[3]).toBe(0);
 		});
 
-		test('draws no antialias outline for an opaque fill without fill-outline-color', () => {
+		test('draws no antialias outline for an opaque fill without fill-outline-color', async () => {
 			// The rasterizer already antialiases the fill edge, so redrawing it is redundant.
 			const r = makeRenderer();
-			r.drawPolygons('fill-test', [[square(), fillStyle({ antialias: true })]]);
+			await r.drawPolygons('fill-test', [[square(), fillStyle({ antialias: true })]]);
 			// Just outside the edge stays empty — an outline would straddle it.
 			expect(at(r, 50 - 1, 128)[3]).toBe(0);
 		});
 
-		test('draws the outline in fill-outline-color', () => {
+		test('draws the outline in fill-outline-color', async () => {
 			// The outline is a hairline (half a pixel wide, centred on the edge), so it tints
 			// the edge pixel rather than replacing it. Compare against the same fill without
 			// an outline instead of guessing an absolute threshold.
 			const plain = makeRenderer();
-			plain.drawPolygons('fill-test', [[square(), fillStyle()]]);
+			await plain.drawPolygons('fill-test', [[square(), fillStyle()]]);
 			const outlined = makeRenderer();
-			outlined.drawPolygons('fill-test', [
+			await outlined.drawPolygons('fill-test', [
 				[square(), fillStyle({ antialias: true, outlineColor: mc('#FFFFFF') })],
 			]);
 			expect(at(plain, 50, 128)[1]).toBe(0);
 			expect(at(outlined, 50, 128)[1]).toBeGreaterThan(30);
 		});
 
-		test('a tile-clipped polygon is outlined along its outline, not its clipped edges', () => {
+		test('a tile-clipped polygon is outlined along its outline, not its clipped edges', async () => {
 			// `feature.outline` carries the boundary as open polylines, leaving out the edges
 			// that only exist because the polygon was clipped to its tile.
 			const clipped = new Feature({
@@ -249,14 +250,14 @@ describe('CanvasRenderer', () => {
 				],
 			});
 			const r = makeRenderer();
-			r.drawPolygons('fill-test', [
+			await r.drawPolygons('fill-test', [
 				[clipped, fillStyle({ antialias: true, outlineColor: mc('#FFFFFF') })],
 			]);
 			expect(at(r, 128, 50)[1]).toBeGreaterThan(30); // outlined top edge
 			expect(at(r, 128, 200)[1]).toBe(0); // clipped bottom edge, left bare
 		});
 
-		test('every fill is drawn before any outline', () => {
+		test('every fill is drawn before any outline', async () => {
 			// MapLibre draws all fills, then all outlines, so a lower feature's border
 			// composites on top of a later overlapping fill.
 			const r = makeRenderer();
@@ -276,13 +277,13 @@ describe('CanvasRenderer', () => {
 					[100, 220],
 				],
 			]);
-			r.drawPolygons('fill-test', [
+			await r.drawPolygons('fill-test', [
 				[lower, fillStyle({ antialias: true, outlineColor: mc('#FFFFFF') })],
 				[upper, fillStyle({ color: mc('#0000FF') })],
 			]);
 			// Without the outline the same pixel is pure upper-square blue...
 			const control = makeRenderer();
-			control.drawPolygons('fill-test', [
+			await control.drawPolygons('fill-test', [
 				[lower, fillStyle()],
 				[upper, fillStyle({ color: mc('#0000FF') })],
 			]);
@@ -372,7 +373,7 @@ describe('CanvasRenderer', () => {
 			for (let y = 100; y < 156; y++) expect(at(r, 128, y)[3]).toBe(0);
 		});
 
-		test('the blur alpha curve does not reach what was already drawn', () => {
+		test('the blur alpha curve does not reach what was already drawn', async () => {
 			// The curve rewrites alpha, so it has to run on an isolated layer. Sample a point
 			// inside the blurred feature's region but far enough from the line that the line
 			// itself contributes nothing: only already-drawn pixels live there.
@@ -385,7 +386,7 @@ describe('CanvasRenderer', () => {
 					[0, 256],
 				],
 			]);
-			r.drawPolygons('bg', [[backdrop, fillStyle({ color: mc('#00FF00'), opacity: 0.5 })]]);
+			await r.drawPolygons('bg', [[backdrop, fillStyle({ color: mc('#00FF00'), opacity: 0.5 })]]);
 			const before = at(r, 10, 122);
 			expect(before[3]).toBeCloseTo(128, -1); // the translucent backdrop
 
@@ -432,10 +433,10 @@ describe('CanvasRenderer', () => {
 	});
 
 	describe('setClipCircle', () => {
-		test('restricts later drawing to the globe silhouette', () => {
+		test('restricts later drawing to the globe silhouette', async () => {
 			const r = makeRenderer();
 			r.setClipCircle({ x: 128, y: 128, radius: 50 });
-			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
+			await r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
 			expect(at(r, 128, 128)[3]).toBe(255);
 			expect(at(r, 5, 5)[3]).toBe(0);
 		});
@@ -635,6 +636,66 @@ describe('CanvasRenderer', () => {
 			await expect(r.drawRasterTiles('raster', [tile()], rasterStyle())).rejects.toThrow(
 				/loadImage/,
 			);
+		});
+	});
+
+	describe('patterns', () => {
+		// An 8x8 image at pixel ratio 2: 4 px on screen, the left half red, the right blue.
+		const sheet = (() => {
+			const canvas = createCanvas(8, 8);
+			const ctx = canvas.getContext('2d');
+			ctx.fillStyle = '#FF0000';
+			ctx.fillRect(0, 0, 4, 8);
+			ctx.fillStyle = '#0000FF';
+			ctx.fillRect(4, 0, 4, 8);
+			return canvas.toDataURL('image/png');
+		})();
+		const pattern = (origin: [number, number]): FillPattern => ({
+			name: 'stripes',
+			origin,
+			sprite: {
+				width: 8,
+				height: 8,
+				x: 0,
+				y: 0,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: sheet,
+				sheetWidth: 8,
+				sheetHeight: 8,
+			},
+		});
+		const makePatternRenderer = () =>
+			new CanvasRenderer({ width: 16, height: 4, createCanvas, loadImage });
+		/** R or B per pixel along row 1. */
+		const row = (r: CanvasRenderer): string =>
+			[...Array(16).keys()]
+				.map((x) => {
+					const [red, , blue] = at(r, x, 1);
+					return red! > 200 ? 'R' : blue! > 200 ? 'B' : '.';
+				})
+				.join('');
+
+		test('repeats the image at its display size, from the origin', async () => {
+			const r = makePatternRenderer();
+			const square = makePolygonFeature([
+				[
+					[0, 0],
+					[16, 0],
+					[16, 4],
+					[0, 4],
+					[0, 0],
+				],
+			]);
+			// The origin lies far away, as the world's origin does: only its phase counts.
+			await r.drawPolygons('p', [[square, fillStyle({ pattern: pattern([-4003, 0]) })]]);
+			expect(row(r)).toBe('BRRBBRRBBRRBBRRB');
+		});
+
+		test('fills the background with the pattern', async () => {
+			const r = makePatternRenderer();
+			await r.drawBackgroundFill({ color: mc('#00FF00'), opacity: 1, pattern: pattern([0, 0]) });
+			expect(row(r)).toBe('RRBBRRBBRRBBRRBB');
 		});
 	});
 
@@ -886,9 +947,9 @@ describe('CanvasRenderer', () => {
 	});
 
 	describe('toBuffer', () => {
-		test('encodes a PNG', () => {
+		test('encodes a PNG', async () => {
 			const r = makeRenderer({ width: 10, height: 10 });
-			r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
+			await r.drawBackgroundFill({ color: mc('#FF0000'), opacity: 1 });
 			const buffer = r.toBuffer();
 			expect([...buffer.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
 		});

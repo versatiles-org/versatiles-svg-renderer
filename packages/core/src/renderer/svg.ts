@@ -5,6 +5,7 @@ import { chainSegments, formatNum, offsetSegmentPoints, segmentsToPath } from '.
 import type {
 	BackgroundStyle,
 	CircleStyle,
+	FillPattern,
 	FillStyle,
 	IconStyle,
 	LineStyle,
@@ -14,7 +15,7 @@ import type {
 	RendererOptions,
 	SymbolStyle as LabelStyle,
 } from './types.js';
-import type { SpriteAtlas } from '../sources/sprite.js';
+import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 import type { ClipCircle } from '../projection.js';
 import { mapIconAnchor, mapTextAnchor } from './anchors.js';
 import { circleShape } from './circle.js';
@@ -81,6 +82,7 @@ export class SVGRenderer {
 	>();
 
 	readonly #sdfFilterDefs = new Map<string, { filterId: string; content: string }>();
+	readonly #patternDefs = new Map<string, { id: string; content: string }>();
 	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
 
 	readonly #rasterDefs: string[] = [];
@@ -102,12 +104,17 @@ export class SVGRenderer {
 	public drawBackgroundFill(style: BackgroundStyle): void {
 		// Every background layer paints over what is below it, like any other layer. (A
 		// transparent one, e.g. an empty "slot" layer, must not erase an earlier background.)
+		const rect = `x="-1" y="-1" width="${(this.width + 2).toFixed(0)}" height="${(this.height + 2).toFixed(0)}"`;
+		if (style.pattern) {
+			if (style.opacity <= 0) return;
+			const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
+			this.#svg.push(`<rect ${rect} fill="${this.#patternPaint(style.pattern)}"${opacity} />`);
+			return;
+		}
 		const color = new Color(style.color);
 		color.alpha *= style.opacity;
 		if (color.alpha <= 0) return;
-		this.#svg.push(
-			`<rect x="-1" y="-1" width="${(this.width + 2).toFixed(0)}" height="${(this.height + 2).toFixed(0)}" ${fillAttr(color)} />`,
-		);
+		this.#svg.push(`<rect ${rect} ${fillAttr(color)} />`);
 	}
 
 	public drawPolygons(id: string, features: [Feature, FillStyle][]): void {
@@ -138,11 +145,14 @@ export class SVGRenderer {
 			const rings = feature.geometry.map((ring) => ring.map((p) => roundXY(p.x, p.y)));
 
 			const color = new Color(style.color);
-			const translucent = style.opacity < 1 || color.alpha < 255;
-			if (color.alpha > 0) {
-				const key = color.hex + translate + opacityAttr;
+			// A pattern is drawn instead of the color, and may itself be translucent.
+			const patternPaint = style.pattern && this.#patternPaint(style.pattern);
+			const translucent = style.opacity < 1 || (!patternPaint && color.alpha < 255);
+			if (patternPaint ?? color.alpha > 0) {
+				const paint = patternPaint ? `fill="${patternPaint}"` : fillAttr(color);
+				const key = paint + translate + opacityAttr;
 				if (translucent || key !== currentFillKey) {
-					fillGroups.push({ segments: [], attrs: `${fillAttr(color)}${translate}${opacityAttr}` });
+					fillGroups.push({ segments: [], attrs: `${paint}${translate}${opacityAttr}` });
 					currentFillKey = translucent ? undefined : key;
 				}
 				const group = fillGroups[fillGroups.length - 1]!;
@@ -156,17 +166,24 @@ export class SVGRenderer {
 			// diff for +46–88% SVG size. It is drawn when it shows: in a distinct
 			// fill-outline-color (choropleths), or for a translucent fill, where MapLibre
 			// draws the outline over the fill's edge (e.g. buildings fading in).
+			// Without a fill-outline-color, a pattern's outline is drawn with the pattern too,
+			// as in MapLibre (its `fillOutlinePattern` program).
 			if (style.antialias && (style.outlineColor !== undefined || translucent)) {
 				const outlineColor =
 					style.outlineColor !== undefined ? new Color(style.outlineColor) : color;
-				if (outlineColor.alpha > 0) {
+				const outlinePattern = style.outlineColor === undefined ? patternPaint : undefined;
+				if (outlinePattern ?? outlineColor.alpha > 0) {
 					const outlineTranslucent = translucent || outlineColor.alpha < 255;
-					const key = outlineColor.hex + translate + opacityAttr;
+					const width = formatScaled(FILL_OUTLINE_WIDTH_PX);
+					const stroke = outlinePattern
+						? `stroke="${outlinePattern}" stroke-width="${width}"`
+						: strokeAttr(outlineColor, width);
+					const key = stroke + translate + opacityAttr;
 					if (outlineTranslucent || key !== currentOutlineKey) {
 						outlineGroups.push({
 							closed: [],
 							open: [],
-							attrs: `fill="none" ${strokeAttr(outlineColor, formatScaled(FILL_OUTLINE_WIDTH_PX))}${translate}${opacityAttr}`,
+							attrs: `fill="none" ${stroke}${translate}${opacityAttr}`,
 						});
 						currentOutlineKey = outlineTranslucent ? undefined : key;
 					}
@@ -405,6 +422,66 @@ export class SVGRenderer {
 		this.#svg.push('</g>');
 	}
 
+	/**
+	 * The id of a `<symbol>` showing sprite image `name` at its native size, defined once:
+	 * the sprite sheet goes into the defs once, and each image clips it.
+	 */
+	#spriteSymbol(name: string, sprite: SpriteEntry): string {
+		const sheetKey = sprite.sheetDataUri;
+		let sheetDef = this.#spriteSheetDefs.get(sheetKey);
+		if (!sheetDef) {
+			sheetDef = {
+				defId: `sprite-sheet-${String(this.#spriteSheetDefs.size)}`,
+				width: Math.round(sprite.sheetWidth * 10),
+				height: Math.round(sprite.sheetHeight * 10),
+				href: sprite.sheetDataUri,
+			};
+			this.#spriteSheetDefs.set(sheetKey, sheetDef);
+		}
+		const symKey = `${name}\0${sheetKey}`;
+		let symDef = this.#spriteSymbolDefs.get(symKey);
+		if (!symDef) {
+			symDef = {
+				symbolId: `sprite-${escapeXml(name)}`,
+				sheetDefId: sheetDef.defId,
+				x: Math.round(sprite.x * 10),
+				y: Math.round(sprite.y * 10),
+				width: Math.round(sprite.width * 10),
+				height: Math.round(sprite.height * 10),
+			};
+			this.#spriteSymbolDefs.set(symKey, symDef);
+		}
+		return symDef.symbolId;
+	}
+
+	/**
+	 * `url(#…)` of a `<pattern>` repeating the sprite image of `pattern` at its display size,
+	 * with a copy's corner at `pattern.origin`: defined once per image and origin.
+	 */
+	#patternPaint(pattern: FillPattern): string {
+		const { sprite, origin } = pattern;
+		const width = sprite.width / sprite.pixelRatio;
+		const height = sprite.height / sprite.pixelRatio;
+		// Only the origin's position within one copy matters.
+		const x = mod(origin[0], width);
+		const y = mod(origin[1], height);
+		const key = [pattern.name, sprite.sheetDataUri, x.toFixed(2), y.toFixed(2)].join('\0');
+		let def = this.#patternDefs.get(key);
+		if (!def) {
+			const id = `pattern-${String(this.#patternDefs.size)}`;
+			const symbolId = this.#spriteSymbol(pattern.name, sprite);
+			def = {
+				id,
+				content:
+					`<pattern id="${id}" patternUnits="userSpaceOnUse" x="${formatScaled(x)}" y="${formatScaled(y)}" width="${formatScaled(width)}" height="${formatScaled(height)}">` +
+					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${formatScale(1 / sprite.pixelRatio)})" />` +
+					`</pattern>`,
+			};
+			this.#patternDefs.set(key, def);
+		}
+		return `url(#${def.id})`;
+	}
+
 	public drawIcons(id: string, features: [Feature, IconStyle][], spriteAtlas: SpriteAtlas): void {
 		if (features.length === 0) return;
 
@@ -430,37 +507,7 @@ export class SVGRenderer {
 
 			const [iconXr, iconYr] = roundXY(point.x + ox, point.y + oy);
 
-			// Register sprite sheet in global defs (once per unique data URI)
-			const imgW = Math.round(sprite.sheetWidth * 10);
-			const imgH = Math.round(sprite.sheetHeight * 10);
-			const sheetKey = sprite.sheetDataUri;
-			if (!this.#spriteSheetDefs.has(sheetKey)) {
-				this.#spriteSheetDefs.set(sheetKey, {
-					defId: `sprite-sheet-${String(this.#spriteSheetDefs.size)}`,
-					width: imgW,
-					height: imgH,
-					href: sprite.sheetDataUri,
-				});
-			}
-			const sheetDef = this.#spriteSheetDefs.get(sheetKey)!;
-
-			// Register symbol for this sprite (once per sprite name + sheet)
-			const sprX = Math.round(sprite.x * 10);
-			const sprY = Math.round(sprite.y * 10);
-			const sprW = Math.round(sprite.width * 10);
-			const sprH = Math.round(sprite.height * 10);
-			const symKey = `${style.image}\0${sheetKey}`;
-			if (!this.#spriteSymbolDefs.has(symKey)) {
-				this.#spriteSymbolDefs.set(symKey, {
-					symbolId: `sprite-${escapeXml(style.image)}`,
-					sheetDefId: sheetDef.defId,
-					x: sprX,
-					y: sprY,
-					width: sprW,
-					height: sprH,
-				});
-			}
-			const symDef = this.#spriteSymbolDefs.get(symKey)!;
+			const symbolId = this.#spriteSymbol(style.image, sprite);
 
 			// Build instance: translate to position, scale from native to desired size
 			const scaleStr = scale === 1 ? '' : ` scale(${formatScale(scale)})`;
@@ -522,13 +569,13 @@ export class SVGRenderer {
 				elements.push(
 					`<g transform="rotate(${String(style.rotate)},${formatNum(cx)},${formatNum(cy)})">` +
 						`<g transform="translate(${formatNum(iconXr)},${formatNum(iconYr)})${scaleStr}"${opacityAttr}${filterAttr}>` +
-						`<use xlink:href="#${escapeXml(symDef.symbolId)}" />` +
+						`<use xlink:href="#${escapeXml(symbolId)}" />` +
 						`</g></g>`,
 				);
 			} else {
 				elements.push(
 					`<g transform="translate(${formatNum(iconXr)},${formatNum(iconYr)})${scaleStr}"${opacityAttr}${filterAttr}>` +
-						`<use xlink:href="#${escapeXml(symDef.symbolId)}" />` +
+						`<use xlink:href="#${escapeXml(symbolId)}" />` +
 						`</g>`,
 				);
 			}
@@ -648,6 +695,9 @@ export class SVGRenderer {
 		for (const { content } of this.#sdfFilterDefs.values()) {
 			defsContent.push(content);
 		}
+		for (const { content } of this.#patternDefs.values()) {
+			defsContent.push(content);
+		}
 		for (const { filterId, stdDev } of this.#blurFilterDefs.values()) {
 			// Use userSpaceOnUse over the whole canvas: the default objectBoundingBox
 			// region collapses to zero for axis-aligned lines (a horizontal/vertical
@@ -670,6 +720,11 @@ export class SVGRenderer {
 		parts.push(...this.#svg, '</g>', '</svg>');
 		return parts.join('\n');
 	}
+}
+
+/** `value` modulo `period`, always in `[0, period)`. */
+function mod(value: number, period: number): number {
+	return ((value % period) + period) % period;
 }
 
 /** ` name="opacity"`, or nothing for a fully opaque value. */

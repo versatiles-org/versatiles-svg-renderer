@@ -9,12 +9,13 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
  * `render.ts` by a test.
  */
 export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> = {
-	background: ['background-color', 'background-opacity'],
+	background: ['background-color', 'background-opacity', 'background-pattern'],
 	fill: [
 		'fill-antialias',
 		'fill-color',
 		'fill-opacity',
 		'fill-outline-color',
+		'fill-pattern',
 		'fill-sort-key',
 		'fill-translate',
 	],

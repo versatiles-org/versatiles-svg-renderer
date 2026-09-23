@@ -13,9 +13,9 @@ import type {
 	StyleLayer,
 } from './style_layer.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
-import type { LineStyle } from '../renderer/types.js';
+import type { FillPattern, LineStyle } from '../renderer/types.js';
 import { GEOJSON_LAYER } from '../geometry.js';
-import { Feature as LayerFeature } from '../geometry.js';
+import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
 import { Projection } from '../projection.js';
@@ -99,9 +99,13 @@ function getFeatures(sourceFeatures: SourceFeatures, layerStyle: StyleLayer): Fe
 }
 
 async function render(job: RenderJob, context: RenderContext): Promise<void> {
+	// The sprite holds the icons, and the images of patterns.
+	const needsSprite =
+		job.renderLabels === true ||
+		context.layers.some((layer) => layer.usesPattern && !layer.isHidden(job.view.zoom));
 	const [sourceFeatures, spriteAtlas] = await Promise.all([
 		getLayerFeatures(job, context.loadTile),
-		job.renderLabels ? context.getSprite() : Promise.resolve(new Map() as SpriteAtlas),
+		needsSprite ? context.getSprite() : Promise.resolve(new Map() as SpriteAtlas),
 	]);
 	const availableImages: string[] = [...spriteAtlas.keys()];
 
@@ -113,10 +117,10 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 		const layer: Layer = { job, context, layerStyle, sourceFeatures, spriteAtlas, availableImages };
 		switch (layerStyle.type) {
 			case 'background':
-				renderBackgroundLayer(layer);
+				await renderBackgroundLayer(layer);
 				continue;
 			case 'fill':
-				renderFillLayer(layer);
+				await renderFillLayer(layer);
 				continue;
 			case 'line':
 				renderLineLayer(layer);
@@ -225,15 +229,44 @@ function filterFeatures(layer: Layer, features: LayerFeature[]): LayerFeature[] 
 	return features.filter((feature) => filterFn.filter(globals, feature));
 }
 
-function renderBackgroundLayer(layer: Layer): void {
+async function renderBackgroundLayer(layer: Layer): Promise<void> {
 	const { getPaint } = evaluateLayer(layer);
-	layer.job.renderer.drawBackgroundFill({
+	const pattern = resolvePattern(layer, getPaint('background-pattern'));
+	// A pattern whose image is not in the sprite draws nothing, as in MapLibre.
+	if (pattern === null) return;
+	await layer.job.renderer.drawBackgroundFill({
 		color: getPaint('background-color') as MaplibreColor,
 		opacity: getPaint('background-opacity') as number,
+		pattern,
 	});
 }
 
-function renderFillLayer(layer: Layer): void {
+/**
+ * The pattern a `*-pattern` value names: `undefined` without one, `null` if its image is
+ * not in the sprite.
+ */
+function resolvePattern(layer: Layer, value: unknown): FillPattern | null | undefined {
+	const name =
+		typeof value === 'string'
+			? value
+			: typeof value === 'object' && value !== null && 'name' in value
+				? String(value.name)
+				: '';
+	if (!name) return undefined;
+	const sprite = layer.spriteAtlas.get(name);
+	if (!sprite) return null;
+	return { name, sprite, origin: worldOrigin(layer.job) };
+}
+
+/** Where the world's origin (mercator 0, 0) is on screen, in the flat map. */
+function worldOrigin(job: RenderJob): [number, number] {
+	const { width, height } = job.renderer;
+	const worldSize = 512 * 2 ** job.view.zoom;
+	const center = new Point2D(job.view.center[0], job.view.center[1]).getProject2Pixel();
+	return [width / 2 - center.x * worldSize, height / 2 - center.y * worldSize];
+}
+
+async function renderFillLayer(layer: Layer): Promise<void> {
 	// MapLibre's fill layer also fills LineString features (auto-closing the ring), so
 	// include linestrings alongside polygons for parity. drawPolygons closes every subpath,
 	// so a linestring is filled as a closed ring.
@@ -245,20 +278,28 @@ function renderFillLayer(layer: Layer): void {
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
 	const sorted = sortByKey(polygonFeatures, (feature) => getLayout('fill-sort-key', feature));
-	const styled = sorted.map((feature): Parameters<Renderer['drawPolygons']>[1][number] => [
-		feature,
-		{
-			color: getPaint('fill-color', feature) as MaplibreColor,
-			opacity: getPaint('fill-opacity', feature) as number,
-			translate: getPaint('fill-translate', feature) as [number, number],
-			// fill-outline-color has no default (stays undefined when unset); the renderer only
-			// draws an outline when a distinct color is given.
-			outlineColor: getPaint('fill-outline-color', feature) as MaplibreColor | undefined,
-			// fill-antialias defaults to true (data-constant).
-			antialias: getPaint('fill-antialias') as boolean,
-		},
-	]);
-	layer.job.renderer.drawPolygons(layer.layerStyle.id, styled);
+	const styled = sorted.flatMap((feature): Parameters<Renderer['drawPolygons']>[1] => {
+		const pattern = resolvePattern(layer, getPaint('fill-pattern', feature));
+		// A pattern whose image is not in the sprite draws nothing, as in MapLibre.
+		if (pattern === null) return [];
+		return [
+			[
+				feature,
+				{
+					color: getPaint('fill-color', feature) as MaplibreColor,
+					opacity: getPaint('fill-opacity', feature) as number,
+					pattern,
+					translate: getPaint('fill-translate', feature) as [number, number],
+					// fill-outline-color has no default (stays undefined when unset); the renderer only
+					// draws an outline when a distinct color is given.
+					outlineColor: getPaint('fill-outline-color', feature) as MaplibreColor | undefined,
+					// fill-antialias defaults to true (data-constant).
+					antialias: getPaint('fill-antialias') as boolean,
+				},
+			],
+		];
+	});
+	await layer.job.renderer.drawPolygons(layer.layerStyle.id, styled);
 }
 
 function renderLineLayer(layer: Layer): void {

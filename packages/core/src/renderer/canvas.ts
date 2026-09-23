@@ -1,4 +1,4 @@
-import type { Canvas, Image, SKRSContext2D } from '@napi-rs/canvas';
+import type { Canvas, CanvasPattern, Image, SKRSContext2D } from '@napi-rs/canvas';
 import type { Feature } from '../geometry.js';
 import type { ClipCircle } from '../projection.js';
 import { Color } from './color.js';
@@ -7,6 +7,7 @@ import { chainSegments, offsetSegmentPoints } from './svg_path.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
+	FillPattern,
 	FillStyle,
 	IconStyle,
 	LineStyle,
@@ -104,6 +105,9 @@ export class CanvasRenderer implements Renderer {
 	/** Decoded tile and sprite images, keyed by data URI: a tile may repeat within a layer. */
 	readonly #images: ImageCache;
 
+	/** Canvas patterns by sprite image (name and sheet), each cropped from its sheet once. */
+	readonly #patterns = new Map<string, CanvasPattern>();
+
 	public constructor(opt: CanvasRendererOptions) {
 		this.width = opt.width;
 		this.height = opt.height;
@@ -136,9 +140,18 @@ export class CanvasRenderer implements Renderer {
 		this.ctx.clip();
 	}
 
-	public drawBackgroundFill(style: BackgroundStyle): void {
+	public async drawBackgroundFill(style: BackgroundStyle): Promise<void> {
 		// Every background layer paints over what is below it, like any other layer. (A
 		// transparent one, e.g. an empty "slot" layer, must not erase an earlier background.)
+		if (style.pattern) {
+			if (style.opacity <= 0) return;
+			const { pattern } = style;
+			const sheet = await this.#decode(pattern.sprite.sheetDataUri);
+			this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
+				this.#tilePattern(ctx, pattern, sheet, [0, 0, this.width, this.height]);
+			});
+			return;
+		}
 		const color = new Color(style.color);
 		color.alpha *= style.opacity;
 		if (color.alpha <= 0) return;
@@ -148,23 +161,107 @@ export class CanvasRenderer implements Renderer {
 		this.ctx.restore();
 	}
 
-	public drawPolygons(_id: string, features: [Feature, FillStyle][]): void {
+	/**
+	 * Covers `box` (in user units) with copies of the sprite image of `pattern`, at its
+	 * display size, with a copy's corner at `pattern.origin`: the area is clipped by the
+	 * caller. Copies are drawn one by one, because a canvas pattern of `@napi-rs/canvas`
+	 * always resamples its image, which blurs thin hatching; `drawImage` does not.
+	 */
+	#tilePattern(
+		ctx: SKRSContext2D,
+		pattern: FillPattern,
+		sheet: Image,
+		box: [number, number, number, number],
+	): void {
+		const { sprite } = pattern;
+		const width = sprite.width / sprite.pixelRatio;
+		const height = sprite.height / sprite.pixelRatio;
+		// The copies' corners, on whole device pixels so that neighbours meet without a seam.
+		const snap = (value: number): number => Math.round(value * this.scale) / this.scale;
+		const x0 = snap(box[0] - mod(box[0] - pattern.origin[0], width));
+		const y0 = snap(box[1] - mod(box[1] - pattern.origin[1], height));
+		for (let y = y0; y < box[3]; y = snap(y + height)) {
+			for (let x = x0; x < box[2]; x = snap(x + width)) {
+				ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, x, y, width, height);
+			}
+		}
+	}
+
+	/**
+	 * A canvas pattern of `pattern`, for the outline of a pattern fill: its slight blur
+	 * does not show on a 1 px line (see {@link CanvasRenderer.#tilePattern}).
+	 */
+	async #patternFill(pattern: FillPattern): Promise<CanvasPattern> {
+		const { sprite } = pattern;
+		const key = `${pattern.name}\0${sprite.sheetDataUri}`;
+		let fill = this.#patterns.get(key);
+		if (!fill) {
+			const sheet = await this.#decode(sprite.sheetDataUri);
+			const image = this.#createCanvas(sprite.width, sprite.height);
+			image
+				.getContext('2d')
+				.drawImage(
+					sheet,
+					sprite.x,
+					sprite.y,
+					sprite.width,
+					sprite.height,
+					0,
+					0,
+					sprite.width,
+					sprite.height,
+				);
+			fill = this.ctx.createPattern(image, 'repeat');
+			this.#patterns.set(key, fill);
+		}
+		const scale = 1 / sprite.pixelRatio;
+		// Only the origin's position within one copy matters; keeping it small keeps it precise.
+		const e = mod(pattern.origin[0], sprite.width * scale);
+		const f = mod(pattern.origin[1], sprite.height * scale);
+		fill.setTransform({ a: scale, b: 0, c: 0, d: scale, e, f });
+		return fill;
+	}
+
+	public async drawPolygons(_id: string, features: [Feature, FillStyle][]): Promise<void> {
 		if (features.length === 0) return;
+
+		// Decode the patterns' sprite sheets up front, so the drawing itself keeps the
+		// features in order.
+		const sheets = new Map<string, Image>();
+		const outlineFills = new Map<FillPattern, CanvasPattern>();
+		for (const [, style] of features) {
+			const { pattern } = style;
+			if (!pattern) continue;
+			const uri = pattern.sprite.sheetDataUri;
+			if (!sheets.has(uri)) sheets.set(uri, await this.#decode(uri));
+			if (style.antialias && style.outlineColor === undefined && !outlineFills.has(pattern)) {
+				outlineFills.set(pattern, await this.#patternFill(pattern));
+			}
+		}
 
 		// Unlike the SVG backend there is nothing to merge: canvas blends every draw call
 		// separately, which is exactly what MapLibre does per feature. Fills and antialias
 		// outlines are still collected in one pass and drawn in two, because MapLibre draws
 		// every fill first and every outline after, so a lower feature's border composites
 		// on top of a later overlapping fill.
-		const outlines: { feature: Feature; style: FillStyle; color: Color }[] = [];
+		const outlines: { feature: Feature; style: FillStyle; paint: string | CanvasPattern }[] = [];
 
 		for (const [feature, style] of features) {
 			if (style.opacity <= 0) continue;
 
 			const color = new Color(style.color);
-			const translucent = style.opacity < 1 || color.alpha < 255;
+			// A pattern is drawn instead of the color.
+			const { pattern } = style;
+			const translucent = style.opacity < 1 || (!pattern && color.alpha < 255);
 
-			if (color.alpha > 0) {
+			if (pattern) {
+				const sheet = sheets.get(pattern.sprite.sheetDataUri)!;
+				this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
+					this.#trace(ctx, toSegments(feature.geometry), true);
+					ctx.clip();
+					this.#tilePattern(ctx, pattern, sheet, feature.getBbox());
+				});
+			} else if (color.alpha > 0) {
 				this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
 					ctx.fillStyle = color.hex;
 					this.#trace(ctx, toSegments(feature.geometry), true);
@@ -177,16 +274,23 @@ export class CanvasRenderer implements Renderer {
 			// already provides, so it is only drawn where it shows: a distinct
 			// fill-outline-color (choropleths), or a translucent fill where MapLibre draws
 			// the outline over the fill's edge.
+			// Without a fill-outline-color, a pattern's outline is drawn with the pattern too,
+			// as in MapLibre.
 			if (style.antialias && (style.outlineColor !== undefined || translucent)) {
-				const outlineColor =
-					style.outlineColor !== undefined ? new Color(style.outlineColor) : color;
-				if (outlineColor.alpha > 0) outlines.push({ feature, style, color: outlineColor });
+				const outlinePattern = pattern && outlineFills.get(pattern);
+				if (style.outlineColor === undefined && outlinePattern) {
+					outlines.push({ feature, style, paint: outlinePattern });
+				} else {
+					const outlineColor =
+						style.outlineColor !== undefined ? new Color(style.outlineColor) : color;
+					if (outlineColor.alpha > 0) outlines.push({ feature, style, paint: outlineColor.hex });
+				}
 			}
 		}
 
-		for (const { feature, style, color } of outlines) {
+		for (const { feature, style, paint } of outlines) {
 			this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
-				ctx.strokeStyle = color.hex;
+				ctx.strokeStyle = paint;
 				ctx.lineWidth = FILL_OUTLINE_WIDTH_PX;
 				// A polygon clipped to its tile has an outline without the clipped edges.
 				if (feature.outline) {
@@ -821,4 +925,9 @@ function toSegment(points: { x: number; y: number }[]): Segment {
 
 function toSegments(rings: { x: number; y: number }[][]): Segment[] {
 	return rings.map(toSegment);
+}
+
+/** `value` modulo `period`, always in `[0, period)`. */
+function mod(value: number, period: number): number {
+	return ((value % period) + period) % period;
 }

@@ -1,6 +1,6 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from '../geometry.js';
-import type { SpriteAtlas } from '../sources/sprite.js';
+import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 import type { ClipCircle, Projection } from '../projection.js';
 
 export interface View {
@@ -17,8 +17,12 @@ export interface View {
 export interface Renderer {
 	readonly width: number;
 	readonly height: number;
-	drawBackgroundFill(style: BackgroundStyle): void;
-	drawPolygons(id: string, features: [Feature, FillStyle][]): void;
+	/**
+	 * These two may be asynchronous, like {@link Renderer.drawIcons}: a pattern is a sprite
+	 * image, which a raster backend has to decode first.
+	 */
+	drawBackgroundFill(style: BackgroundStyle): void | Promise<void>;
+	drawPolygons(id: string, features: [Feature, FillStyle][]): void | Promise<void>;
 	drawLineStrings(id: string, features: [Feature, LineStyle][]): void;
 	drawCircles(id: string, features: [Feature, CircleStyle][]): void;
 	/**
@@ -69,11 +73,30 @@ export interface RendererOptions {
 export interface BackgroundStyle {
 	color: MaplibreColor;
 	opacity: number;
+	/** `background-pattern`: drawn instead of `color`. */
+	pattern?: FillPattern;
+}
+
+/**
+ * A sprite image repeated over an area (`fill-pattern`, `background-pattern`), at its
+ * display size (`width / pixelRatio`) and anchored to the world, as in MapLibre.
+ */
+export interface FillPattern {
+	/** The image's name in the sprite. */
+	name: string;
+	sprite: SpriteEntry;
+	/**
+	 * A screen point where one copy of the image has its top-left corner: the world's
+	 * origin, so the pattern moves with the map.
+	 */
+	origin: [number, number];
 }
 
 export interface FillStyle {
 	color: MaplibreColor;
 	opacity: number;
+	/** `fill-pattern`: drawn instead of `color`. */
+	pattern?: FillPattern;
 	translate: [number, number];
 	/**
 	 * fill-outline-color. When omitted the fill `color` is used (MapLibre's

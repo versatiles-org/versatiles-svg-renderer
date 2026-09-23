@@ -208,6 +208,66 @@ describe('renderMap', () => {
 	});
 
 	describe('fill layers', () => {
+		test('fills with a pattern from the sprite, which it loads also without labels', async () => {
+			const sprite = {
+				width: 16,
+				height: 16,
+				x: 0,
+				y: 0,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 16,
+				sheetHeight: 16,
+			};
+			(loadSpriteAtlas as Mock).mockResolvedValue(new Map([['base:hatch', sprite]]));
+			const square = (pattern: string) =>
+				makePolygonFeature(
+					[
+						[
+							[0, 0],
+							[50, 0],
+							[50, 50],
+							[0, 0],
+						],
+					],
+					{ pattern },
+				);
+			setLayerFeatures(
+				new Map([['sites', makeFeatures({ polygons: [square('base:hatch'), square('missing')] })]]),
+			);
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'sites',
+						type: 'fill',
+						source: 'src',
+						'source-layer': 'sites',
+						paint: { 'fill-pattern': ['get', 'pattern'] },
+					},
+				]),
+			);
+			const drawPolygons = vi.spyOn(job.renderer, 'drawPolygons');
+			await renderMap(job);
+
+			expect(loadSpriteAtlas).toHaveBeenCalled();
+			const drawn = drawPolygons.mock.calls[0]![1];
+			// The feature whose image is missing is not drawn, as in MapLibre.
+			expect(drawn).toHaveLength(1);
+			const pattern = drawn[0]![1].pattern!;
+			expect(pattern.name).toBe('base:hatch');
+			expect(pattern.sprite).toBe(sprite);
+			// The world's origin, for the view at 0/0, zoom 10 on a 256 px image.
+			const worldSize = 512 * 2 ** 10;
+			expect(pattern.origin).toEqual([128 - worldSize / 2, 128 - worldSize / 2]);
+		});
+
+		test('does not load the sprite without labels and patterns', async () => {
+			setLayerFeatures(new Map());
+			await renderMap(makeJob(makeStyle([{ id: 'bg', type: 'background' }])));
+			expect(loadSpriteAtlas).not.toHaveBeenCalled();
+		});
+
 		test('renders fill layer with polygons', async () => {
 			const polygon = makePolygonFeature([
 				[

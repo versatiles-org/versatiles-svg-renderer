@@ -102,6 +102,9 @@ export class StyleLayer {
 	private readonly layoutExpressions: Map<string, StylePropertyExpression>;
 	private readonly visibility: VisibilityExpression;
 
+	/** Whether the layer paints with a sprite image (`*-pattern`), so it needs the sprite. */
+	readonly usesPattern: boolean;
+
 	/**
 	 * @param globalState - The values `global-state` expressions read, in the layer's
 	 *   properties, filter and visibility.
@@ -113,6 +116,7 @@ export class StyleLayer {
 		this.maxzoom = spec.maxzoom;
 		this.paintExpressions = new Map();
 		this.layoutExpressions = new Map();
+		this.usesPattern = Object.keys(spec.paint ?? {}).some((name) => name.endsWith('-pattern'));
 
 		if (spec.type !== 'background') {
 			this.source = (spec as Record<string, unknown>).source as string;
