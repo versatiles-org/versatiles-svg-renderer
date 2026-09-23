@@ -9,7 +9,10 @@ export async function getRasterTiles(
 	const { width, height } = job.renderer;
 	const { zoom, center } = job.view;
 	const source = job.style.sources[sourceName] as
-		{ type: string; tiles?: string[]; maxzoom?: number } | undefined;
+		{ type: string; tiles?: string[]; url?: string; maxzoom?: number } | undefined;
+
+	// A TileJSON source whose document could not be loaded: drawn empty, like a vector source.
+	if (source?.type === 'raster' && !source.tiles && typeof source.url === 'string') return [];
 
 	if (source?.type !== 'raster' || !source.tiles) {
 		throw Error(

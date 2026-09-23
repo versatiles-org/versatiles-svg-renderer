@@ -4,6 +4,7 @@ import { loadSpriteAtlas } from '../sources/sprite.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { getTile, type TileLoader } from '../sources/tiles.js';
 import { defaultFetch, type FetchFunction } from '../sources/fetch.js';
+import { resolveSources } from '../sources/tilejson.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { getLayerStyles } from './style_layer.js';
 import type {
@@ -36,6 +37,8 @@ export interface RenderContext {
 	layers: StyleLayer[];
 	/** The style's sprite atlas. Only called when labels are rendered. */
 	getSprite(): Promise<SpriteAtlas>;
+	/** The style's sources, with TileJSON sources completed (see {@link resolveSources}). */
+	getSources(): Promise<StyleSpecification['sources']>;
 	loadTile: TileLoader;
 }
 
@@ -47,6 +50,7 @@ export function createRenderContext(
 	return {
 		layers: getLayerStyles(style.layers),
 		getSprite: () => loadSpriteAtlas(style, fetchFn),
+		getSources: async () => (await resolveSources(style.sources, fetchFn)).sources,
 		loadTile: (url, z, x, y) => getTile(url, z, x, y, fetchFn),
 	};
 }
@@ -72,7 +76,8 @@ export async function drawMap<R extends Renderer>(
 	});
 	const clipCircle = job.projection.clipCircle;
 	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
-	await render(job, context);
+	const sources = await context.getSources();
+	await render({ ...job, style: { ...job.style, sources } }, context);
 	job.renderer.finish?.();
 	return job.renderer;
 }

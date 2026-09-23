@@ -167,7 +167,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | **Sources**                           |     |     |       |
 | Vector and raster tiles               | ✅  | ✅  |       |
 | GeoJSON, inline data                  | ✅  | ✅  |       |
-| TileJSON (source `url`)               | ❌  | ❌  | [#50] |
+| TileJSON (source `url`)               | ✅  | ✅  |       |
 | `scheme`, `bounds`, `minzoom`         | ❌  | ❌  | [#51] |
 | `image` and `video` sources           | ❌  | ❌  | [#51] |
 | GeoJSON URL, clustering               | ❌  | ❌  | [#52] |
@@ -216,7 +216,6 @@ Labels and icons are only drawn with `renderLabels: true`. Interaction, animatio
 [#47]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/47
 [#48]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/48
 [#49]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/49
-[#50]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/50
 [#51]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/51
 [#52]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/52
 [#53]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/53

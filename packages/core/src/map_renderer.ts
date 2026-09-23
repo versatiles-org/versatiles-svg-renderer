@@ -8,17 +8,19 @@ import { TileCache } from './sources/tile_cache.js';
 import { MAX_LATITUDE, mercatorToLonLat, Projection } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
+import { resolveSources } from './sources/tilejson.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
 export interface SVGMapRendererOptions {
 	/**
 	 * The MapLibre style to render.
 	 *
-	 * Its sources must list their tile URLs directly (`tiles: [...]`). A style whose
-	 * sources only point at a TileJSON document (`url: '.../tiles.json'`) renders as an
-	 * **empty map without any error**, because the renderer does not fetch TileJSON. Hosted
-	 * styles such as those of VersaTiles list their tiles; a style built with
-	 * `@versatiles/style` needs its `inlineSources()` first.
+	 * A source may list its tile URLs (`tiles: [...]`) or point at a TileJSON document
+	 * (`url: '.../tiles.json'`), which is fetched once, like the sprite, with
+	 * {@link SVGMapRendererOptions.fetch}. As in MapLibre GL JS, `tiles`, `minzoom`,
+	 * `maxzoom` and the like come from the document unless the style sets them, and
+	 * relative tile URLs are resolved against the document's URL. A source whose TileJSON
+	 * cannot be loaded is left out, and the next render tries again.
 	 */
 	style: StyleSpecification;
 	/**
@@ -46,7 +48,7 @@ export interface SVGMapRendererOptions {
 	 */
 	tileCacheSize?: number;
 	/**
-	 * Loads tiles and sprites, like `fetch`, which is the default. Pass your own to send
+	 * Loads tiles, sprites and TileJSON documents, like `fetch`, which is the default. Pass your own to send
 	 * headers, go through a proxy, or keep tiles in a cache on disk.
 	 *
 	 * It must return a real `Response`, and its status matters: a 404 or 204 means the
@@ -148,6 +150,7 @@ export class SVGMapRenderer {
 	readonly #tiles: TileCache;
 	readonly #fetch: FetchFunction;
 	#sprite: Promise<SpriteAtlas> | undefined;
+	#sources: Promise<StyleSpecification['sources']> | undefined;
 
 	/**
 	 * @param options - The style, whether to draw labels, the tile cache size, and how to
@@ -162,6 +165,7 @@ export class SVGMapRenderer {
 		this.#context = {
 			layers: getLayerStyles(options.style.layers),
 			getSprite: () => this.#getSprite(),
+			getSources: () => this.#getSources(),
 			loadTile: this.#tiles.load,
 		};
 	}
@@ -180,12 +184,13 @@ export class SVGMapRenderer {
 	}
 
 	/**
-	 * Forgets the fetched tiles and sprite, so the next render fetches them again, e.g.
+	 * Forgets the fetched tiles, sprite and TileJSON documents, so the next render fetches them again, e.g.
 	 * after they were updated on the server, or to free their memory.
 	 */
 	public clearCache(): void {
 		this.#tiles.clear();
 		this.#sprite = undefined;
+		this.#sources = undefined;
 	}
 
 	/** Draws `view` onto `renderer`, which must already have the view's size. */
@@ -272,5 +277,20 @@ export class SVGMapRenderer {
 		});
 		this.#sprite = sprite;
 		return sprite;
+	}
+
+	/**
+	 * Fetches the TileJSON documents of the style's sources once and shares them between
+	 * renders, like the sprite. If one failed to load, the next
+	 * render fetches them again.
+	 */
+	#getSources(): Promise<StyleSpecification['sources']> {
+		if (this.#sources) return this.#sources;
+		const sources = resolveSources(this.#style.sources, this.#fetch).then((result) => {
+			if (!result.complete && this.#sources === sources) this.#sources = undefined;
+			return result.sources;
+		});
+		this.#sources = sources;
+		return sources;
 	}
 }

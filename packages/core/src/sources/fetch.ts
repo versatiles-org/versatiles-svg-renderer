@@ -12,7 +12,7 @@ export interface FetchResponse {
 }
 
 /**
- * Loads a URL, like `fetch`: the renderer loads tiles and sprites through it. It is called
+ * Loads a URL, like `fetch`: the renderer loads tiles, sprites and TileJSON documents through it. It is called
  * with the URL only, and should resolve to a `Response`.
  */
 export type FetchFunction = (url: string) => Promise<FetchResponse>;

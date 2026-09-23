@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **TileJSON sources.** A source that points at a TileJSON document (`"url": "…/tiles.json"`) instead of listing `tiles` rendered as an empty map without an error. The renderer now fetches the document (with the `fetch` option, once per `SVGMapRenderer` or `PNGMapRenderer`) and takes `tiles`, `minzoom`, `maxzoom` and the like from it; values set in the style win, as in MapLibre GL JS. Relative tile URLs are resolved against the document's URL. A document that cannot be loaded leaves its source empty, and the next render tries again. ([#50](https://github.com/versatiles-org/versatiles-svg-renderer/issues/50))
+
 ### Fixed
 
 - **Features of different sources no longer mix when their layer names match.** A style with two vector sources that both have a layer `water` drew the `water` features of both sources in each style layer, and a GeoJSON source named like a vector layer (e.g. `water`) added its features to that layer. Features are now kept per source. A GeoJSON style layer also ignores `source-layer` now, as in MapLibre. ([#36](https://github.com/versatiles-org/versatiles-svg-renderer/issues/36))

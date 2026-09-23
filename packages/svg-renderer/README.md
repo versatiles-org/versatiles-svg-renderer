@@ -40,8 +40,7 @@ const svg = await renderToSVG({ style, lon: 13.4, lat: 52.5, zoom: 10 });
 
 The result is an SVG document as a string: write it to a file, or put it into a web page. This works the same in Node.js and in the browser. Without `width` and `height`, the image is 1024 × 1024 pixels.
 
-> [!IMPORTANT]
-> The style's sources must list their tile URLs (`"tiles": [...]`). A source that only points at a TileJSON document (`"url": "…/tiles.json"`) renders as an **empty map, without an error**. Hosted styles like the one above list their tiles; a style built with `@versatiles/style` needs its `inlineSources()` first.
+A source may list its tile URLs (`"tiles": [...]`) or point at a TileJSON document (`"url": "…/tiles.json"`). The renderer fetches a TileJSON document once per `SVGMapRenderer` and takes `tiles`, `minzoom`, `maxzoom` and the like from it, unless the style sets them, as MapLibre GL JS does.
 
 ### Many views of one style
 
@@ -100,7 +99,7 @@ const map = new SVGMapRenderer({
 });
 ```
 
-It must return a real `Response`, and the status counts: a 404 or 204 means the server has no such tile, and the renderer remembers that; any other error status, or a rejected promise, counts as failed, so the next render tries again. The renderer only asks for tiles and sprites: a style's TileJSON sources are resolved beforehand, e.g. by `inlineSources()` of `@versatiles/style`, which uses its own requests.
+It must return a real `Response`, and the status counts: a 404 or 204 means the server has no such tile, and the renderer remembers that; any other error status, or a rejected promise, counts as failed, so the next render tries again. The renderer asks it for tiles, sprites and the TileJSON documents of the style's sources.
 
 ### About `renderLabels`
 

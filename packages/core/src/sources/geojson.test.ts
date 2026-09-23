@@ -260,7 +260,7 @@ describe('loadGeoJSONSource', () => {
 			const layerFeatures: LayerFeatures = new Map();
 
 			loadGeoJSONSource({
-						data: { type: 'Point', coordinates: [0, 0] },
+				data: { type: 'Point', coordinates: [0, 0] },
 				width: WIDTH,
 				height: HEIGHT,
 				zoom: ZOOM,
@@ -269,7 +269,7 @@ describe('loadGeoJSONSource', () => {
 			});
 
 			loadGeoJSONSource({
-						data: { type: 'Point', coordinates: [5, 5] },
+				data: { type: 'Point', coordinates: [5, 5] },
 				width: WIDTH,
 				height: HEIGHT,
 				zoom: ZOOM,

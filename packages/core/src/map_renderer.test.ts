@@ -5,6 +5,7 @@ import { renderToSVG } from './render_svg.js';
 
 const SPRITE_URL = 'https://example.com/sprite';
 const TILE_URL = 'https://example.com/tiles/{z}/{x}/{y}.png';
+const TILEJSON_URL = 'https://example.com/tiles.json';
 
 /** A style whose raster layer reads a zoom-dependent paint value after awaiting its tiles. */
 function makeStyle(): StyleSpecification {
@@ -52,10 +53,15 @@ function response(body: string | Uint8Array<ArrayBuffer>, type: string): Respons
 /** Answers tile and sprite requests after a short delay, so concurrent renders interleave. */
 /** A fetch that answers tile and sprite requests after a short delay. */
 function fakeFetch(
-	options: { spriteFails?: boolean; tileStatus?: number } = {},
+	options: { spriteFails?: boolean; tileJSONFails?: boolean; tileStatus?: number } = {},
 ): Mock<(url: string) => Promise<Response>> {
 	return vi.fn(async (url: string) => {
 		await new Promise((resolve) => setTimeout(resolve, 5));
+		if (url === TILEJSON_URL) {
+			if (options.tileJSONFails) return new Response(null, { status: 500 });
+			// A relative tile URL, resolved against the TileJSON URL to TILE_URL.
+			return response(JSON.stringify({ tiles: ['tiles/{z}/{x}/{y}.png'] }), 'application/json');
+		}
 		if (url.startsWith(SPRITE_URL)) {
 			if (options.spriteFails) return new Response(null, { status: 500 });
 			return url.endsWith('.json')
@@ -68,7 +74,7 @@ function fakeFetch(
 }
 
 /** Installs a fake fetch as the global `fetch`, so that concurrent renders interleave. */
-function mockFetch(options: { spriteFails?: boolean } = {}): Mock {
+function mockFetch(options: { spriteFails?: boolean; tileJSONFails?: boolean } = {}): Mock {
 	const fetchMock = fakeFetch(options);
 	globalThis.fetch = fetchMock as unknown as typeof fetch;
 	return fetchMock;
@@ -83,6 +89,17 @@ function forbidGlobalFetch(): void {
 
 function spriteRequests(fetchMock: Mock): number {
 	return fetchMock.mock.calls.filter(([url]) => String(url).startsWith(SPRITE_URL)).length;
+}
+
+function tileJSONRequests(fetchMock: Mock): number {
+	return fetchMock.mock.calls.filter(([url]) => url === TILEJSON_URL).length;
+}
+
+/** {@link makeStyle}, with the raster source given by a TileJSON document instead of `tiles`. */
+function makeTileJSONStyle(): StyleSpecification {
+	const style = makeStyle();
+	style.sources.raster = { type: 'raster', url: TILEJSON_URL, tileSize: 512 };
+	return style;
 }
 
 function tileRequests(fetchMock: Mock): number {
@@ -166,6 +183,46 @@ describe('SVGMapRenderer', () => {
 		map.clearCache();
 		await map.renderSVG();
 		expect(spriteRequests(fetchMock)).toBe(4);
+	});
+
+	test('renders a TileJSON source like one that lists its tiles', async () => {
+		const view = { zoom: 3, width: 256, height: 256 };
+		const expected = await new SVGMapRenderer({ style: makeStyle() }).renderSVG(view);
+		const fetchMock = mockFetch();
+		const svg = await new SVGMapRenderer({ style: makeTileJSONStyle() }).renderSVG(view);
+		expect(tileRequests(fetchMock)).toBeGreaterThan(0);
+		expect(svg).toBe(expected);
+	});
+
+	test('fetches a TileJSON document only once, also for concurrent renders', async () => {
+		const fetchMock = mockFetch();
+		const map = new SVGMapRenderer({ style: makeTileJSONStyle() });
+		await Promise.all([map.renderSVG({ zoom: 3 }), map.renderSVG({ zoom: 3 })]);
+		await map.renderSVG({ zoom: 4 });
+		expect(tileJSONRequests(fetchMock)).toBe(1);
+	});
+
+	test('fetches a TileJSON document that failed to load again', async () => {
+		let fetchMock = mockFetch({ tileJSONFails: true });
+		const map = new SVGMapRenderer({ style: makeTileJSONStyle() });
+		await map.renderSVG({ zoom: 3 });
+		expect(tileJSONRequests(fetchMock)).toBe(1);
+		expect(tileRequests(fetchMock)).toBe(0);
+
+		fetchMock = mockFetch();
+		await map.renderSVG({ zoom: 3 });
+		await map.renderSVG({ zoom: 3 });
+		expect(tileJSONRequests(fetchMock)).toBe(1);
+		expect(tileRequests(fetchMock)).toBeGreaterThan(0);
+	});
+
+	test('clearCache makes the next render fetch the TileJSON document again', async () => {
+		const fetchMock = mockFetch();
+		const map = new SVGMapRenderer({ style: makeTileJSONStyle() });
+		await map.renderSVG();
+		map.clearCache();
+		await map.renderSVG();
+		expect(tileJSONRequests(fetchMock)).toBe(2);
 	});
 
 	test('fetches each tile only once for overlapping views', async () => {

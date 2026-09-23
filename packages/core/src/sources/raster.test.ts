@@ -40,6 +40,11 @@ describe('getRasterTiles', () => {
 		await expect(getRasterTiles(job, 'src')).rejects.toThrow('Invalid raster source "src"');
 	});
 
+	test('returns no tiles for a TileJSON source whose document was not loaded', async () => {
+		const job = makeJob({ src: { type: 'raster', url: 'https://a/tiles.json' } });
+		expect(await getRasterTiles(job, 'src')).toEqual([]);
+	});
+
 	test('fetches tiles and returns data URIs', async () => {
 		mockFetchPng();
 
