@@ -43,6 +43,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'raster-saturation',
 	],
 	circle: [
+		'circle-blur',
 		'circle-color',
 		'circle-opacity',
 		'circle-radius',
@@ -67,6 +68,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'icon-rotate',
 		'icon-rotation-alignment',
 		'icon-size',
+		'icon-translate',
 		'symbol-placement',
 		'symbol-sort-key',
 		'symbol-spacing',
@@ -92,6 +94,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-rotation-alignment',
 		'text-size',
 		'text-transform',
+		'text-translate',
 	],
 };
 

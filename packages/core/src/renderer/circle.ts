@@ -38,3 +38,58 @@ export function circleShape(
 	}
 	return shape;
 }
+
+/** A stop of a {@link circleGradient}: its color and opacity. */
+export interface CircleGradientStop {
+	/** Where along the radius, from 0 (center) to 1 (outer edge). */
+	offset: number;
+	rgb: [number, number, number];
+	opacity: number;
+}
+
+/** How many stops a blurred circle's gradient is sampled with, besides its edges. */
+const GRADIENT_SAMPLES = 24;
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+	const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+	return t * t * (3 - 2 * t);
+}
+
+/**
+ * A blurred circle (`circle-blur`) as MapLibre's circle shader draws it, as one circle of
+ * the outer radius filled with a radial gradient: at each distance from the center, the
+ * fill's and the stroke's color are mixed (premultiplied), turning from fill to stroke over
+ * the `blur` share of the outer radius just inside `radius`, and the whole fades out over
+ * the same share just inside the outer edge.
+ */
+export function circleGradient(
+	style: CircleStyle,
+	fill: { rgb: [number, number, number]; alpha: number },
+	stroke: { rgb: [number, number, number]; alpha: number },
+): { radius: number; stops: CircleGradientStop[] } {
+	const blur = style.blur ?? 0;
+	const outer = style.radius + Math.max(0, style.strokeWidth);
+	const border = outer > 0 ? style.radius / outer : 1;
+	const hasStroke = style.strokeWidth >= 0.01;
+	const fillOpacity = style.opacity * fill.alpha;
+	const strokeOpacity = style.strokeOpacity * stroke.alpha;
+
+	const offsets = new Set([0, 1, border, border - blur, 1 - blur]);
+	for (let i = 1; i < GRADIENT_SAMPLES; i++) offsets.add(i / GRADIENT_SAMPLES);
+	const stops = [...offsets]
+		.filter((offset) => offset >= 0 && offset <= 1)
+		.sort((a, b) => a - b)
+		.map((offset): CircleGradientStop => {
+			const fade = smoothstep(0, blur, 1 - offset);
+			const toStroke = hasStroke ? smoothstep(-blur, 0, offset - border) : 0;
+			const alpha = fillOpacity * (1 - toStroke) + strokeOpacity * toStroke;
+			const channel = (i: 0 | 1 | 2): number =>
+				alpha > 0
+					? (fill.rgb[i] * fillOpacity * (1 - toStroke) +
+							stroke.rgb[i] * strokeOpacity * toStroke) /
+						alpha
+					: fill.rgb[i];
+			return { offset, rgb: [channel(0), channel(1), channel(2)], opacity: alpha * fade };
+		});
+	return { radius: outer, stops };
+}

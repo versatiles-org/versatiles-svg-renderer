@@ -20,7 +20,7 @@ import type {
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
-import { circleShape } from './circle.js';
+import { circleGradient, circleShape } from './circle.js';
 import { LRUCache } from '../lru_cache.js';
 import {
 	affineFromTriangles,
@@ -379,6 +379,39 @@ export class CanvasRenderer implements Renderer {
 		for (const [feature, style] of features) {
 			const color = new Color(style.color);
 			const strokeColor = new Color(style.strokeColor);
+
+			if ((style.blur ?? 0) > 0) {
+				// Blurred: one circle, fill and stroke in a radial gradient that fades out.
+				const { radius, stops } = circleGradient(
+					style,
+					{ rgb: color.rgbBytes, alpha: color.opacity },
+					{ rgb: strokeColor.rgbBytes, alpha: strokeColor.opacity },
+				);
+				if (radius <= 0) continue;
+				this.#paint(this.ctx, style.translate, 1, (ctx) => {
+					for (const ring of feature.geometry) {
+						const point = ring[0];
+						if (!point) continue;
+						const [ux, uy] = roundPoint(point.x, point.y);
+						const x = ux / UNITS_PER_PX;
+						const y = uy / UNITS_PER_PX;
+						const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+						for (const stop of stops) {
+							const [r, g, b] = stop.rgb.map((c) => Math.round(c));
+							gradient.addColorStop(
+								stop.offset,
+								`rgba(${String(r)},${String(g)},${String(b)},${String(stop.opacity)})`,
+							);
+						}
+						ctx.fillStyle = gradient;
+						ctx.beginPath();
+						ctx.arc(x, y, radius, 0, 2 * Math.PI);
+						ctx.fill();
+					}
+				});
+				continue;
+			}
+
 			const { fill, stroke } = circleShape(style, color.opacity, strokeColor.opacity);
 			if (!fill && !stroke) continue;
 

@@ -318,7 +318,7 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
  * mismatch in the diff image points straight at it:
  *
  * | fill-sort-key           | line-sort-key               | circle-sort-key              |
- * | circle(-stroke)-opacity | line-gap-width              | global-state                 |
+ * | circle opacities, blur  | line-gap-width              | global-state                 |
  * | fill-pattern            | translucent pattern, outline | data-driven, missing image |
  */
 function featuresStyle(): StyleSpecification {
@@ -383,7 +383,16 @@ function featuresStyle(): StyleSpecification {
 					{ opacity: 1, strokeOpacity: 0.4 },
 					{ opacity: 0, strokeOpacity: 0.7 },
 				].map((props, i) =>
-					feature({ type: 'Point', coordinates: [x1 - 0.01 + i * 0.01, y2] }, props),
+					feature({ type: 'Point', coordinates: [x1 - 0.01 + i * 0.01, y2 + 0.0055] }, props),
+				),
+			),
+			blurred: collection(
+				[
+					{ blur: 0.5, strokeWidth: 0, opacity: 1, strokeOpacity: 1 },
+					{ blur: 1, strokeWidth: 8, opacity: 1, strokeOpacity: 1 },
+					{ blur: 0.3, strokeWidth: 8, opacity: 0.6, strokeOpacity: 0.5 },
+				].map((props, i) =>
+					feature({ type: 'Point', coordinates: [x1 - 0.01 + i * 0.01, y2 - 0.0055] }, props),
 				),
 			),
 			gap: collection([
@@ -449,6 +458,20 @@ function featuresStyle(): StyleSpecification {
 					'circle-opacity': ['get', 'opacity'],
 					'circle-stroke-color': '#00ccff',
 					'circle-stroke-width': 8,
+					'circle-stroke-opacity': ['get', 'strokeOpacity'],
+				},
+			},
+			{
+				id: 'circle-blur',
+				type: 'circle',
+				source: 'blurred',
+				paint: {
+					'circle-color': '#ffaa00',
+					'circle-radius': 18,
+					'circle-blur': ['get', 'blur'],
+					'circle-opacity': ['get', 'opacity'],
+					'circle-stroke-color': '#00ccff',
+					'circle-stroke-width': ['get', 'strokeWidth'],
 					'circle-stroke-opacity': ['get', 'strokeOpacity'],
 				},
 			},

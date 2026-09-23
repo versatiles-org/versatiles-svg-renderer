@@ -134,6 +134,8 @@ export interface CircleStyle {
 	strokeWidth: number;
 	strokeColor: MaplibreColor;
 	strokeOpacity: number;
+	/** `circle-blur`: the share of the outer radius over which the circle fades out. */
+	blur?: number;
 }
 
 export interface RasterStyle {

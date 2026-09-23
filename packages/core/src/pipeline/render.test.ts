@@ -736,6 +736,40 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test('moves labels by text-translate, together with the area they block', async () => {
+			const points = [
+				makePointFeature([[[100, 100]]], { name: 'moved' }),
+				makePointFeature([[[200, 30]]], { name: 'free' }),
+				makePointFeature([[[100, 160]]], { name: 'blocked' }),
+			];
+			setLayerFeatures(new Map([['places', makeFeatures({ points })]]));
+			const layer = (id: string, names: string[], translate: [number, number]) => ({
+				id,
+				type: 'symbol' as const,
+				source: 'src',
+				'source-layer': 'places',
+				filter: ['in', ['get', 'name'], ['literal', names]] as never,
+				layout: { 'text-field': '{name}' },
+				paint: { 'text-translate': translate },
+			});
+			const job = makeJob(
+				makeStyle([
+					layer('lower', ['moved', 'free'], [0, 60]),
+					layer('upper', ['blocked'], [0, 0]),
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+			const drawn = new Map(drawLabels.mock.calls.map(([id, labels]) => [id, labels]));
+			// "moved" is moved onto "blocked", placed before it by the upper layer: it is dropped.
+			expect(drawn.get('upper-labels')!.map(([, style]) => style.text)).toEqual(['blocked']);
+			const lower = drawn.get('lower-labels')!;
+			expect(lower.map(([, style]) => style.text)).toEqual(['free']);
+			expect(lower[0]![0].geometry[0]![0]).toEqual(expect.objectContaining({ x: 200, y: 90 }));
+		});
+
 		test('breaks a long point label into lines, but not one along a line', async () => {
 			const name = 'Friedrich-Wilhelm-Universität zu Berlin';
 			const point = makePointFeature([[[128, 128]]], { name });

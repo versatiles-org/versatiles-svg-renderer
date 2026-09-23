@@ -38,8 +38,8 @@ the globe — while both screenshots come off a white page, so an unflattened di
 would report every unpainted pixel as a mismatch.
 
 The `parity-features` region is a hand-made style that checks single MapLibre
-features, one per cell of a grid: sort keys, circle opacities, `line-gap-width`,
-`global-state` and fill patterns. When a renderer gains a feature MapLibre has, give it a cell there, so
+features, one per cell of a grid: sort keys, circle opacities and blur,
+`line-gap-width`, `global-state` and fill patterns. When a renderer gains a feature MapLibre has, give it a cell there, so
 its diff is measured without the noise of a real map.
 
 To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector npm run

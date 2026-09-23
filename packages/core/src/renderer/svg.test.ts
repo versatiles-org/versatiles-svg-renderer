@@ -787,6 +787,20 @@ describe('SVGRenderer', () => {
 			expect(r2.getString()).toContain('r="5"');
 		});
 
+		test('draws a blurred circle as one circle with a radial gradient', () => {
+			const r = makeRenderer();
+			const feature = makePointFeature([
+				[100, 50],
+				[150, 50],
+			]);
+			r.drawCircles('c', [[feature, defaultCircleStyle({ blur: 0.5, strokeWidth: 2 })]]);
+			const svg = r.getString();
+			// Radius 5 plus the stroke of 2, one gradient for both circles.
+			expect(svg.match(/<circle [^>]*r="7" fill="url\(#circle-blur-0\)"/g)).toHaveLength(2);
+			expect(svg.match(/<radialGradient id="circle-blur-0">/g)).toHaveLength(1);
+			expect(svg).toContain('<stop offset="1" stop-color="rgb(');
+		});
+
 		test('fades the fill with opacity and the stroke with strokeOpacity, separately', () => {
 			const feature = makePointFeature([[100, 50]]);
 			const r = makeRenderer();

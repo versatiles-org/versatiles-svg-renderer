@@ -19,7 +19,7 @@ import type {
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 import type { ClipCircle } from '../projection.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
-import { circleShape } from './circle.js';
+import { circleGradient, circleShape, type CircleGradientStop } from './circle.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -84,6 +84,8 @@ export class SVGRenderer {
 
 	readonly #sdfFilterDefs = new Map<string, { filterId: string; content: string }>();
 	readonly #patternDefs = new Map<string, { id: string; content: string }>();
+	/** Radial gradients of blurred circles: their ids, by their stops. */
+	readonly #circleGradientDefs = new Map<string, string>();
 	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
 
 	readonly #rasterDefs: string[] = [];
@@ -327,27 +329,27 @@ export class SVGRenderer {
 		features.forEach(([feature, style]) => {
 			const color = new Color(style.color);
 			const strokeColor = new Color(style.strokeColor);
-			const { fill, stroke } = circleShape(style, color.opacity, strokeColor.opacity);
-			if (!fill && !stroke) return;
-
 			const translate =
 				style.translate[0] === 0 && style.translate[1] === 0
 					? ''
 					: ` transform="translate(${formatPoint(style.translate)})"`;
-			const fillAttrs = fill
-				? `fill="${color.rgb}"${opacityAttr('fill-opacity', fill.opacity)}`
-				: 'fill="none"';
-			const strokeAttrs = stroke
-				? ` stroke="${strokeColor.rgb}" stroke-width="${formatScaled(stroke.width)}"${opacityAttr('stroke-opacity', stroke.opacity)}`
-				: '';
-			// One element when fill and stroke share a radius, else the fill and a ring.
-			const elements =
-				!fill || !stroke || fill.radius === stroke.radius
-					? [`r="${formatScaled((stroke ?? fill)!.radius)}" ${fillAttrs}${strokeAttrs}${translate}`]
-					: [
-							`r="${formatScaled(fill.radius)}" ${fillAttrs}${translate}`,
-							`r="${formatScaled(stroke.radius)}" fill="none"${strokeAttrs}${translate}`,
-						];
+
+			let elements: string[];
+			if ((style.blur ?? 0) > 0) {
+				// Blurred: one circle, fill and stroke in a radial gradient that fades out.
+				const { radius, stops } = circleGradient(
+					style,
+					{ rgb: color.rgbBytes, alpha: color.opacity },
+					{ rgb: strokeColor.rgbBytes, alpha: strokeColor.opacity },
+				);
+				if (radius <= 0 || stops.every((stop) => stop.opacity <= 0)) return;
+				elements = [
+					`r="${formatScaled(radius)}" fill="url(#${this.#circleGradientId(stops)})"${translate}`,
+				];
+			} else {
+				elements = this.#circleElements(style, color, strokeColor, translate);
+				if (elements.length === 0) return;
+			}
 			const key = elements.join('\0');
 
 			if (key !== currentKey) {
@@ -370,6 +372,50 @@ export class SVGRenderer {
 			}
 		}
 		this.#svg.push('</g>');
+	}
+
+	/** The attributes of the `<circle>`s of an unblurred circle: fill and stroke, or none. */
+	#circleElements(
+		style: CircleStyle,
+		color: Color,
+		strokeColor: Color,
+		translate: string,
+	): string[] {
+		const { fill, stroke } = circleShape(style, color.opacity, strokeColor.opacity);
+		if (!fill && !stroke) return [];
+		const fillAttrs = fill
+			? `fill="${color.rgb}"${opacityAttr('fill-opacity', fill.opacity)}`
+			: 'fill="none"';
+		const strokeAttrs = stroke
+			? ` stroke="${strokeColor.rgb}" stroke-width="${formatScaled(stroke.width)}"${opacityAttr('stroke-opacity', stroke.opacity)}`
+			: '';
+		// One element when fill and stroke share a radius, else the fill and a ring.
+		const elements =
+			!fill || !stroke || fill.radius === stroke.radius
+				? [`r="${formatScaled((stroke ?? fill)!.radius)}" ${fillAttrs}${strokeAttrs}${translate}`]
+				: [
+						`r="${formatScaled(fill.radius)}" ${fillAttrs}${translate}`,
+						`r="${formatScaled(stroke.radius)}" fill="none"${strokeAttrs}${translate}`,
+					];
+		return elements;
+	}
+
+	/**
+	 * The id of a `<radialGradient>` for a blurred circle's `stops`, defined once per look.
+	 */
+	#circleGradientId(stops: CircleGradientStop[]): string {
+		const content = stops
+			.map((stop) => {
+				const [r, g, b] = stop.rgb.map((c) => Math.round(c));
+				return `<stop offset="${formatScale(stop.offset)}" stop-color="rgb(${String(r)},${String(g)},${String(b)})" stop-opacity="${formatScale(stop.opacity)}" />`;
+			})
+			.join('');
+		let id = this.#circleGradientDefs.get(content);
+		if (!id) {
+			id = `circle-blur-${String(this.#circleGradientDefs.size)}`;
+			this.#circleGradientDefs.set(content, id);
+		}
+		return id;
 	}
 
 	public drawLabels(id: string, features: [Feature, LabelStyle][]): void {
@@ -760,6 +806,9 @@ export class SVGRenderer {
 		}
 		for (const { content } of this.#patternDefs.values()) {
 			defsContent.push(content);
+		}
+		for (const [stops, id] of this.#circleGradientDefs) {
+			defsContent.push(`<radialGradient id="${id}">${stops}</radialGradient>`);
 		}
 		for (const { filterId, stdDev } of this.#blurFilterDefs.values()) {
 			// Use userSpaceOnUse over the whole canvas: the default objectBoundingBox

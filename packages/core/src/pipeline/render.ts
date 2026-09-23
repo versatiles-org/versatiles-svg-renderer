@@ -408,6 +408,7 @@ function renderCircleLayer(layer: Layer): void {
 			strokeWidth: getPaint('circle-stroke-width', feature) as number,
 			strokeColor: getPaint('circle-stroke-color', feature) as MaplibreColor,
 			strokeOpacity: getPaint('circle-stroke-opacity', feature) as number,
+			blur: getPaint('circle-blur', feature) as number,
 		},
 	]);
 	layer.job.renderer.drawCircles(layer.layerStyle.id, styled);
@@ -495,6 +496,8 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 		const iconPadding = (getLayout('icon-padding', feature) as { values: number[] }).values;
 
 		const placement = getLayout('symbol-placement', feature) as string;
+		const textTranslate = getPaint('text-translate', feature) as [number, number];
+		const iconTranslate = getPaint('icon-translate', feature) as [number, number];
 		const pointAtAnchor = (x: number, y: number): LayerFeature =>
 			new LayerFeature({
 				type: 'Point',
@@ -517,23 +520,27 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 			const justify = getLayout('text-justify', feature) as string;
 			const lineStyle = labelStyle && lines.length > 0 && { ...labelStyle, text: lines.join('\n') };
 			for (const point of labelAnchors(feature)) {
-				const at = pointAtAnchor(point.x, point.y);
+				// text-translate and icon-translate move the label and the icon, and what they block.
+				const tx = point.x + textTranslate[0];
+				const ty = point.y + textTranslate[1];
+				const ix = point.x + iconTranslate[0];
+				const iy = point.y + iconTranslate[1];
 				let label: [LayerFeature, SymbolStyle] | undefined;
 				let textBoxes: Box[] | undefined;
 				if (lineStyle) {
-					const layout = layoutText(point.x, point.y, lineStyle, lines, lineHeight, justify);
+					const layout = layoutText(tx, ty, lineStyle, lines, lineHeight, justify);
 					label = [
-						at,
+						pointAtAnchor(tx, ty),
 						layout.lines
 							? { ...lineStyle, lines: layout.lines, justify: layout.justify }
 							: lineStyle,
 					];
-					textBoxes = [paddedBox(layout.box, lineStyle, point.x, point.y, textPadding)];
+					textBoxes = [paddedBox(layout.box, lineStyle, tx, ty, textPadding)];
 				}
 				entries.push({
-					icon: iconStyle && [at, iconStyle],
+					icon: iconStyle && [pointAtAnchor(ix, iy), iconStyle],
 					label,
-					iconBox: iconStyle && iconBox(point.x, point.y, iconStyle, sprite!, iconPadding),
+					iconBox: iconStyle && iconBox(ix, iy, iconStyle, sprite!, iconPadding),
 					textBoxes,
 					options,
 					showIcon: false,
@@ -591,24 +598,32 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 						glyphs.advances,
 						offset,
 						keepUpright,
-					);
+					).map((glyph) => ({
+						...glyph,
+						x: glyph.x + textTranslate[0],
+						y: glyph.y + textTranslate[1],
+					}));
 					label = [at, { ...labelStyle, path }];
 					textBoxes = path.map((glyph, i) =>
 						glyphBox(glyph, glyphs.advances[i]!, labelStyle.size, textPadding),
 					);
 				} else if (labelStyle) {
-					label = [at, labelStyle];
-					textBoxes = [textBox(anchor.x, anchor.y, labelStyle, textPadding)];
+					const tx = anchor.x + textTranslate[0];
+					const ty = anchor.y + textTranslate[1];
+					label = [pointAtAnchor(tx, ty), labelStyle];
+					textBoxes = [textBox(tx, ty, labelStyle, textPadding)];
 				}
 
 				const lineIcon =
 					iconStyle && iconAlongLine
 						? { ...iconStyle, rotate: iconStyle.rotate + lineAngle }
 						: iconStyle;
+				const ix = anchor.x + iconTranslate[0];
+				const iy = anchor.y + iconTranslate[1];
 				entries.push({
-					icon: lineIcon && [at, lineIcon],
+					icon: lineIcon && [pointAtAnchor(ix, iy), lineIcon],
 					label,
-					iconBox: lineIcon && iconBox(anchor.x, anchor.y, lineIcon, sprite!, iconPadding),
+					iconBox: lineIcon && iconBox(ix, iy, lineIcon, sprite!, iconPadding),
 					textBoxes,
 					options,
 					showIcon: false,
