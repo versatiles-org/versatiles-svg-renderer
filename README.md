@@ -147,3 +147,81 @@ If the workflow fails, fix the cause and use "Re-run failed jobs": versions alre
 <!--- This chapter is generated automatically --->
 
 [![Dependency graph](docs/dependency-graph.svg)](docs/dependency-graph.svg?raw=true)
+
+## MapLibre GL JS Coverage
+
+What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Unsupported features are skipped without a warning ([#58]). All gaps carry the label [`maplibre-parity`][parity].
+
+✅ supported · ⚠️ partly · ❌ not yet
+
+| Feature                               | SVG | PNG | Issue |
+| ------------------------------------- | :-: | :-: | ----- |
+| **Camera**                            |     |     |       |
+| Mercator, globe, vertical-perspective | ✅  | ✅  |       |
+| Bearing (rotation)                    | ❌  | ❌  | [#35] |
+| Pitch (tilt)                          | ❌  | ❌  | [#37] |
+| Padding                               | ❌  | ❌  | [#57] |
+| Default view from the style           | ❌  | ❌  | [#56] |
+| 3D terrain                            | ❌  | ❌  | [#48] |
+| Sky, fog, light                       | ❌  | ❌  | [#49] |
+| **Sources**                           |     |     |       |
+| Vector and raster tiles               | ✅  | ✅  |       |
+| GeoJSON, inline data                  | ✅  | ✅  |       |
+| TileJSON (source `url`)               | ❌  | ❌  | [#50] |
+| `scheme`, `bounds`, `minzoom`         | ❌  | ❌  | [#51] |
+| `image` and `video` sources           | ❌  | ❌  | [#51] |
+| GeoJSON URL, clustering               | ❌  | ❌  | [#52] |
+| `raster-dem`                          | ❌  | ❌  | [#47] |
+| **Layers**                            |     |     |       |
+| `background`, `fill`, `line`          | ✅  | ✅  |       |
+| `circle`, `raster`                    | ✅  | ✅  |       |
+| `symbol`                              | ⚠️  | ⚠️  | ↓     |
+| `fill-extrusion`                      | ❌  | ❌  | [#45] |
+| `heatmap`                             | ❌  | ❌  | [#46] |
+| `hillshade`, `color-relief`           | ❌  | ❌  | [#47] |
+| Patterns (`*-pattern`)                | ❌  | ❌  | [#44] |
+| `line-gap-width`, `line-gradient`     | ❌  | ❌  | [#53] |
+| Other paint/layout properties         | ⚠️  | ⚠️  | [#54] |
+| **Labels and icons**                  |     |     |       |
+| Icons from the sprite, SDF icons      | ✅  | ✅  |       |
+| Point labels                          | ✅  | ✅  |       |
+| Style's fonts                         | ⚠️¹ | ✅² | [#43] |
+| Dropping overlaps                     | ❌  | ❌  | [#38] |
+| Labels along lines                    | ❌  | ❌  | [#39] |
+| Label position in polygons            | ⚠️  | ⚠️  | [#40] |
+| Line breaks, wrapping                 | ❌  | ❌  | [#41] |
+| `format` expressions                  | ⚠️³ | ⚠️³ | [#42] |
+| **Expressions**                       |     |     |       |
+| Filters, zoom expressions             | ✅  | ✅  |       |
+| `global-state`                        | ❌  | ❌  | [#55] |
+
+¹ The SVG names the font; the viewer has to provide it.
+² With the `fonts` option; otherwise installed fonts.
+³ The text is drawn, its formatting is lost.
+
+Labels and icons are only drawn with `renderLabels: true`. Interaction, animation and `feature-state` do not apply to a static image.
+
+[parity]: https://github.com/versatiles-org/versatiles-svg-renderer/issues?q=is%3Aopen+label%3Amaplibre-parity
+[#35]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/35
+[#37]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/37
+[#38]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/38
+[#39]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/39
+[#40]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/40
+[#41]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/41
+[#42]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/42
+[#43]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/43
+[#44]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/44
+[#45]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/45
+[#46]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/46
+[#47]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/47
+[#48]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/48
+[#49]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/49
+[#50]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/50
+[#51]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/51
+[#52]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/52
+[#53]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/53
+[#54]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/54
+[#55]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/55
+[#56]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/56
+[#57]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/57
+[#58]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/58

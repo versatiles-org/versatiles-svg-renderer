@@ -110,6 +110,8 @@ The result is typed as a `Uint8Array` so the package does not require Node's typ
 
 Label rendering has the same limitations as in SVG output: [see `renderLabels`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-renderlabels).
 
+Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
+
 ### `new PNGMapRenderer(options)`
 
 An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (`style`, `renderLabels`, `tileCacheSize`, `fetch`), plus `fonts` as above.

@@ -113,6 +113,8 @@ The SVG names each label's font (`text-font`) and leaves resolving it to whateve
 >
 > - **No collision detection:** Text labels are rendered without collision detection, so labels may overlap.
 > - **Simplified text placement:** Labels can not be positioned along lines.
+>
+> Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
 
 ### Projections
 
