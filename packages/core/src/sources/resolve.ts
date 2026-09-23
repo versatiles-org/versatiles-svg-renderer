@@ -19,12 +19,15 @@ const TILEJSON_KEYS = [
 ] as const;
 
 /**
- * The style's sources, with each TileJSON source (one with a `url`) completed from its
- * TileJSON document, as MapLibre GL JS does: `tiles`, `minzoom`, `maxzoom` and the like are
- * taken from the document, but values set in the style win.
+ * The style's sources, with what they only point at loaded, as MapLibre GL JS does:
  *
- * A TileJSON document that cannot be loaded leaves its source as it is, without tiles, and
- * makes the result not `complete`, so a caller that caches it can try again.
+ * - A TileJSON source (one with a `url`) is completed from its TileJSON document: `tiles`,
+ *   `minzoom`, `maxzoom` and the like are taken from the document, but values set in the
+ *   style win.
+ * - A GeoJSON source whose `data` is a URL gets the GeoJSON loaded from there.
+ *
+ * A document that cannot be loaded leaves its source as it is, and makes the result not
+ * `complete`, so a caller that caches it can try again.
  */
 export async function resolveSources(
 	sources: Sources,
@@ -33,9 +36,18 @@ export async function resolveSources(
 	let complete = true;
 	const entries = await Promise.all(
 		Object.entries(sources).map(async ([name, source]) => {
+			if (source.type === 'geojson') {
+				if (typeof source.data !== 'string') return [name, source];
+				const data = await fetchJSON(source.data, fetchFn);
+				if (typeof data?.type !== 'string') {
+					complete = false;
+					return [name, source];
+				}
+				return [name, { ...source, data }];
+			}
 			const url = (source as { url?: unknown }).url;
 			if (!TILED_TYPES.has(source.type) || typeof url !== 'string') return [name, source];
-			const tileJSON = await fetchTileJSON(url, fetchFn);
+			const tileJSON = await fetchJSON(url, fetchFn);
 			if (!tileJSON) {
 				complete = false;
 				return [name, source];
@@ -46,7 +58,8 @@ export async function resolveSources(
 	return { sources: Object.fromEntries(entries) as Sources, complete };
 }
 
-async function fetchTileJSON(
+/** The JSON object at `url`, or `undefined` if it cannot be loaded or is not an object. */
+async function fetchJSON(
 	url: string,
 	fetchFn: FetchFunction,
 ): Promise<Record<string, unknown> | undefined> {

@@ -38,7 +38,8 @@ export async function getLayerFeatures(
 				);
 				break;
 			case 'geojson':
-				if (source.data) {
+				// Data given as a URL is a string here only if it could not be loaded.
+				if (typeof source.data === 'object' && source.data !== null) {
 					sourceFeatures.set(sourceName, layerFeatures);
 					loadGeoJSONSource({
 						data: source.data as GeoJSON,

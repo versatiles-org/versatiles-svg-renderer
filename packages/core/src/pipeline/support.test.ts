@@ -169,14 +169,14 @@ describe('checkSources', () => {
 		]);
 	});
 
-	test('reports GeoJSON data given as a URL, and the tms scheme', () => {
+	test('reports GeoJSON data that was not loaded, and the tms scheme', () => {
 		expect(
 			checkSources({
 				g: { type: 'geojson', data: 'https://a/data.geojson' },
 				t: { type: 'vector', tiles: ['https://a/{z}/{x}/{y}'], scheme: 'tms' },
 			}),
 		).toEqual([
-			'Source "g": GeoJSON data given as a URL is not supported; the source is empty.',
+			'Source "g": the GeoJSON data could not be loaded from https://a/data.geojson; the source is empty.',
 			'Source "t": the scheme "tms" is not supported; its tiles are loaded as "xyz".',
 		]);
 	});

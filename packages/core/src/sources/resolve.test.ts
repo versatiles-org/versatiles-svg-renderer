@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { resolveSources, resolveTileUrlTemplate } from './tilejson.js';
+import { resolveSources, resolveTileUrlTemplate } from './resolve.js';
 
 const TILEJSON_URL = 'https://example.com/data/osm/tiles.json';
 
@@ -112,6 +112,48 @@ describe('resolveSources', () => {
 			fetchFn,
 		);
 		expect((sources.osm as { tiles: string[] }).tiles).toEqual(['https://a/{z}/{x}/{y}']);
+	});
+});
+
+describe('resolveSources with GeoJSON', () => {
+	const DATA_URL = 'https://example.com/data/points.geojson';
+	const collection = {
+		type: 'FeatureCollection',
+		features: [
+			{ type: 'Feature', geometry: { type: 'Point', coordinates: [1, 2] }, properties: {} },
+		],
+	};
+
+	test('loads GeoJSON data given as a URL', async () => {
+		const fetchFn = vi.fn(() => Promise.resolve(jsonResponse(collection)));
+		const { sources, complete } = await resolveSources(
+			{ points: { type: 'geojson', data: DATA_URL, maxzoom: 12 } },
+			fetchFn,
+		);
+		expect(fetchFn).toHaveBeenCalledWith(DATA_URL);
+		expect(complete).toBe(true);
+		expect(sources.points).toEqual({ type: 'geojson', data: collection, maxzoom: 12 });
+	});
+
+	test('leaves inline GeoJSON data untouched, without fetching', async () => {
+		const fetchFn = vi.fn();
+		const input: StyleSpecification['sources'] = {
+			points: { type: 'geojson', data: collection as never },
+		};
+		const { sources } = await resolveSources(input, fetchFn);
+		expect(fetchFn).not.toHaveBeenCalled();
+		expect(sources.points).toBe(input.points);
+	});
+
+	test.each([
+		['an error status', () => Promise.resolve(new Response(null, { status: 404 }))],
+		['a network error', () => Promise.reject(new Error('offline'))],
+		['JSON that is not GeoJSON', () => Promise.resolve(jsonResponse({ features: [] }))],
+	])('leaves the URL in place on %s, and is not complete', async (_, fetchFn) => {
+		const input: StyleSpecification['sources'] = { points: { type: 'geojson', data: DATA_URL } };
+		const { sources, complete } = await resolveSources(input, fetchFn);
+		expect(complete).toBe(false);
+		expect(sources.points).toBe(input.points);
 	});
 });
 

@@ -166,11 +166,11 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Sky, fog, light                       | ❌  | ❌  | [#49] |
 | **Sources**                           |     |     |       |
 | Vector and raster tiles               | ✅  | ✅  |       |
-| GeoJSON, inline data                  | ✅  | ✅  |       |
+| GeoJSON, inline or from a URL         | ✅  | ✅  |       |
 | TileJSON (source `url`)               | ✅  | ✅  |       |
 | `scheme`, `bounds`, `minzoom`         | ❌  | ❌  | [#51] |
 | `image` and `video` sources           | ❌  | ❌  | [#51] |
-| GeoJSON URL, clustering               | ❌  | ❌  | [#52] |
+| GeoJSON clustering                    | ❌  | ❌  | [#52] |
 | `raster-dem`                          | ❌  | ❌  | [#47] |
 | **Layers**                            |     |     |       |
 | `background`, `fill`, `line`          | ✅  | ✅  |       |

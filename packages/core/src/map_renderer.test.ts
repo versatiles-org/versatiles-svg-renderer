@@ -1,11 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { Feature } from 'geojson';
 import { SVGMapRenderer, viewSize } from './map_renderer.js';
 import { renderToSVG } from './render_svg.js';
 
 const SPRITE_URL = 'https://example.com/sprite';
 const TILE_URL = 'https://example.com/tiles/{z}/{x}/{y}.png';
 const TILEJSON_URL = 'https://example.com/tiles.json';
+const GEOJSON_URL = 'https://example.com/points.geojson';
+const POINT: Feature = {
+	type: 'Feature',
+	geometry: { type: 'Point', coordinates: [0, 0] },
+	properties: { icon: 'dot' },
+};
 
 /** A style whose raster layer reads a zoom-dependent paint value after awaiting its tiles. */
 function makeStyle(): StyleSpecification {
@@ -16,11 +23,7 @@ function makeStyle(): StyleSpecification {
 			raster: { type: 'raster', tiles: [TILE_URL], tileSize: 512 },
 			points: {
 				type: 'geojson',
-				data: {
-					type: 'Feature',
-					geometry: { type: 'Point', coordinates: [0, 0] },
-					properties: { icon: 'dot' },
-				},
+				data: POINT,
 			},
 		},
 		layers: [
@@ -57,6 +60,7 @@ function fakeFetch(
 ): Mock<(url: string) => Promise<Response>> {
 	return vi.fn(async (url: string) => {
 		await new Promise((resolve) => setTimeout(resolve, 5));
+		if (url === GEOJSON_URL) return response(JSON.stringify(POINT), 'application/geo+json');
 		if (url === TILEJSON_URL) {
 			if (options.tileJSONFails) return new Response(null, { status: 500 });
 			// A relative tile URL, resolved against the TileJSON URL to TILE_URL.
@@ -223,6 +227,20 @@ describe('SVGMapRenderer', () => {
 		map.clearCache();
 		await map.renderSVG();
 		expect(tileJSONRequests(fetchMock)).toBe(2);
+	});
+
+	test('renders GeoJSON data given as a URL like inline data, fetching it once', async () => {
+		const expected = await new SVGMapRenderer({
+			style: makeStyle(),
+			renderLabels: true,
+		}).renderSVG();
+		const fetchMock = mockFetch();
+		const style = makeStyle();
+		style.sources.points = { type: 'geojson', data: GEOJSON_URL };
+		const map = new SVGMapRenderer({ style, renderLabels: true });
+		expect(await map.renderSVG()).toBe(expected);
+		await map.renderSVG();
+		expect(fetchMock.mock.calls.filter(([url]) => url === GEOJSON_URL)).toHaveLength(1);
 	});
 
 	test('reports unsupported parts of the style once, across renders', async () => {

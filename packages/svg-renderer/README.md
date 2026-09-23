@@ -101,7 +101,7 @@ const map = new SVGMapRenderer({
 });
 ```
 
-It must return a real `Response`, and the status counts: a 404 or 204 means the server has no such tile, and the renderer remembers that; any other error status, or a rejected promise, counts as failed, so the next render tries again. The renderer asks it for tiles, sprites and the TileJSON documents of the style's sources.
+It must return a real `Response`, and the status counts: a 404 or 204 means the server has no such tile, and the renderer remembers that; any other error status, or a rejected promise, counts as failed, so the next render tries again. The renderer asks it for tiles, sprites, and the TileJSON documents and GeoJSON data of the style's sources.
 
 ### About `renderLabels`
 
@@ -119,7 +119,7 @@ The SVG names each label's font (`text-font`) and leaves resolving it to whateve
 
 ### Warnings
 
-Parts of a style the renderer does not draw are reported, not skipped silently: layer types such as `fill-extrusion` or `heatmap`, properties such as `fill-pattern`, unsupported sources, and TileJSON documents that could not be loaded. Each message goes to `onWarning`, once per renderer, by default to `console.warn`:
+Parts of a style the renderer does not draw are reported, not skipped silently: layer types such as `fill-extrusion` or `heatmap`, properties such as `fill-pattern`, unsupported sources, and TileJSON documents or GeoJSON data that could not be loaded. Each message goes to `onWarning`, once per renderer, by default to `console.warn`:
 
 ```ts
 const map = new SVGMapRenderer({ style, onWarning: (message) => warnings.push(message) });

@@ -8,7 +8,7 @@ import { TileCache } from './sources/tile_cache.js';
 import { MAX_LATITUDE, mercatorToLonLat, Projection } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
-import { resolveSources } from './sources/tilejson.js';
+import { resolveSources } from './sources/resolve.js';
 import { checkSources, checkStyle } from './pipeline/support.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
@@ -20,8 +20,9 @@ export interface SVGMapRendererOptions {
 	 * (`url: '.../tiles.json'`), which is fetched once, like the sprite, with
 	 * {@link SVGMapRendererOptions.fetch}. As in MapLibre GL JS, `tiles`, `minzoom`,
 	 * `maxzoom` and the like come from the document unless the style sets them, and
-	 * relative tile URLs are resolved against the document's URL. A source whose TileJSON
-	 * cannot be loaded is left out, and the next render tries again.
+	 * relative tile URLs are resolved against the document's URL. A GeoJSON source's `data`
+	 * may be a URL too. A source whose TileJSON or GeoJSON cannot be loaded is left out, and
+	 * the next render tries again.
 	 */
 	style: StyleSpecification;
 	/**
@@ -49,7 +50,7 @@ export interface SVGMapRendererOptions {
 	 */
 	tileCacheSize?: number;
 	/**
-	 * Loads tiles, sprites and TileJSON documents, like `fetch`, which is the default. Pass your own to send
+	 * Loads tiles, sprites, TileJSON documents and GeoJSON data, like `fetch`, which is the default. Pass your own to send
 	 * headers, go through a proxy, or keep tiles in a cache on disk.
 	 *
 	 * It must return a real `Response`, and its status matters: a 404 or 204 means the
@@ -200,7 +201,7 @@ export class SVGMapRenderer {
 	}
 
 	/**
-	 * Forgets the fetched tiles, sprite and TileJSON documents, so the next render fetches them again, e.g.
+	 * Forgets the fetched tiles, sprite, TileJSON documents and GeoJSON data, so the next render fetches them again, e.g.
 	 * after they were updated on the server, or to free their memory.
 	 */
 	public clearCache(): void {
@@ -296,7 +297,7 @@ export class SVGMapRenderer {
 	}
 
 	/**
-	 * Fetches the TileJSON documents of the style's sources once and shares them between
+	 * Fetches the TileJSON documents and GeoJSON data of the style's sources once and shares them between
 	 * renders, like the sprite. If one failed to load, the next
 	 * render fetches them again.
 	 */

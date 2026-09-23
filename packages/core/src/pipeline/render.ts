@@ -4,7 +4,7 @@ import { loadSpriteAtlas } from '../sources/sprite.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 import { getTile, type TileLoader } from '../sources/tiles.js';
 import { defaultFetch, type FetchFunction } from '../sources/fetch.js';
-import { resolveSources } from '../sources/tilejson.js';
+import { resolveSources } from '../sources/resolve.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { getLayerStyles } from './style_layer.js';
 import type {

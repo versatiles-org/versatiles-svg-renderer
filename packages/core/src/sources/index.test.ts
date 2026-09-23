@@ -91,6 +91,14 @@ describe('getLayerFeatures', () => {
 		expect(vi.mocked(loadGeoJSONSource).mock.calls[0]?.[0].layerFeatures).toBe(result.get('geo'));
 	});
 
+	test('skips geojson sources whose data is still a URL', async () => {
+		const job = makeJob({ geo: { type: 'geojson', data: 'https://a/data.geojson' } });
+		const result = await getLayerFeatures(job);
+
+		expect(loadGeoJSONSource).not.toHaveBeenCalled();
+		expect(result.size).toBe(0);
+	});
+
 	test('skips geojson sources without data', async () => {
 		const job = makeJob({ geo: { type: 'geojson' } });
 		await getLayerFeatures(job);

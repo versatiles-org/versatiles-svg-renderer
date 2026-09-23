@@ -170,8 +170,9 @@ export function checkStyle(style: StyleSpecification, renderLabels: boolean): st
 
 /**
  * Warnings about sources the renderer cannot draw. `sources` are the style's sources after
- * their TileJSON documents were loaded, so a source that still has a `url` but no `tiles`
- * is one whose document could not be loaded.
+ * their TileJSON documents and GeoJSON data were loaded, so a source that still has a
+ * `url` but no `tiles`, or GeoJSON `data` that is a URL, is one whose document could not be
+ * loaded.
  */
 export function checkSources(sources: StyleSpecification['sources']): string[] {
 	const warnings: string[] = [];
@@ -192,7 +193,7 @@ export function checkSources(sources: StyleSpecification['sources']): string[] {
 		if (spec.type === 'geojson') {
 			if (typeof spec.data === 'string') {
 				warnings.push(
-					`Source "${name}": GeoJSON data given as a URL is not supported; the source is empty.`,
+					`Source "${name}": the GeoJSON data could not be loaded from ${spec.data}; the source is empty.`,
 				);
 			}
 			continue;
