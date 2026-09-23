@@ -181,7 +181,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `heatmap`                             | ❌  | ❌  | [#46] |
 | `hillshade`, `color-relief`           | ❌  | ❌  | [#47] |
 | Patterns (`*-pattern`)                | ❌  | ❌  | [#44] |
-| `line-gap-width`, `line-gradient`     | ❌  | ❌  | [#53] |
+| `line-gap-width`                      | ✅  | ✅  |       |
+| `line-gradient`                       | ❌  | ❌  | [#53] |
 | Other paint/layout properties         | ⚠️  | ⚠️  | [#54] |
 | **Labels and icons**                  |     |     |       |
 | Icons from the sprite, SDF icons      | ✅  | ✅  |       |

@@ -16,6 +16,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'line-cap',
 		'line-color',
 		'line-dasharray',
+		'line-gap-width',
 		'line-join',
 		'line-miter-limit',
 		'line-offset',

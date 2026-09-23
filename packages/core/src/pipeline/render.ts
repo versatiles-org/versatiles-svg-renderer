@@ -13,6 +13,7 @@ import type {
 	StyleLayer,
 } from './style_layer.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
+import type { LineStyle } from '../renderer/types.js';
 import { GEOJSON_LAYER } from '../geometry.js';
 import type { Feature as LayerFeature, Features, SourceFeatures } from '../geometry.js';
 import { Projection } from '../projection.js';
@@ -242,10 +243,9 @@ function renderLineLayer(layer: Layer): void {
 	if (lineStringFeatures.length === 0) return;
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
-	const styled = lineStringFeatures.map(
-		(feature): Parameters<Renderer['drawLineStrings']>[1][number] => [
-			feature,
-			{
+	const styled = lineStringFeatures.flatMap(
+		(feature): Parameters<Renderer['drawLineStrings']>[1] => {
+			const style: LineStyle = {
 				blur: getPaint('line-blur', feature) as number,
 				color: getPaint('line-color', feature) as MaplibreColor,
 				translate: getPaint('line-translate', feature) as [number, number],
@@ -256,8 +256,17 @@ function renderLineLayer(layer: Layer): void {
 				offset: getPaint('line-offset', feature) as number,
 				opacity: getPaint('line-opacity', feature) as number,
 				width: getPaint('line-width', feature) as number,
-			},
-		],
+			};
+			const gapWidth = getPaint('line-gap-width', feature) as number;
+			if (!(gapWidth > 0)) return [[feature, style]];
+			// With a gap, MapLibre draws the line as a band on each side of it, from gap/2 to
+			// gap/2 + width: two lines of the same width, offset by ±(gap + width)/2.
+			const shift = (gapWidth + style.width) / 2;
+			return [
+				[feature, { ...style, offset: style.offset - shift }],
+				[feature, { ...style, offset: style.offset + shift }],
+			];
+		},
 	);
 	layer.job.renderer.drawLineStrings(layer.layerStyle.id, styled);
 }

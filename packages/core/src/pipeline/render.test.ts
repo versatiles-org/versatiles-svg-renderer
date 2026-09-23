@@ -342,6 +342,58 @@ describe('renderMap', () => {
 			expect(result).toContain('<path');
 		});
 
+		test('draws a line with line-gap-width as two lines, one on each side', async () => {
+			const road = makeLineFeature(
+				[
+					[
+						[10, 50],
+						[200, 50],
+					],
+				],
+				{ gap: 4 },
+			);
+			const path = makeLineFeature(
+				[
+					[
+						[10, 90],
+						[200, 90],
+					],
+				],
+				{ gap: 0 },
+			);
+			setLayerFeatures(new Map([['roads', makeFeatures({ linestrings: [road, path] })]]));
+
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'casing',
+						type: 'line',
+						source: 'src',
+						'source-layer': 'roads',
+						paint: {
+							'line-width': 2,
+							'line-offset': 1,
+							'line-gap-width': ['get', 'gap'],
+						},
+					},
+				]),
+			);
+			const drawLineStrings = vi.spyOn(job.renderer, 'drawLineStrings');
+			await renderMap(job);
+
+			const drawn = drawLineStrings.mock.calls[0]![1].map(([feature, style]) => [
+				feature,
+				style.offset,
+				style.width,
+			]);
+			// Road: offset 1 ± (4 + 2) / 2. Path: no gap, one line.
+			expect(drawn).toEqual([
+				[road, -2, 2],
+				[road, 4, 2],
+				[path, 1, 2],
+			]);
+		});
+
 		test('skips line layer when no linestrings exist', async () => {
 			const features = new Map<string, Features>();
 			features.set('roads', makeFeatures({ linestrings: [] }));
