@@ -11,7 +11,7 @@ const RENDER = 'core/src/pipeline/render.ts';
 /** Whether `file` defines a function or method called `name`. */
 function defines(file: string, name: string): boolean {
 	const source = readFileSync(resolve(repo, 'packages', file), 'utf8');
-	const escaped = name.replace(/[$]/g, '\\$&');
+	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	return new RegExp(
 		`(function\\s+${escaped}\\s*[<(])|(^\\s*(public |private |protected |static |async )*${escaped}\\s*[<(])`,
 		'm',
