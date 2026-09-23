@@ -168,7 +168,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Vector and raster tiles               | ✅  | ✅  |       |
 | GeoJSON, inline or from a URL         | ✅  | ✅  |       |
 | TileJSON (source `url`)               | ✅  | ✅  |       |
-| `scheme`, `bounds`, `minzoom`         | ❌  | ❌  | [#51] |
+| `scheme`, `bounds`, `minzoom`         | ✅  | ✅  |       |
+| Several URLs in `tiles`               | ✅  | ✅  |       |
 | `image` and `video` sources           | ❌  | ❌  | [#51] |
 | GeoJSON clustering                    | ❌  | ❌  | [#52] |
 | `raster-dem`                          | ❌  | ❌  | [#47] |

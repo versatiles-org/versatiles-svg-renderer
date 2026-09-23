@@ -45,6 +45,15 @@ describe('getRasterTiles', () => {
 		expect(await getRasterTiles(job, 'src')).toEqual([]);
 	});
 
+	test("loads no tiles below the source's minzoom", async () => {
+		const loadTile = vi.fn();
+		const job = makeJob({
+			src: { type: 'raster', tiles: ['https://a/{z}/{x}/{y}.png'], minzoom: 3 },
+		});
+		expect(await getRasterTiles(job, 'src', loadTile)).toEqual([]);
+		expect(loadTile).not.toHaveBeenCalled();
+	});
+
 	test('fetches tiles and returns data URIs', async () => {
 		mockFetchPng();
 

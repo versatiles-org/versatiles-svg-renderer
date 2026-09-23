@@ -1,5 +1,14 @@
 import { describe, expect, test, vi } from 'vitest';
-import { calculateTileGrid, fetchTile, getTile, resolveTileUrl, tileDataUri } from './tiles.js';
+import {
+	calculateTileGrid,
+	fetchTile,
+	getTile,
+	isTileInBounds,
+	loadSourceTile,
+	resolveTileUrl,
+	tileDataUri,
+	type TileLoader,
+} from './tiles.js';
 
 describe('calculateTileGrid', () => {
 	test('returns correct zoom level for integer zoom', () => {
@@ -137,6 +146,93 @@ describe('fetchTile', () => {
 		if (result.status !== 'ok') throw new Error('expected a tile');
 		expect(result.tile.contentType).toBe('image/webp');
 		expect(result.tile.buffer.byteLength).toBe(3);
+	});
+});
+
+describe('loadSourceTile', () => {
+	const tile = { buffer: new ArrayBuffer(1), contentType: 'image/png' };
+	const loader = () => vi.fn<TileLoader>(() => Promise.resolve(tile));
+
+	test('loads the tile from the only URL', async () => {
+		const loadTile = loader();
+		expect(await loadSourceTile({ tiles: ['a/{z}/{x}/{y}'] }, 3, 2, 5, loadTile)).toBe(tile);
+		expect(loadTile).toHaveBeenCalledWith('a/{z}/{x}/{y}', 3, 2, 5);
+	});
+
+	test('spreads the tiles over several URLs as MapLibre does', async () => {
+		const loadTile = loader();
+		const source = { tiles: ['a', 'b', 'c'] };
+		await loadSourceTile(source, 3, 0, 0, loadTile);
+		await loadSourceTile(source, 3, 1, 0, loadTile);
+		await loadSourceTile(source, 3, 1, 1, loadTile);
+		await loadSourceTile(source, 3, 2, 2, loadTile);
+		expect(loadTile.mock.calls.map(([url]) => url)).toEqual(['a', 'b', 'c', 'b']);
+	});
+
+	test('counts y from the south for scheme "tms"', async () => {
+		const loadTile = loader();
+		await loadSourceTile({ tiles: ['a'], scheme: 'tms' }, 3, 2, 1, loadTile);
+		await loadSourceTile({ tiles: ['a'], scheme: 'xyz' }, 3, 2, 1, loadTile);
+		expect(loadTile.mock.calls).toEqual([
+			['a', 3, 2, 6],
+			['a', 3, 2, 1],
+		]);
+	});
+
+	test('loads nothing below minzoom', async () => {
+		const loadTile = loader();
+		expect(await loadSourceTile({ tiles: ['a'], minzoom: 4 }, 3, 0, 0, loadTile)).toBeNull();
+		expect(await loadSourceTile({ tiles: ['a'], minzoom: 4 }, 4, 0, 0, loadTile)).toBe(tile);
+		expect(loadTile).toHaveBeenCalledTimes(1);
+	});
+
+	test('loads nothing outside bounds', async () => {
+		const loadTile = loader();
+		// Europe, roughly: at zoom 2, only the tiles x = 1..2, y = 0..1.
+		const source = { tiles: ['a'], bounds: [-10, 35, 30, 70] };
+		expect(await loadSourceTile(source, 2, 0, 1, loadTile)).toBeNull();
+		expect(await loadSourceTile(source, 2, 2, 1, loadTile)).toBe(tile);
+		expect(loadTile).toHaveBeenCalledTimes(1);
+	});
+
+	test('loads nothing from a source without URLs', async () => {
+		const loadTile = loader();
+		expect(await loadSourceTile({ tiles: [] }, 3, 0, 0, loadTile)).toBeNull();
+		expect(loadTile).not.toHaveBeenCalled();
+	});
+});
+
+describe('isTileInBounds', () => {
+	test('accepts every tile without valid bounds', () => {
+		expect(isTileInBounds(undefined, 5, 7, 9)).toBe(true);
+		expect(isTileInBounds([1, 2, 3], 5, 7, 9)).toBe(true);
+		expect(isTileInBounds([0, 0, 'x', 0], 5, 7, 9)).toBe(true);
+	});
+
+	test('accepts every tile for bounds covering the world, poles included', () => {
+		for (const [x, y] of [
+			[0, 0],
+			[3, 3],
+			[1, 2],
+		]) {
+			expect(isTileInBounds([-180, -90, 180, 90], 2, x!, y!)).toBe(true);
+		}
+	});
+
+	test('accepts the tiles overlapping the bounds only', () => {
+		const bounds = [-10, 35, 30, 70];
+		const inside: string[] = [];
+		for (let x = 0; x < 4; x++) {
+			for (let y = 0; y < 4; y++)
+				if (isTileInBounds(bounds, 2, x, y)) inside.push(`${String(x)}/${String(y)}`);
+		}
+		expect(inside).toEqual(['1/0', '1/1', '2/0', '2/1']);
+	});
+
+	test('accepts a tile touching the bounds from inside, not from outside', () => {
+		// The bounds end exactly at the prime meridian, the border of tiles 0 and 1 at zoom 1.
+		expect(isTileInBounds([-90, -10, 0, 10], 1, 0, 0)).toBe(true);
+		expect(isTileInBounds([-90, -10, 0, 10], 1, 1, 0)).toBe(false);
 	});
 });
 

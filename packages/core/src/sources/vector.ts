@@ -1,6 +1,6 @@
 import { Point2D, Feature } from '../geometry.js';
 import type { RenderJob } from '../renderer/svg.js';
-import { calculateTileGrid, getTile, type TileLoader } from './tiles.js';
+import { calculateTileGrid, getTile, loadSourceTile, type TileLoader } from './tiles.js';
 import type { LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
 import { VectorTile } from '@mapbox/vector-tile';
@@ -13,7 +13,10 @@ const VTFeatureType = { Unknown: 0, Point: 1, LineString: 2, Polygon: 3 } as con
 interface VectorSourceSpec {
 	type: 'vector';
 	tiles?: string[];
+	minzoom?: number;
 	maxzoom?: number;
+	scheme?: string;
+	bounds?: number[];
 }
 
 export async function loadVectorSource(
@@ -31,7 +34,9 @@ export async function loadVectorSource(
 	// arrive: the same tiles must always give the same features in the same order, or
 	// overlapping features would be drawn in a different order from one render to the next.
 	const projections = getTileProjections(source, job);
-	const loaded = await Promise.all(projections.map(({ x, y, z }) => loadTile(tiles[0]!, z, x, y)));
+	const loaded = await Promise.all(
+		projections.map(({ x, y, z }) => loadSourceTile({ ...source, tiles }, z, x, y, loadTile)),
+	);
 	projections.forEach((projection, i) => {
 		const tile = loaded[i];
 		if (tile) addTileFeatures(tile.buffer, projection, layerFeatures, width, height);

@@ -78,6 +78,24 @@ describe('loadVectorSource', () => {
 		expect(layerFeatures.size).toBe(0);
 	});
 
+	test('requests tiles as the source says: minzoom, scheme', async () => {
+		vi.mocked(getTile).mockResolvedValue(null);
+		const tiles = ['https://example.com/{z}/{x}/{y}.pbf'];
+		const layerFeatures: LayerFeatures = new Map();
+
+		await loadVectorSource({ type: 'vector', tiles, minzoom: 20 }, makeJob(), layerFeatures);
+		expect(getTile).not.toHaveBeenCalled();
+
+		await loadVectorSource({ type: 'vector', tiles, scheme: 'tms' }, makeJob(), layerFeatures);
+		const xyz = vi.mocked(getTile).mock.calls.map(([, z, x, y]) => [z, x, y]);
+		vi.mocked(getTile).mockClear();
+		await loadVectorSource({ type: 'vector', tiles }, makeJob(), layerFeatures);
+		const flipped = vi.mocked(getTile).mock.calls.map(([, z, x, y]) => [z, x, 2 ** z - 1 - y]);
+		expect(xyz.length).toBeGreaterThan(0);
+		expect(xyz).toEqual(flipped);
+		vi.mocked(getTile).mockReset();
+	});
+
 	test('returns early if getTile returns null', async () => {
 		vi.mocked(getTile).mockResolvedValueOnce(null);
 		const layerFeatures: LayerFeatures = new Map();

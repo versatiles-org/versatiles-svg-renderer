@@ -177,13 +177,7 @@ export function checkStyle(style: StyleSpecification, renderLabels: boolean): st
 export function checkSources(sources: StyleSpecification['sources']): string[] {
 	const warnings: string[] = [];
 	for (const [name, source] of Object.entries(sources)) {
-		const spec = source as {
-			type: string;
-			url?: unknown;
-			tiles?: unknown;
-			data?: unknown;
-			scheme?: unknown;
-		};
+		const spec = source as { type: string; url?: unknown; tiles?: unknown; data?: unknown };
 		if (!SUPPORTED_SOURCE_TYPES.has(spec.type)) {
 			warnings.push(
 				`Source "${name}": the type "${spec.type}" is not supported; its layers are not drawn.`,
@@ -203,11 +197,6 @@ export function checkSources(sources: StyleSpecification['sources']): string[] {
 				typeof spec.url === 'string'
 					? `Source "${name}": the TileJSON document could not be loaded from ${spec.url}; the source is empty.`
 					: `Source "${name}": it has neither "tiles" nor "url"; the source is empty.`,
-			);
-		}
-		if (spec.scheme === 'tms') {
-			warnings.push(
-				`Source "${name}": the scheme "tms" is not supported; its tiles are loaded as "xyz".`,
 			);
 		}
 	}

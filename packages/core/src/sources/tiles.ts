@@ -74,6 +74,55 @@ export type TileLoader = (
 	y: number,
 ) => Promise<TileResponse | null>;
 
+/** What a tiled source (`vector` or `raster`) says about where its tiles are. */
+export interface TiledSource {
+	tiles: string[];
+	minzoom?: number;
+	scheme?: string;
+	bounds?: number[];
+}
+
+/**
+ * Loads the tile `z/x/y` of `source` the way MapLibre GL JS requests it: from one of its
+ * `tiles` URLs, chosen by the tile's position; with y counted from the south for
+ * `scheme: "tms"`; and not at all below `minzoom` or outside `bounds`, where the source has
+ * no tiles. `x` and `y` are the tile's position in the usual (`xyz`) scheme.
+ */
+export function loadSourceTile(
+	source: TiledSource,
+	z: number,
+	x: number,
+	y: number,
+	loadTile: TileLoader,
+): Promise<TileResponse | null> {
+	if (source.tiles.length === 0) return Promise.resolve(null);
+	if (z < (source.minzoom ?? 0) || !isTileInBounds(source.bounds, z, x, y)) {
+		return Promise.resolve(null);
+	}
+	const url = source.tiles[(x + y) % source.tiles.length]!;
+	const tileY = source.scheme === 'tms' ? 2 ** z - 1 - y : y;
+	return loadTile(url, z, x, tileY);
+}
+
+/**
+ * Whether tile `z/x/y` overlaps `bounds` (`[west, south, east, north]` in degrees), tested
+ * as MapLibre GL JS does (`TileBounds.contains`). Without valid bounds, every tile does.
+ */
+export function isTileInBounds(bounds: unknown, z: number, x: number, y: number): boolean {
+	if (!Array.isArray(bounds) || bounds.length !== 4) return true;
+	if (!bounds.every((value) => typeof value === 'number' && !Number.isNaN(value))) return true;
+	const [west, south, east, north] = bounds as [number, number, number, number];
+	const size = 2 ** z;
+	const min = new Point2D(Math.max(-180, west), north).getProject2Pixel();
+	const max = new Point2D(Math.min(180, east), south).getProject2Pixel();
+	return (
+		x >= Math.floor(min.x * size) &&
+		x < Math.ceil(max.x * size) &&
+		y >= Math.floor(min.y * size) &&
+		y < Math.ceil(max.y * size)
+	);
+}
+
 export function resolveTileUrl(url: string, z: number, x: number, y: number): string {
 	return url.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
 }

@@ -1,5 +1,12 @@
 import type { RenderJob, RasterTile } from '../renderer/svg.js';
-import { calculateTileGrid, getTile, tileDataUri, type TileLoader } from './tiles.js';
+import {
+	calculateTileGrid,
+	getTile,
+	loadSourceTile,
+	tileDataUri,
+	type TiledSource,
+	type TileLoader,
+} from './tiles.js';
 
 export async function getRasterTiles(
 	job: RenderJob,
@@ -9,7 +16,7 @@ export async function getRasterTiles(
 	const { width, height } = job.renderer;
 	const { zoom, center } = job.view;
 	const source = job.style.sources[sourceName] as
-		{ type: string; tiles?: string[]; url?: string; maxzoom?: number } | undefined;
+		(Partial<TiledSource> & { type: string; url?: string; maxzoom?: number }) | undefined;
 
 	// A TileJSON source whose document could not be loaded: drawn empty, like a vector source.
 	if (source?.type === 'raster' && !source.tiles && typeof source.url === 'string') return [];
@@ -20,7 +27,7 @@ export async function getRasterTiles(
 		);
 	}
 
-	const sourceUrl = source.tiles[0]!;
+	const tiled = { ...source, tiles: source.tiles };
 
 	const projection = job.projection;
 	if (projection?.isGlobe) {
@@ -29,7 +36,7 @@ export async function getRasterTiles(
 		const z = Math.max(1, Math.min(Math.floor(zoom), source.maxzoom ?? Infinity));
 		const globeTiles = await Promise.all(
 			projection.coveringTiles(z).map(async (id): Promise<RasterTile | null> => {
-				const tile = await loadTile(sourceUrl, id.z, id.x, id.y);
+				const tile = await loadSourceTile(tiled, id.z, id.x, id.y, loadTile);
 				if (!tile) return null;
 				const triangles = projection.rasterTriangles(id);
 				if (triangles.length === 0) return null;
@@ -49,7 +56,7 @@ export async function getRasterTiles(
 
 	const rasterTiles = await Promise.all(
 		tiles.map(async ({ x, y, offsetX, offsetY }): Promise<RasterTile | null> => {
-			const tile = await loadTile(sourceUrl, zoomLevel, x, y);
+			const tile = await loadSourceTile(tiled, zoomLevel, x, y, loadTile);
 			if (!tile) return null;
 
 			const dataUri = tileDataUri(tile);
