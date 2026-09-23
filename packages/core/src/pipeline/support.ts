@@ -79,7 +79,11 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-halo-width',
 		'text-ignore-placement',
 		'text-keep-upright',
+		'text-justify',
+		'text-letter-spacing',
+		'text-line-height',
 		'text-max-angle',
+		'text-max-width',
 		'text-offset',
 		'text-opacity',
 		'text-optional',
@@ -92,8 +96,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 };
 
 /**
- * Properties that make no difference to a flat, north-up image, or only to a feature that
- * is already reported (wrapped text): not worth a warning.
+ * Properties that make no difference to a flat, north-up image: not worth a warning.
  */
 const WITHOUT_EFFECT = new Set([
 	'visibility',
@@ -110,8 +113,6 @@ const WITHOUT_EFFECT = new Set([
 	'symbol-avoid-edges',
 	'symbol-z-order',
 	'icon-keep-upright',
-	'text-justify',
-	'text-line-height',
 	'line-round-limit',
 ]);
 

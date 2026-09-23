@@ -1167,6 +1167,42 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('text-anchor="middle" dominant-baseline="central"');
 		});
 
+		test('draws a label of several lines as tspans at their points', () => {
+			const r = makeRenderer();
+			const feature = new Feature({
+				type: 'Point',
+				properties: {},
+				geometry: [[new Point2D(0, 0)]],
+			});
+			const lines = [
+				{ text: 'Museum für', x: 100, y: 40 },
+				{ text: 'Naturkunde', x: 100, y: 55 },
+			];
+			r.drawLabels('l', [
+				[feature, defaultSymbolStyle({ text: 'Museum für\nNaturkunde', lines, justify: 'right' })],
+			]);
+			const svg = r.getString();
+			expect(svg).toContain(
+				'<tspan x="100" y="40">Museum für</tspan><tspan x="100" y="55">Naturkunde</tspan>',
+			);
+			expect(svg).toContain('text-anchor="end" dominant-baseline="central"');
+		});
+
+		test('spaces letters, keeping centered text centered', () => {
+			const r = makeRenderer();
+			const feature = new Feature({
+				type: 'Point',
+				properties: {},
+				geometry: [[new Point2D(50, 50)]],
+			});
+			r.drawLabels('l', [[feature, defaultSymbolStyle({ letterSpacing: 0.2 })]]);
+			const svg = r.getString();
+			const size = defaultSymbolStyle().size;
+			expect(svg).toContain(`letter-spacing="${String(0.2 * size)}"`);
+			// SVG adds the spacing after the last letter too: half of it moves the text back.
+			expect(svg).toContain(`dx="${String(Math.round(0.1 * size * 10) / 10)}"`);
+		});
+
 		test("draws at the feature's first point, where the pipeline placed it", () => {
 			const feature = new Feature({
 				type: 'Point',

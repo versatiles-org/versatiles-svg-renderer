@@ -736,6 +736,53 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test('breaks a long point label into lines, but not one along a line', async () => {
+			const name = 'Friedrich-Wilhelm-Universität zu Berlin';
+			const point = makePointFeature([[[128, 128]]], { name });
+			const street = makeLineFeature(
+				[
+					[
+						[0, 20],
+						[256, 20],
+					],
+				],
+				{ name: 'Unter den Linden' },
+			);
+			setLayerFeatures(new Map([['l', makeFeatures({ points: [point], linestrings: [street] })]]));
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'streets',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'l',
+						filter: ['==', ['geometry-type'], 'LineString'],
+						layout: { 'text-field': '{name}', 'symbol-placement': 'line', 'text-max-width': 3 },
+					},
+					{
+						id: 'places',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'l',
+						filter: ['==', ['geometry-type'], 'Point'],
+						layout: { 'text-field': '{name}' },
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+			const [place] = drawLabels.mock.calls.find(([id]) => id === 'places-labels')![1];
+			expect(place![1].lines!.map((l) => l.text)).toEqual([
+				'Friedrich-Wilhelm-',
+				'Universität zu Berlin',
+			]);
+			const [street0] = drawLabels.mock.calls.find(([id]) => id === 'streets-labels')![1];
+			expect(street0![1].lines).toBeUndefined();
+			expect(street0![1].path!.map((g) => g.text).join('')).toBe('Unter den Linden');
+		});
+
 		test('places labels and icons along lines, repeated and turned with the line', async () => {
 			// A long street running down the image at 45°.
 			const street = makeLineFeature(

@@ -18,6 +18,8 @@ import {
 	CollisionIndex,
 	glyphBox,
 	iconBox,
+	layoutText,
+	paddedBox,
 	placeSymbols,
 	textBox,
 	type Box,
@@ -28,7 +30,7 @@ import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
-import { glyphAdvances } from './text_metrics.js';
+import { breakLines, glyphAdvances } from './text_metrics.js';
 import { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
 import { Projection } from '../projection.js';
 
@@ -476,6 +478,7 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 					opacity: getPaint('text-opacity', feature) as number,
 					haloColor: getPaint('text-halo-color', feature) as MaplibreColor,
 					haloWidth: getPaint('text-halo-width', feature) as number,
+					letterSpacing: getLayout('text-letter-spacing', feature) as number,
 				}
 			: undefined;
 		if (!iconStyle && !labelStyle) continue;
@@ -501,13 +504,37 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 			});
 
 		if (placement === 'point' || feature.type === 'Point') {
+			// A point label is broken into lines of at most `text-max-width` ems.
+			const lines = labelStyle
+				? breakLines(
+						labelStyle.text,
+						labelStyle.font,
+						getLayout('text-max-width', feature) as number,
+						labelStyle.letterSpacing,
+					)
+				: [];
+			const lineHeight = getLayout('text-line-height', feature) as number;
+			const justify = getLayout('text-justify', feature) as string;
+			const lineStyle = labelStyle && lines.length > 0 && { ...labelStyle, text: lines.join('\n') };
 			for (const point of labelAnchors(feature)) {
 				const at = pointAtAnchor(point.x, point.y);
+				let label: [LayerFeature, SymbolStyle] | undefined;
+				let textBoxes: Box[] | undefined;
+				if (lineStyle) {
+					const layout = layoutText(point.x, point.y, lineStyle, lines, lineHeight, justify);
+					label = [
+						at,
+						layout.lines
+							? { ...lineStyle, lines: layout.lines, justify: layout.justify }
+							: lineStyle,
+					];
+					textBoxes = [paddedBox(layout.box, lineStyle, point.x, point.y, textPadding)];
+				}
 				entries.push({
 					icon: iconStyle && [at, iconStyle],
-					label: labelStyle && [at, labelStyle],
+					label,
 					iconBox: iconStyle && iconBox(point.x, point.y, iconStyle, sprite!, iconPadding),
-					textBoxes: labelStyle && [textBox(point.x, point.y, labelStyle, textPadding)],
+					textBoxes,
 					options,
 					showIcon: false,
 					showText: false,
@@ -524,7 +551,10 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 			labelStyle !== undefined && alignedToMap(getLayout('text-rotation-alignment', feature));
 		const iconAlongLine =
 			iconStyle !== undefined && alignedToMap(getLayout('icon-rotation-alignment', feature));
-		const glyphs = labelStyle && glyphAdvances(labelStyle.text, labelStyle.font, labelStyle.size);
+		// Along a line, a label is one line.
+		const glyphs =
+			labelStyle &&
+			glyphAdvances(labelStyle.text.replace(/\s+/g, ' '), labelStyle.font, labelStyle.size);
 		const textLength = glyphs ? glyphs.advances.reduce((sum, width) => sum + width, 0) : 0;
 		const iconLength = iconStyle ? (sprite!.width / sprite!.pixelRatio) * iconStyle.size : 0;
 		const labelLength = Math.max(textLength, iconLength);

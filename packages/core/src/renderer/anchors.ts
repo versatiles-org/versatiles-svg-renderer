@@ -55,3 +55,15 @@ export function mapIconAnchor(anchor: string, w: number, h: number): [number, nu
 			return [-w / 2, -h / 2];
 	}
 }
+
+/** SVG's `text-anchor` for a `text-justify`. */
+export const JUSTIFY_ANCHOR = { left: 'start', center: 'middle', right: 'end' } as const;
+
+/**
+ * How far to move text with `letter-spacing` so its glyphs sit where MapLibre puts them:
+ * SVG and canvas add the spacing after the last character too, which moves centered text
+ * left by half of it, and right-aligned text by all of it.
+ */
+export function letterSpacingShift(spacing: number, anchor: 'start' | 'middle' | 'end'): number {
+	return anchor === 'middle' ? spacing / 2 : anchor === 'end' ? spacing : 0;
+}

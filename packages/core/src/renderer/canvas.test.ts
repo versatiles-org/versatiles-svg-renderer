@@ -879,6 +879,23 @@ describe('CanvasRenderer', () => {
 			return count;
 		};
 
+		test('draws a label of several lines, each at its point', () => {
+			const r = makeRenderer();
+			const lines = [
+				{ text: 'HHH', x: 128, y: 60 },
+				{ text: 'HHH', x: 128, y: 200 },
+			];
+			r.drawLabels('l', [[makePointFeature([[0, 0]]), symbolStyle({ text: 'HHH\nHHH', lines })]]);
+			const redInRow = (y: number) =>
+				[...Array(256).keys()].some((x) => {
+					const px = at(r, x, y);
+					return px[0]! > 200 && px[3]! > 200;
+				});
+			expect(redInRow(60)).toBe(true);
+			expect(redInRow(200)).toBe(true);
+			expect(redInRow(130)).toBe(false);
+		});
+
 		test('draws a label along a line glyph by glyph, where the path says', () => {
 			const r = makeRenderer();
 			const feature = makePointFeature([[0, 0]]);

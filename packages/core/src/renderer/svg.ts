@@ -18,7 +18,7 @@ import type {
 } from './types.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 import type { ClipCircle } from '../projection.js';
-import { mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
 import { circleShape } from './circle.js';
 import {
 	affineFromTriangles,
@@ -394,23 +394,43 @@ export class SVGRenderer {
 
 			const fontSize = formatScaled(style.size);
 			const fontFamily = style.font.join(', ') + ', Helvetica, Arial, sans-serif';
-			const [svgAnchor, baseline] = mapTextAnchor(style.anchor);
+			const spacing = (style.letterSpacing ?? 0) * style.size;
 
-			const offsetX = style.offset[0] * style.size;
-			const offsetY = style.offset[1] * style.size;
-			const [dx, dy] = roundXY(offsetX, offsetY);
-
-			const attrs: string[] = [
-				`x="${formatNum(px)}"`,
-				`y="${formatNum(py)}"`,
-				`font-family="${escapeXml(fontFamily)}"`,
-				`font-size="${fontSize}"`,
-				`text-anchor="${svgAnchor}"`,
-				`dominant-baseline="${baseline}"`,
-			];
-
-			if (dx !== 0) attrs.push(`dx="${formatNum(dx)}"`);
-			if (dy !== 0) attrs.push(`dy="${formatNum(dy)}"`);
+			// Several lines: each a <tspan> at its point, the block placed by the pipeline.
+			let content = escapeXml(style.text);
+			let attrs: string[];
+			if (style.lines) {
+				const anchor = JUSTIFY_ANCHOR[style.justify ?? 'center'];
+				const shift = letterSpacingShift(spacing, anchor);
+				content = style.lines
+					.map((line) => {
+						const [x, y] = roundXY(line.x + shift, line.y);
+						return `<tspan x="${formatNum(x)}" y="${formatNum(y)}">${escapeXml(line.text)}</tspan>`;
+					})
+					.join('');
+				attrs = [
+					`font-family="${escapeXml(fontFamily)}"`,
+					`font-size="${fontSize}"`,
+					`text-anchor="${anchor}"`,
+					'dominant-baseline="central"',
+				];
+			} else {
+				const [svgAnchor, baseline] = mapTextAnchor(style.anchor);
+				const offsetX = style.offset[0] * style.size + letterSpacingShift(spacing, svgAnchor);
+				const offsetY = style.offset[1] * style.size;
+				const [dx, dy] = roundXY(offsetX, offsetY);
+				attrs = [
+					`x="${formatNum(px)}"`,
+					`y="${formatNum(py)}"`,
+					`font-family="${escapeXml(fontFamily)}"`,
+					`font-size="${fontSize}"`,
+					`text-anchor="${svgAnchor}"`,
+					`dominant-baseline="${baseline}"`,
+				];
+				if (dx !== 0) attrs.push(`dx="${formatNum(dx)}"`);
+				if (dy !== 0) attrs.push(`dy="${formatNum(dy)}"`);
+			}
+			if (spacing !== 0) attrs.push(`letter-spacing="${formatScale(spacing)}"`);
 
 			if (style.rotate !== 0) {
 				attrs.push(`transform="rotate(${String(style.rotate)},${formatNum(px)},${formatNum(py)})"`);
@@ -431,7 +451,7 @@ export class SVGRenderer {
 			attrs.push(fillAttr(color));
 			if (style.opacity < 1) attrs.push(`opacity="${style.opacity.toFixed(3)}"`);
 
-			this.#svg.push(`<text ${attrs.join(' ')}>${escapeXml(style.text)}</text>`);
+			this.#svg.push(`<text ${attrs.join(' ')}>${content}</text>`);
 		}
 		this.#svg.push('</g>');
 	}

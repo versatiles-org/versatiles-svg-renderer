@@ -160,6 +160,16 @@ export interface SymbolStyle {
 	 * by glyph there, centered on each position, instead of at the feature's point.
 	 */
 	path?: GlyphPlacement[];
+	/**
+	 * For a label of several lines: each line, and the point its alignment (`justify`)
+	 * refers to, vertically at the middle of the line. The anchor and offset are applied
+	 * already; `text` is all lines.
+	 */
+	lines?: { text: string; x: number; y: number }[];
+	/** How the `lines` align at their points (`text-justify`). */
+	justify?: 'left' | 'center' | 'right';
+	/** `text-letter-spacing`, in ems. */
+	letterSpacing?: number;
 	text: string;
 	size: number;
 	font: string[];

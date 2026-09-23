@@ -19,7 +19,7 @@ import type {
 	SymbolStyle,
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
-import { mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
 import { circleShape } from './circle.js';
 import { LRUCache } from '../lru_cache.js';
 import {
@@ -729,8 +729,25 @@ export class CanvasRenderer implements Renderer {
 					ctx.translate(-x, -y);
 				}
 				ctx.font = `${String(roundToTenths(style.size))}px ${style.font.join(', ')}, Helvetica, Arial, sans-serif`;
-				ctx.textAlign = CANVAS_TEXT_ALIGN[align];
-				ctx.textBaseline = CANVAS_TEXT_BASELINE[baseline];
+				const spacing = (style.letterSpacing ?? 0) * style.size;
+				if (spacing !== 0) ctx.letterSpacing = `${String(spacing)}px`;
+
+				// One line at the point, or several, each at its own point (see SymbolStyle.lines).
+				let lines: { text: string; x: number; y: number }[];
+				if (style.lines) {
+					const anchor = JUSTIFY_ANCHOR[style.justify ?? 'center'];
+					const shift = letterSpacingShift(spacing, anchor);
+					ctx.textAlign = CANVAS_TEXT_ALIGN[anchor];
+					ctx.textBaseline = 'middle';
+					lines = style.lines.map((line) => ({ ...line, x: line.x + shift }));
+				} else {
+					ctx.textAlign = CANVAS_TEXT_ALIGN[align];
+					ctx.textBaseline = CANVAS_TEXT_BASELINE[baseline];
+					const shift = letterSpacingShift(spacing, align);
+					lines = [
+						{ text: style.text, x: x + dx / UNITS_PER_PX + shift, y: y + dy / UNITS_PER_PX },
+					];
+				}
 
 				const haloColor = new Color(style.haloColor);
 				// Stroke first, then fill: the same order `paint-order="stroke fill"` gives the
@@ -739,10 +756,10 @@ export class CanvasRenderer implements Renderer {
 					ctx.strokeStyle = haloColor.hex;
 					ctx.lineWidth = roundToTenths(style.haloWidth);
 					ctx.lineJoin = 'round';
-					ctx.strokeText(style.text, x + dx / UNITS_PER_PX, y + dy / UNITS_PER_PX);
+					for (const line of lines) ctx.strokeText(line.text, line.x, line.y);
 				}
 				ctx.fillStyle = color.hex;
-				ctx.fillText(style.text, x + dx / UNITS_PER_PX, y + dy / UNITS_PER_PX);
+				for (const line of lines) ctx.fillText(line.text, line.x, line.y);
 			});
 		}
 	}

@@ -115,7 +115,6 @@ The SVG names each label's font (`text-font`) and leaves resolving it to whateve
 > The rendering of labels and icons is experimental and may produce imperfect results. Since we cannot use the original layouting engine of MapLibre GL JS, there are known limitations:
 >
 > - **Text measured with Noto Sans:** Labels are placed and kept apart as in MapLibre GL JS, and street names follow their streets glyph by glyph, but text is measured with the widths of Noto Sans (the font of the VersaTiles styles). In other fonts, labels keep a little too much or too little distance, and letters along a line sit a little apart or close together.
-> - **No line breaks:** A label is always one line (`text-max-width` is not supported).
 >
 > Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
 

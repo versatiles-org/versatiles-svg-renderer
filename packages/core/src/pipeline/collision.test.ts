@@ -3,6 +3,7 @@ import { Color } from '@maplibre/maplibre-gl-style-spec';
 import {
 	CollisionIndex,
 	iconBox,
+	layoutText,
 	placeSymbols,
 	textBox,
 	type Box,
@@ -47,6 +48,36 @@ describe('textBox', () => {
 
 	test('covers a rotated label by its bounding box', () => {
 		expect(round(textBox(100, 50, label({ rotate: 90 }), 0))).toEqual([94, 18.05, 106, 81.95]);
+	});
+});
+
+describe('layoutText', () => {
+	const two = ['AAAA', 'AA']; // 25.56 and 12.78 px wide at 10 px
+
+	test('places a block of lines by the anchor, each line by the justification', () => {
+		const layout = layoutText(100, 50, label({ anchor: 'center' }), two, 1.5, 'center');
+		// 25.56 × 30 px (2 lines of 15 px), centered on the point.
+		expect(round(layout.box)).toEqual([87.22, 35, 112.78, 65]);
+		expect(layout.justify).toBe('center');
+		expect(layout.lines!.map((l) => [round([l.x, l.y, 0, 0])[0], l.y])).toEqual([
+			[100, 42.5],
+			[100, 57.5],
+		]);
+	});
+
+	test('justifies "auto" by the anchor: a label left of its point is right-aligned', () => {
+		const layout = layoutText(100, 50, label({ anchor: 'right' }), two, 1.2, 'auto');
+		expect(layout.justify).toBe('right');
+		expect(layout.lines!.every((l) => l.x === 100)).toBe(true);
+		expect(layoutText(100, 50, label({ anchor: 'top-left' }), two, 1.2, 'auto').justify).toBe(
+			'left',
+		);
+	});
+
+	test('keeps a single line as it is', () => {
+		const layout = layoutText(100, 50, label(), ['AAAAAAAAAA'], 1.2, 'center');
+		expect(layout.lines).toBeUndefined();
+		expect(round(layout.box)).toEqual([68.05, 44, 131.95, 56]);
 	});
 });
 

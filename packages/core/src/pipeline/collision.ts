@@ -70,13 +70,35 @@ function rotate(box: Box, degrees: number, pivot: [number, number]): Box {
 	return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
 
+/** A label's lines placed around its point, and the box the block covers. */
+export interface TextLayout {
+	box: Box;
+	/** Only for more than one line (see `SymbolStyle.lines`). */
+	lines?: { text: string; x: number; y: number }[];
+	justify?: 'left' | 'center' | 'right';
+}
+
 /**
- * The box a label covers, placed as the renderers draw it (see `mapTextAnchor`): its
- * width measured from Noto Sans, one line high, grown by `text-padding`.
+ * Places the `lines` of a label around its point `x`, `y` as MapLibre GL JS does: the block
+ * of lines `lineHeight` ems apart is anchored by `text-anchor` and moved by `text-offset`,
+ * and each line is aligned within it by `justify` (`"auto"` follows the anchor). The box
+ * is the block's, before rotation and padding.
  */
-export function textBox(x: number, y: number, style: SymbolStyle, padding: number): Box {
-	const width = textWidth(style.text, style.font, style.size);
-	const height = style.size * LINE_HEIGHT;
+export function layoutText(
+	x: number,
+	y: number,
+	style: SymbolStyle,
+	lines: string[],
+	lineHeight = LINE_HEIGHT,
+	justify = 'center',
+): TextLayout {
+	const spacing = (style.letterSpacing ?? 0) * style.size;
+	const widths = lines.map(
+		(line) =>
+			textWidth(line, style.font, style.size) + spacing * Math.max(0, Array.from(line).length - 1),
+	);
+	const width = Math.max(0, ...widths);
+	const height = style.size * lineHeight * Math.max(1, lines.length);
 	const [align, baseline] = mapTextAnchor(style.anchor);
 	const left =
 		x +
@@ -86,8 +108,46 @@ export function textBox(x: number, y: number, style: SymbolStyle, padding: numbe
 		y +
 		style.offset[1] * style.size -
 		(baseline === 'central' ? height / 2 : baseline === 'text-after-edge' ? height : 0);
-	const box = rotate([left, top, left + width, top + height], style.rotate, [x, y]);
-	return pad(box, padding);
+	const box: Box = [left, top, left + width, top + height];
+	if (lines.length <= 1) return { box };
+
+	const side =
+		justify === 'auto'
+			? align === 'start'
+				? 'left'
+				: align === 'end'
+					? 'right'
+					: 'center'
+			: (justify as 'left' | 'center' | 'right');
+	const lineX = side === 'left' ? left : side === 'right' ? left + width : left + width / 2;
+	return {
+		box,
+		justify: side,
+		lines: lines.map((text, i) => ({
+			text,
+			x: lineX,
+			y: top + (i + 0.5) * style.size * lineHeight,
+		})),
+	};
+}
+
+/**
+ * The box a label covers, placed as the renderers draw it (see `mapTextAnchor`): its
+ * width measured from Noto Sans, one line high, grown by `text-padding`.
+ */
+export function textBox(x: number, y: number, style: SymbolStyle, padding: number): Box {
+	return paddedBox(layoutText(x, y, style, [style.text]).box, style, x, y, padding);
+}
+
+/** A label's box rotated with it (`text-rotate`, around its point) and grown by `padding`. */
+export function paddedBox(
+	box: Box,
+	style: SymbolStyle,
+	x: number,
+	y: number,
+	padding: number,
+): Box {
+	return pad(rotate(box, style.rotate, [x, y]), padding);
 }
 
 /** The box of one glyph of a label along a line, grown by `text-padding`. */

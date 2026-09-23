@@ -75,3 +75,125 @@ export function textWidth(
 	}
 	return (total / UNITS) * size;
 }
+
+/** Characters after which a line may break (MapLibre's `breakable`). */
+const BREAKABLE = new Set([
+	0x0a, // newline
+	0x20, // space
+	0x26, // ampersand
+	0x29, // right parenthesis
+	0x2b, // plus sign
+	0x2d, // hyphen-minus
+	0x2f, // solidus
+	0xad, // soft hyphen
+	0xb7, // middle dot
+	0x200b, // zero-width space
+	0x2010, // hyphen
+	0x2013, // en dash
+	0x2027, // interpunct
+]);
+
+/** Characters that take no width at the end of a line (MapLibre's `whitespace`). */
+const WHITESPACE = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20]);
+
+/** Whether a line may break after `c` without a space: CJK text has no spaces. */
+function allowsIdeographicBreaking(c: number): boolean {
+	return (
+		(c >= 0x2e80 && c <= 0x9fff) || // CJK radicals … unified ideographs, kana
+		(c >= 0xac00 && c <= 0xd7a3) || // Hangul syllables
+		(c >= 0xf900 && c <= 0xfaff) ||
+		(c >= 0xff00 && c <= 0xffef) ||
+		(c >= 0x20000 && c <= 0x3fffd)
+	);
+}
+
+interface Break {
+	index: number;
+	x: number;
+	prior: Break | undefined;
+	badness: number;
+}
+
+/** How far a line is from the target width, plus the penalty of the break (MapLibre's). */
+function badness(width: number, target: number, penalty: number, last: boolean): number {
+	const raggedness = (width - target) ** 2;
+	// The last line is better shorter than the others than longer.
+	if (last) return width < target ? raggedness / 2 : raggedness * 2;
+	return raggedness + Math.abs(penalty) * penalty;
+}
+
+function penaltyOf(c: number, next: number | undefined): number {
+	let penalty = 0;
+	if (c === 0x0a) penalty -= 10000; // a newline forces the break
+	if (c === 0x28 || c === 0xff08) penalty += 50; // not after an opening parenthesis
+	if (next === 0x29 || next === 0xff09) penalty += 50; // not before a closing one
+	return penalty;
+}
+
+function evaluateBreak(
+	index: number,
+	x: number,
+	target: number,
+	breaks: Break[],
+	penalty: number,
+	last: boolean,
+): Break {
+	let prior: Break | undefined;
+	let best = badness(x, target, penalty, last);
+	for (const candidate of breaks) {
+		const value = badness(x - candidate.x, target, penalty, last) + candidate.badness;
+		if (value <= best) {
+			prior = candidate;
+			best = value;
+		}
+	}
+	return { index, x, prior, badness: best };
+}
+
+/**
+ * `text` broken into lines of at most about `maxWidth` ems, as MapLibre GL JS breaks point
+ * labels (`determineLineBreaks`): at spaces and other breakable characters, and between CJK
+ * characters, choosing the breaks that make the lines most even; always at a newline. Each
+ * line is trimmed. `letterSpacing` is in ems, as `text-letter-spacing`.
+ */
+export function breakLines(
+	text: string,
+	fonts: readonly string[] | undefined,
+	maxWidth: number,
+	letterSpacing = 0,
+): string[] {
+	const chars = Array.from(graphemes.segment(text), ({ segment }) => segment);
+	const codes = chars.map((char) => char.codePointAt(0)!);
+	const advances = chars.map((char) => textWidth(char, fonts, 1) + letterSpacing);
+	const lines = (indices: number[]): string[] => {
+		const result: string[] = [];
+		let start = 0;
+		for (const end of [...indices, chars.length]) {
+			const line = chars.slice(start, end).join('').trim();
+			if (line) result.push(line);
+			start = end;
+		}
+		return result;
+	};
+
+	if (!(maxWidth > 0)) return lines(codes.flatMap((c, i) => (c === 0x0a ? [i + 1] : [])));
+
+	// Aim at lines of equal width: the total spread over as many lines as it needs.
+	const total = advances.reduce((sum, advance) => sum + advance, 0);
+	const target = total / Math.max(1, Math.ceil(total / maxWidth));
+
+	const breaks: Break[] = [];
+	let x = 0;
+	for (let i = 0; i < codes.length; i++) {
+		const c = codes[i]!;
+		if (!WHITESPACE.has(c)) x += advances[i]!;
+		if (i < codes.length - 1 && (BREAKABLE.has(c) || allowsIdeographicBreaking(c))) {
+			breaks.push(evaluateBreak(i + 1, x, target, breaks, penaltyOf(c, codes[i + 1]), false));
+		}
+	}
+	const indices: number[] = [];
+	for (let b = evaluateBreak(codes.length, x, target, breaks, 0, true).prior; b; b = b.prior) {
+		indices.unshift(b.index);
+	}
+	return lines(indices);
+}
