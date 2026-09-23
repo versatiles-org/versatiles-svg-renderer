@@ -23,8 +23,8 @@ interface XY {
  *
  * Interior vertices are placed at the miter intersection of the two adjacent
  * offset edges. The miter is capped at ~4× the offset (|cosHalf| >= 0.25) to
- * avoid spikes at sharp corners. Closed rings are not special-cased, so a ring
- * will show a small seam at its start/end join.
+ * avoid spikes at sharp corners. The ends are treated as open; for a closed ring,
+ * use {@link strokeLines}.
  *
  * @param points  Screen-space points of the original polyline.
  * @param offset  Perpendicular offset in pixels (positive = right of travel).
@@ -93,6 +93,40 @@ export function offsetSegmentPoints(points: XY[], offset: number): XY[] {
 	});
 
 	return result;
+}
+
+/**
+ * The lines of a feature as a line layer strokes them, offset by `offset`: the open ones,
+ * and the closed ones. As in MapLibre, only a polygon's rings are closed (a ring that ends
+ * where it starts is joined there like at every other vertex); a line that happens to end
+ * at its start keeps its caps. A closed ring is returned without its repeated last point.
+ */
+export function strokeLines(
+	lines: XY[][],
+	isPolygon: boolean,
+	offset: number,
+): { open: XY[][]; closed: XY[][] } {
+	const open: XY[][] = [];
+	const closed: XY[][] = [];
+	for (const line of lines) {
+		const first = line[0];
+		const last = line[line.length - 1];
+		if (isPolygon && line.length >= 4 && first!.x === last!.x && first!.y === last!.y) {
+			const ring = line.slice(0, -1);
+			if (offset === 0) {
+				closed.push(ring);
+			} else {
+				// Offset with the ring's neighbours on both ends, so its first vertex gets a
+				// miter like the others.
+				const n = ring.length;
+				const wrapped = [ring[n - 1]!, ...ring, ring[0]!];
+				closed.push(offsetSegmentPoints(wrapped, offset).slice(1, n + 1));
+			}
+		} else {
+			open.push(offset === 0 ? line : offsetSegmentPoints(line, offset));
+		}
+	}
+	return { open, closed };
 }
 
 export function chainSegments(segments: Segment[]): Segment[] {

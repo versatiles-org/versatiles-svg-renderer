@@ -206,6 +206,49 @@ describe('loadVectorSource', () => {
 		const f = features ?? { points: [], linestrings: [], polygons: [] };
 		expect(f.polygons.length).toBe(1);
 		expect(f.polygons[0]!.type).toBe('Polygon');
+		// Line layers stroke the polygon's rings: the same geometry, as a polygon.
+		expect(f.polygonOutlines).toHaveLength(1);
+		expect(f.polygonOutlines![0]!.type).toBe('Polygon');
+		expect(f.polygonOutlines![0]!.geometry).toBe(f.polygons[0]!.geometry);
+	});
+
+	test('outlines a polygon clipped to its tile without the clipped edges', async () => {
+		vi.mocked(getTile).mockResolvedValueOnce({
+			buffer: new ArrayBuffer(0),
+			contentType: 'application/x-protobuf',
+		});
+		setMockLayers({
+			buildings: [
+				{
+					type: 3, // Polygon, reaching 100 units into the tile buffer on the right
+					geometry: [
+						[
+							{ x: 1000, y: 1000 },
+							{ x: 4196, y: 1000 },
+							{ x: 4196, y: 2000 },
+							{ x: 1000, y: 2000 },
+							{ x: 1000, y: 1000 },
+						],
+					],
+					properties: {},
+				},
+			],
+		});
+		const layerFeatures: LayerFeatures = new Map();
+		await loadVectorSource(
+			{ type: 'vector', tiles: ['https://example.com/{z}/{x}/{y}.pbf'] },
+			makeJob(),
+			layerFeatures,
+		);
+		const [polygon] = layerFeatures.get('buildings')!.polygons;
+		const [outline] = layerFeatures.get('buildings')!.polygonOutlines!;
+		// One open line: along the bottom, the left side and the top, not the tile's edge.
+		expect(outline!.geometry).toBe(polygon!.outline);
+		expect(outline!.geometry).toHaveLength(1);
+		const line = outline!.geometry[0]!;
+		expect(line).toHaveLength(4);
+		expect(line[0]!.x).toBeCloseTo(line[3]!.x);
+		expect(line[0]!.y).not.toBeCloseTo(line[3]!.y);
 	});
 
 	test('throws on unknown feature type', async () => {

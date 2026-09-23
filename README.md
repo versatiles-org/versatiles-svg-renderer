@@ -183,7 +183,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `fill-pattern`, `background-pattern`  | ✅  | ✅  |       |
 | `line-pattern`                        | ❌  | ❌  | [#44] |
 | `line-gap-width`                      | ⚠️⁴ | ⚠️⁴ | [#61] |
-| Line layers on polygons               | ⚠️⁵ | ⚠️⁵ | [#60] |
+| Line layers on polygons               | ✅  | ✅  |       |
 | `line-gradient`                       | ❌  | ❌  | [#53] |
 | Other paint/layout properties         | ⚠️  | ⚠️  | [#54] |
 | **Labels and icons**                  |     |     |       |
@@ -203,7 +203,6 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 ² With the `fonts` option; otherwise installed fonts.
 ³ The text is drawn, its formatting is lost.
 ⁴ Round joins and caps differ at sharp turns and line ends.
-⁵ GeoJSON polygons only, and their rings are not closed ([#59]).
 
 Labels and icons are only drawn with `renderLabels: true`. Interaction, animation and `feature-state` do not apply to a static image.
 
@@ -226,6 +225,4 @@ Labels and icons are only drawn with `renderLabels: true`. Interaction, animatio
 [#53]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/53
 [#54]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/54
 [#57]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/57
-[#59]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/59
-[#60]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/60
 [#61]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/61

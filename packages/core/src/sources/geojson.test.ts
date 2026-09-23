@@ -135,7 +135,8 @@ describe('loadGeoJSONSource', () => {
 			// consume polygons + linestrings, would fill the polygon twice.
 			expect(features.linestrings.length).toBe(0);
 			expect(features.polygonOutlines?.length).toBe(1);
-			expect(features.polygonOutlines![0]!.type).toBe('LineString');
+			// A polygon, as in MapLibre: a line layer closes its rings.
+			expect(features.polygonOutlines![0]!.type).toBe('Polygon');
 			expect(features.points.length).toBe(1);
 		});
 

@@ -101,15 +101,14 @@ describe('clipPolygonOutline', () => {
 			0,
 			10,
 		);
+		// One line: the part after the border and the part before it meet at the ring's
+		// start (5, 5), which is a corner like any other.
 		expect(plain(lines)).toEqual([
-			[
-				[5, 5],
-				[10, 5],
-			],
 			[
 				[10, 8],
 				[5, 8],
 				[5, 5],
+				[10, 5],
 			],
 		]);
 	});

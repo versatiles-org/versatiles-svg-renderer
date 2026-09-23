@@ -83,5 +83,10 @@
 		"svg": 0.55,
 		"png": 0.55,
 		"drift": 0
+	},
+	"berlin-outlines-vector": {
+		"svg": 1.08,
+		"png": 0.89,
+		"drift": 0.39
 	}
 }

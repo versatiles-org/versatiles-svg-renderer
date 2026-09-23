@@ -46,6 +46,9 @@ To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector 
 test:e2e:screenshots`. With `UPDATE_BASELINE=1`, such a run re-blesses only those
 regions.
 
+`berlin-outlines-vector` adds line layers on polygons (building and translucent water
+outlines) to the VersaTiles style, which has none.
+
 Labels and icons are switched off in every region but `berlin-labels-vector`.
 MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
 difference is large and inherent; confining it to one region keeps it measured

@@ -413,6 +413,42 @@ describe('SVGRenderer', () => {
 	});
 
 	describe('drawLineStrings', () => {
+		test("closes a polygon's rings, so their start is joined too", () => {
+			const ring = [
+				[0, 0],
+				[10, 0],
+				[10, 10],
+				[0, 0],
+			] as [number, number][];
+			const polygon = new Feature({
+				type: 'Polygon',
+				properties: {},
+				geometry: [ring.map(([x, y]) => new Point2D(x, y))],
+			});
+			const line = new Feature({
+				type: 'LineString',
+				properties: {},
+				geometry: [ring.map(([x, y]) => new Point2D(x, y))],
+			});
+			const style: LineStyle = {
+				blur: 0,
+				cap: 'butt',
+				color: mc('#000000'),
+				join: 'miter',
+				miterLimit: 2,
+				offset: 0,
+				opacity: 1,
+				translate: [0, 0],
+				width: 2,
+			};
+			const r = makeRenderer();
+			r.drawLineStrings('polygon', [[polygon, style]]);
+			r.drawLineStrings('line', [[line, style]]);
+			const paths = r.getString().match(/<path d="[^"]*"/g)!;
+			expect(paths[0]).toMatch(/z"$/);
+			expect(paths[1]).not.toMatch(/z"$/);
+		});
+
 		test('generates path elements with stroke attributes', () => {
 			const r = makeRenderer();
 			const feature = makeLineFeature([

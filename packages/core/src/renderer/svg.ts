@@ -1,7 +1,7 @@
 import type { Feature } from '../geometry.js';
 import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
-import { chainSegments, formatNum, offsetSegmentPoints, segmentsToPath } from './svg_path.js';
+import { chainSegments, formatNum, segmentsToPath, strokeLines } from './svg_path.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -221,7 +221,8 @@ export class SVGRenderer {
 		// between the parts of one feature (tiles merge equal ways into one multi-line
 		// feature). One <path> covers its overlaps only once, so a translucent line gets
 		// a <path> per part.
-		const groups: { segments: Segment[]; attrs: string; separate: boolean }[] = [];
+		const groups: { segments: Segment[]; rings: Segment[]; attrs: string; separate: boolean }[] =
+			[];
 		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
@@ -269,6 +270,7 @@ export class SVGRenderer {
 				if (dasharrayStr) attrs.push(`stroke-dasharray="${dasharrayStr}"`);
 				groups.push({
 					segments: [],
+					rings: [],
 					attrs: attrs.join(' ') + translate + opacityAttr + filterAttr,
 					separate: translucent,
 				});
@@ -276,22 +278,28 @@ export class SVGRenderer {
 			}
 			const group = groups[groups.length - 1]!;
 
-			feature.geometry.forEach((line) => {
-				const points = style.offset === 0 ? line : offsetSegmentPoints(line, style.offset);
-				group.segments.push(points.map((p) => roundXY(p.x, p.y)));
-			});
+			const { open, closed } = strokeLines(
+				feature.geometry,
+				feature.type === 'Polygon',
+				style.offset,
+			);
+			for (const line of open) group.segments.push(line.map((p) => roundXY(p.x, p.y)));
+			for (const ring of closed) group.rings.push(ring.map((p) => roundXY(p.x, p.y)));
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, attrs, separate } of groups) {
+		for (const { segments, rings, attrs, separate } of groups) {
 			if (separate) {
 				for (const segment of segments) {
 					this.#svg.push(`<path d="${segmentsToPath([segment])}" ${attrs} />`);
 				}
+				for (const ring of rings) {
+					this.#svg.push(`<path d="${segmentsToPath([ring], true)}" ${attrs} />`);
+				}
 				continue;
 			}
 			const chains = chainSegments(segments);
-			const d = segmentsToPath(chains);
+			const d = segmentsToPath(chains) + segmentsToPath(rings, true);
 			this.#svg.push(`<path d="${d}" ${attrs} />`);
 		}
 		this.#svg.push('</g>');

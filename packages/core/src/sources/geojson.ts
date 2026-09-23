@@ -108,8 +108,9 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 					features.polygons.push(f);
 					// Stroke source for `line` layers only — NOT `fill` (the polygon is
 					// already filled via features.polygons; filling this too would double it).
+					// A polygon, as in MapLibre: its rings are closed, and `geometry-type` says so.
 					features.polygonOutlines!.push(
-						new Feature({ type: 'LineString', geometry, id, properties }),
+						new Feature({ type: 'Polygon', geometry, id, properties }),
 					);
 					features.points.push(
 						new Feature({ type: 'Point', geometry: extractPoints(geometry), id, properties }),

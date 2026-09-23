@@ -55,7 +55,7 @@ function addTileFeatures(
 	for (const [name, layer] of Object.entries(vectorTile.layers)) {
 		let features = layerFeatures.get(name);
 		if (!features) {
-			features = { points: [], linestrings: [], polygons: [] };
+			features = { points: [], linestrings: [], polygons: [], polygonOutlines: [] };
 			layerFeatures.set(name, features);
 		}
 
@@ -114,7 +114,21 @@ function addTileFeatures(
 					id: featureSrc.id,
 					properties: featureSrc.properties,
 				});
-				if (feature.doesOverlap([0, 0, width, height])) list.push(feature);
+				if (!feature.doesOverlap([0, 0, width, height])) continue;
+				list.push(feature);
+				// What a `line` layer strokes of a polygon: its rings, or, where the polygon was
+				// clipped to the tile, the outline without the clipped edges (MapLibre draws the
+				// whole ring and clips it to the tile, which hides the edges in the buffer).
+				if (type === 'Polygon') {
+					features.polygonOutlines!.push(
+						new Feature({
+							type,
+							geometry: outline ?? geometry,
+							id: featureSrc.id,
+							properties: featureSrc.properties,
+						}),
+					);
+				}
 			}
 		}
 	}

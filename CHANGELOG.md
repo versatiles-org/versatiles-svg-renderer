@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Line layers on polygons.** A `line` layer drew nothing for polygons from vector tiles, and stroked GeoJSON polygons as open lines, with a notch where each ring starts and ends. As in MapLibre GL JS, a line layer now strokes the rings of polygons from any source, closed, and a polygon clipped to its tile without its clipped edges; `geometry-type` in such a layer is `"Polygon"`. The outline of a clipped polygon also no longer breaks at the ring's start. ([#59](https://github.com/versatiles-org/versatiles-svg-renderer/issues/59), [#60](https://github.com/versatiles-org/versatiles-svg-renderer/issues/60))
 - **`circle-opacity` faded the stroke too.** As in MapLibre GL JS, it now fades only the fill; the stroke has `circle-stroke-opacity`. A translucent stroke no longer shows the fill through its inner half.
 - **Features of different sources no longer mix when their layer names match.** A style with two vector sources that both have a layer `water` drew the `water` features of both sources in each style layer, and a GeoJSON source named like a vector layer (e.g. `water`) added its features to that layer. Features are now kept per source. A GeoJSON style layer also ignores `source-layer` now, as in MapLibre. ([#36](https://github.com/versatiles-org/versatiles-svg-renderer/issues/36))
 

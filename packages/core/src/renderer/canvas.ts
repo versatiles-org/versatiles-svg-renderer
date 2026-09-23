@@ -3,7 +3,7 @@ import type { Feature } from '../geometry.js';
 import type { ClipCircle } from '../projection.js';
 import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
-import { chainSegments, offsetSegmentPoints } from './svg_path.js';
+import { chainSegments, strokeLines } from './svg_path.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -318,9 +318,9 @@ export class CanvasRenderer implements Renderer {
 				style.blur > 0 ? style.width / (style.width + BLUR_OPACITY_K * style.blur) : 1;
 			const opacity = style.opacity * blurOpacity;
 
-			const segments = feature.geometry.map((line) =>
-				toSegment(style.offset === 0 ? line : offsetSegmentPoints(line, style.offset)),
-			);
+			const lines = strokeLines(feature.geometry, feature.type === 'Polygon', style.offset);
+			const segments = lines.open.map(toSegment);
+			const rings = lines.closed.map(toSegment);
 			// A translucent line is stroked part by part: MapLibre blends each separately, so
 			// where parts overlap their opacity adds up. Opaque lines are chained first, so
 			// joins are drawn between parts that share an endpoint.
@@ -337,8 +337,13 @@ export class CanvasRenderer implements Renderer {
 						this.#trace(ctx, [segment], false);
 						ctx.stroke();
 					}
-				} else {
+				} else if (segments.length > 0) {
 					this.#trace(ctx, chainSegments(segments), false);
+					ctx.stroke();
+				}
+				// A polygon's rings are closed, so their start is joined too.
+				for (const ring of rings) {
+					this.#trace(ctx, [ring], true);
 					ctx.stroke();
 				}
 			};
@@ -355,7 +360,7 @@ export class CanvasRenderer implements Renderer {
 			const stdDeviation = style.blur * BLUR_STD_FACTOR;
 			const margin = style.width / 2 + 3 * stdDeviation + 2;
 			this.#isolate(
-				regionOf(segments, style.translate, margin),
+				regionOf([...segments, ...rings], style.translate, margin),
 				opacity,
 				[BLUR_ALPHA_SLOPE, BLUR_ALPHA_INTERCEPT],
 				(ctx) => {

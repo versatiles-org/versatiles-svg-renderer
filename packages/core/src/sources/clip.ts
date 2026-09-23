@@ -62,7 +62,19 @@ export function clipPolygonOutline(rings: XY[][], min: number, max: number): XY[
 		const first = ring[0]!;
 		const last = ring[ring.length - 1]!;
 		const closed = first.x === last.x && first.y === last.y ? ring : [...ring, first];
-		result.push(...clipLine(closed, min, max));
+		const parts = clipLine(closed, min, max);
+		// A ring that starts inside the square is cut into parts, the last of which ends where
+		// the first begins: join them, so that corner is a join and not two line ends.
+		if (parts.length > 1) {
+			const head = parts[0]![0]!;
+			const tail = parts[parts.length - 1]!;
+			const end = tail[tail.length - 1]!;
+			if (end.x === head.x && end.y === head.y) {
+				parts[0] = [...tail, ...parts[0]!.slice(1)];
+				parts.pop();
+			}
+		}
+		result.push(...parts);
 	}
 	return result;
 }

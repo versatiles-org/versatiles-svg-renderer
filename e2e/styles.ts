@@ -22,6 +22,12 @@ export interface Region {
 	 * every region's diff. One region turns it on so the symbol path stays measured.
 	 */
 	labels?: boolean;
+	/**
+	 * Add line layers on polygons (building outlines, translucent water outlines): the
+	 * VersaTiles styles have none, and polygons clipped to their tile must not show their
+	 * clipped edges.
+	 */
+	outlines?: boolean;
 }
 
 export const regions: Region[] = [
@@ -33,6 +39,7 @@ export const regions: Region[] = [
 	{ name: 'sao-paulo', lon: -46.635, lat: -23.548, zoom: 14, type: 'vector' },
 
 	{ name: 'berlin-labels', lon: 13.357, lat: 52.515, zoom: 14.2, type: 'vector', labels: true },
+	{ name: 'berlin-outlines', lon: 13.399, lat: 52.519, zoom: 15.5, type: 'vector', outlines: true },
 
 	{ name: 'berlin', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite' },
 
@@ -84,7 +91,8 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 	const { type } = region;
 	const projection = region.projection ?? 'mercator';
 	const labels = region.labels ?? false;
-	const cacheKey = `${type}-${projection}-${String(labels)}`;
+	const outlines = region.outlines ?? false;
+	const cacheKey = `${type}-${projection}-${String(labels)}-${String(outlines)}`;
 	let style = styleCache.get(cacheKey);
 	if (!style) {
 		switch (type) {
@@ -96,6 +104,25 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 						layers: { labels, icons: labels },
 					}),
 				);
+				if (outlines) {
+					const source = Object.keys(style.sources)[0]!;
+					style.layers.push(
+						{
+							id: 'water-outline',
+							type: 'line',
+							source,
+							'source-layer': 'water_polygons',
+							paint: { 'line-color': '#0033ff', 'line-width': 3, 'line-opacity': 0.5 },
+						},
+						{
+							id: 'building-outline',
+							type: 'line',
+							source,
+							'source-layer': 'buildings',
+							paint: { 'line-color': '#cc0000', 'line-width': 1.5 },
+						},
+					);
+				}
 				break;
 			case 'satellite':
 				style = await inlineSources(satellite({ projection, osmOverlay: false }));

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { offsetSegmentPoints } from './svg_path.js';
+import { offsetSegmentPoints, strokeLines } from './svg_path.js';
 
 describe('offsetSegmentPoints', () => {
 	test('returns the input unchanged when offset is 0', () => {
@@ -99,5 +99,41 @@ describe('offsetSegmentPoints', () => {
 			expect(Number.isFinite(p.y)).toBe(true);
 			expect(p.y).toBeCloseTo(15);
 		}
+	});
+});
+
+describe('strokeLines', () => {
+	const square = [
+		{ x: 0, y: 0 },
+		{ x: 10, y: 0 },
+		{ x: 10, y: 10 },
+		{ x: 0, y: 10 },
+		{ x: 0, y: 0 },
+	];
+
+	test("closes a polygon's rings, without the repeated point", () => {
+		expect(strokeLines([square], true, 0)).toEqual({ open: [], closed: [square.slice(0, 4)] });
+	});
+
+	test('keeps a line that ends at its start open, as MapLibre does', () => {
+		expect(strokeLines([square], false, 0)).toEqual({ open: [square], closed: [] });
+	});
+
+	test('keeps the open parts of a clipped polygon outline open', () => {
+		const part = square.slice(0, 3);
+		expect(strokeLines([part], true, 0)).toEqual({ open: [part], closed: [] });
+	});
+
+	test('offsets a closed ring with a miter at its start, like at every vertex', () => {
+		const { closed } = strokeLines([square], true, 2);
+		// The ring runs clockwise on screen; an offset of 2 moves it 2 px inwards all round.
+		expect(closed).toEqual([
+			[
+				{ x: 2, y: 2 },
+				{ x: 8, y: 2 },
+				{ x: 8, y: 8 },
+				{ x: 2, y: 8 },
+			],
+		]);
 	});
 });
