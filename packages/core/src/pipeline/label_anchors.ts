@@ -6,20 +6,25 @@
  *
  * Labels along lines (`"line"`, `"line-center"`) are not supported: such a feature gets a
  * single, straight label in the middle of its longest line, as `"line-center"` would place
- * it. One per feature, not per line, since there is no collision detection to thin out the
- * labels of the many short lines a street is made of.
+ * it, and only if that line is at least as long as the label, as MapLibre requires. One per
+ * feature, not per line: a street is made of many short lines.
  */
 import { Point2D, type Feature } from '../geometry.js';
 
 /** How close to the true pole of inaccessibility the search has to get, in pixels. */
 const PRECISION = 1;
 
-/** The points of `feature` its symbols are placed at, in screen coordinates. */
-export function labelAnchors(feature: Feature, placement = 'point'): Point2D[] {
+/**
+ * The points of `feature` its symbols are placed at, in screen coordinates. `labelLength`
+ * is the length of the label (text or icon) along a line, in pixels.
+ */
+export function labelAnchors(feature: Feature, placement = 'point', labelLength = 0): Point2D[] {
 	if (placement !== 'point' && feature.type !== 'Point') {
 		// A polygon along a line is placed on its outline, like a line.
 		const longest = longestLine(feature.geometry);
-		return longest ? [pointAlong(longest, lineLength(longest) / 2)] : [];
+		if (!longest) return [];
+		const length = lineLength(longest);
+		return length >= labelLength ? [pointAlong(longest, length / 2)] : [];
 	}
 	switch (feature.type) {
 		case 'Point':

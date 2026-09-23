@@ -87,6 +87,19 @@ describe('labelAnchors along lines', () => {
 		}
 	});
 
+	test('places no label on a line shorter than the label', () => {
+		const street = feature('LineString', [
+			ring([
+				[0, 0],
+				[40, 0],
+			]),
+		]);
+		expect(xy(labelAnchors(street, 'line', 40))).toEqual([[20, 0]]);
+		expect(labelAnchors(street, 'line', 41)).toEqual([]);
+		// Point placement does not care.
+		expect(labelAnchors(street, 'point', 100)).toHaveLength(1);
+	});
+
 	test('places a polygon on its longest ring, like a line', () => {
 		expect(xy(labelAnchors(feature('Polygon', [square(0, 0, 100)]), 'line'))).toEqual([[100, 100]]);
 	});

@@ -53,25 +53,33 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'circle-translate',
 	],
 	symbol: [
+		'icon-allow-overlap',
 		'icon-anchor',
 		'icon-color',
 		'icon-halo-color',
 		'icon-halo-width',
+		'icon-ignore-placement',
 		'icon-image',
 		'icon-offset',
 		'icon-opacity',
+		'icon-optional',
+		'icon-padding',
 		'icon-rotate',
 		'icon-size',
 		'symbol-placement',
 		'symbol-sort-key',
+		'text-allow-overlap',
 		'text-anchor',
 		'text-color',
 		'text-field',
 		'text-font',
 		'text-halo-color',
 		'text-halo-width',
+		'text-ignore-placement',
 		'text-offset',
 		'text-opacity',
+		'text-optional',
+		'text-padding',
 		'text-rotate',
 		'text-size',
 		'text-transform',
@@ -79,9 +87,8 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 };
 
 /**
- * Properties that make no difference to a flat, north-up image, or only to a feature whose
- * absence is documented (label collisions) or already reported (labels along lines,
- * wrapped text): not worth a warning.
+ * Properties that make no difference to a flat, north-up image, or only to a feature that
+ * is already reported (labels along lines, wrapped text): not worth a warning.
  */
 const WITHOUT_EFFECT = new Set([
 	'visibility',
@@ -97,14 +104,6 @@ const WITHOUT_EFFECT = new Set([
 	'icon-pitch-alignment',
 	'text-rotation-alignment',
 	'icon-rotation-alignment',
-	'text-allow-overlap',
-	'icon-allow-overlap',
-	'text-ignore-placement',
-	'icon-ignore-placement',
-	'text-optional',
-	'icon-optional',
-	'text-padding',
-	'icon-padding',
 	'symbol-avoid-edges',
 	'symbol-z-order',
 	'symbol-spacing',

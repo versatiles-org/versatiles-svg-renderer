@@ -736,6 +736,40 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test('drops labels that overlap one placed before, the upper layer first', async () => {
+			// Three labels at the same spot in two layers, and one elsewhere.
+			const points = [
+				makePointFeature([[[100, 100]]], { name: 'lower' }),
+				makePointFeature([[[100, 100]]], { name: 'upper-1' }),
+				makePointFeature([[[102, 101]]], { name: 'upper-2' }),
+				makePointFeature([[[100, 200]]], { name: 'apart' }),
+			];
+			setLayerFeatures(new Map([['places', makeFeatures({ points })]]));
+			const layer = (id: string, filter: string[]) => ({
+				id,
+				type: 'symbol' as const,
+				source: 'src',
+				'source-layer': 'places',
+				filter: ['in', ['get', 'name'], ['literal', filter]] as never,
+				layout: { 'text-field': '{name}' },
+			});
+			const job = makeJob(
+				makeStyle([layer('lower', ['lower', 'apart']), layer('upper', ['upper-1', 'upper-2'])]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+			const drawn = drawLabels.mock.calls.map(([id, labels]) => [
+				id,
+				labels.map(([, s]) => s.text),
+			]);
+			expect(drawn).toEqual([
+				['lower-labels', ['apart']],
+				['upper-labels', ['upper-1']],
+			]);
+		});
+
 		test('applies text-transform and symbol-sort-key', async () => {
 			const points = ['b', 'a'].map((name, i) =>
 				makePointFeature([[[10 + i * 50, 10]]], { name, rank: name === 'a' ? 1 : 2 }),

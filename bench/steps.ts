@@ -28,6 +28,7 @@ export const LAYER_FUNCTIONS: Record<string, string> = {
 	renderRasterLayer: 'raster',
 	renderCircleLayer: 'circle',
 	renderSymbolLayer: 'symbol',
+	prepareSymbolLayer: 'symbol',
 };
 const RENDER_FILE = 'core/src/pipeline/render.ts';
 
@@ -46,6 +47,7 @@ export const RULES: Rule[] = [
 	{ name: 'loadSprite', file: 'core/src/sources/sprite.ts', step: 'sprite' },
 	{ name: 'getRasterTiles', file: 'core/src/sources/raster.ts', step: 'raster · tiles' },
 	{ name: '', file: 'core/src/sources/raster.ts', step: 'raster · tiles' },
+	{ name: 'placeSymbols', file: 'core/src/pipeline/collision.ts', step: 'symbol · placement' },
 	{ name: 'filterFeatures', file: RENDER_FILE, step: byLayer('filter') },
 	{ name: 'evaluateLayer', file: RENDER_FILE, step: byLayer('style') },
 	{ name: 'getPaint', file: RENDER_FILE, step: byLayer('style') },

@@ -114,8 +114,8 @@ The SVG names each label's font (`text-font`) and leaves resolving it to whateve
 > [!WARNING]
 > The rendering of labels and icons is experimental and may produce imperfect results. Since we cannot use the original layouting engine of MapLibre GL JS, there are known limitations:
 >
-> - **No collision detection:** Text labels are rendered without collision detection, so labels may overlap.
-> - **Simplified text placement:** Labels can not be positioned along lines.
+> - **Simplified text placement:** Labels can not be positioned along lines. Street names come out straight, once in the middle of a line long enough for them.
+> - **Collision detection with Noto Sans:** Labels and icons that would overlap are left out, as in MapLibre GL JS, but text is measured with the widths of Noto Sans (the font of the VersaTiles styles), so in other fonts labels keep a little too much or too little distance.
 >
 > Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
 

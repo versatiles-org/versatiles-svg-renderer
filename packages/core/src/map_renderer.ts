@@ -30,9 +30,11 @@ export interface SVGMapRendererOptions {
 	 *
 	 * Off by default, because labels are the least faithful part of the output. They are
 	 * placed as in MapLibre: at points, and inside each polygon at the point farthest from
-	 * its edges. But labels that MapLibre curves along a line (`symbol-placement: "line"`,
-	 * typically street names) come out straight, once in the middle of the line, and there
-	 * is no collision detection, so crowded label layers can overlap.
+	 * its edges; labels and icons that would overlap one placed before are left out, from
+	 * the top layer down. But labels that MapLibre curves along a line
+	 * (`symbol-placement: "line"`, typically street names) come out straight, once in the
+	 * middle of a line long enough for them, and text is measured with the widths of Noto
+	 * Sans, so in other fonts labels may keep a little too much or too little distance.
 	 *
 	 * The SVG names each label's font (`text-font`) and leaves resolving it to whatever
 	 * displays the SVG, so labels use the intended typeface only where that font is

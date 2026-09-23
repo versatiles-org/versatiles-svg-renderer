@@ -13,11 +13,20 @@ import type {
 	StyleLayer,
 } from './style_layer.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
-import type { FillPattern, LineStyle } from '../renderer/types.js';
+import type { FillPattern, IconStyle, LineStyle, SymbolStyle } from '../renderer/types.js';
+import {
+	CollisionIndex,
+	iconBox,
+	placeSymbols,
+	textBox,
+	type CollisionOptions,
+	type PlacedSymbol,
+} from './collision.js';
 import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
+import { textWidth } from './text_metrics.js';
 import { Projection } from '../projection.js';
 
 function resolveTokens(text: string, properties: Record<string, unknown>): string {
@@ -108,13 +117,34 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 		needsSprite ? context.getSprite() : Promise.resolve(new Map() as SpriteAtlas),
 	]);
 	const availableImages: string[] = [...spriteAtlas.keys()];
+	const makeLayer = (layerStyle: StyleLayer): Layer => ({
+		job,
+		context,
+		layerStyle,
+		sourceFeatures,
+		spriteAtlas,
+		availableImages,
+	});
+
+	// Labels and icons are placed before anything is drawn, from the top layer down, as
+	// in MapLibre: a symbol of a higher layer wins over one below that it would overlap.
+	const symbols = new Map<StyleLayer, SymbolEntry[]>();
+	if (job.renderLabels) {
+		const index = new CollisionIndex(job.renderer.width, job.renderer.height);
+		for (const layerStyle of [...context.layers].reverse()) {
+			if (layerStyle.type !== 'symbol' || layerStyle.isHidden(job.view.zoom)) continue;
+			const entries = prepareSymbolLayer(makeLayer(layerStyle));
+			placeSymbols(entries, index);
+			symbols.set(layerStyle, entries);
+		}
+	}
 
 	for (const layerStyle of context.layers) {
 		if (layerStyle.isHidden(job.view.zoom)) continue;
 
 		// One function per layer type. Besides keeping each short, this lets a CPU profile
 		// tell the layer types apart: `npm run bench` divides the time by these functions.
-		const layer: Layer = { job, context, layerStyle, sourceFeatures, spriteAtlas, availableImages };
+		const layer = makeLayer(layerStyle);
 		switch (layerStyle.type) {
 			case 'background':
 				await renderBackgroundLayer(layer);
@@ -132,7 +162,7 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 				renderCircleLayer(layer);
 				continue;
 			case 'symbol':
-				await renderSymbolLayer(layer);
+				await renderSymbolLayer(layer, symbols.get(layerStyle) ?? []);
 				continue;
 			case 'color-relief':
 			case 'fill-extrusion':
@@ -378,59 +408,61 @@ function renderCircleLayer(layer: Layer): void {
 	layer.job.renderer.drawCircles(layer.layerStyle.id, styled);
 }
 
-async function renderSymbolLayer(layer: Layer): Promise<void> {
-	const { job, layerStyle, spriteAtlas } = layer;
-	if (!job.renderLabels) return;
+/** A label, an icon or both at one point, and whether collision detection keeps them. */
+interface SymbolEntry extends PlacedSymbol {
+	icon?: [LayerFeature, IconStyle];
+	label?: [LayerFeature, SymbolStyle];
+}
+
+/**
+ * The symbols of a layer, in the order they are placed and drawn: each feature's label
+ * and icon at each point it is placed at, with their collision boxes.
+ */
+function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
+	const { layerStyle, spriteAtlas } = layer;
 	const features = getFeatures(layer.sourceFeatures, layerStyle);
 	const allFeatures = [
 		...(features?.points ?? []),
 		...(features?.linestrings ?? []),
 		...(features?.polygons ?? []),
 	];
-	if (allFeatures.length === 0) return;
+	if (allFeatures.length === 0) return [];
 	const filtered = filterFeatures(layer, allFeatures);
-	if (filtered.length === 0) return;
+	if (filtered.length === 0) return [];
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
 	const symbolFeatures = sortByKey(filtered, (feature) => getLayout('symbol-sort-key', feature));
-	const icons = symbolFeatures.flatMap((feature): Parameters<Renderer['drawIcons']>[1] => {
+	const entries: SymbolEntry[] = [];
+	for (const feature of symbolFeatures) {
+		// Styles are evaluated for the feature itself (`geometry-type` must see a polygon as
+		// a polygon); only then is each symbol moved to the points it is placed at.
 		const iconImage = getLayout('icon-image', feature);
 		const iconName =
 			iconImage != null
 				? resolveTokens((iconImage as { toString(): string }).toString(), feature.properties)
 				: '';
-		if (!iconName || !spriteAtlas.has(iconName)) return [];
-		const spriteEntry = spriteAtlas.get(iconName)!;
-		return [
-			[
-				feature,
-				{
-					image: iconName,
-					size: getLayout('icon-size', feature) as number,
-					anchor: getLayout('icon-anchor', feature) as string,
-					offset: getLayout('icon-offset', feature) as [number, number],
-					rotate: getLayout('icon-rotate', feature) as number,
-					opacity: getPaint('icon-opacity', feature) as number,
-					sdf: spriteEntry.sdf,
-					color: getPaint('icon-color', feature) as MaplibreColor,
-					haloColor: getPaint('icon-halo-color', feature) as MaplibreColor,
-					haloWidth: getPaint('icon-halo-width', feature) as number,
-				},
-			],
-		];
-	});
-	const labels = symbolFeatures.flatMap((feature): Parameters<Renderer['drawLabels']>[1] => {
+		const sprite = iconName ? spriteAtlas.get(iconName) : undefined;
+		const iconStyle: IconStyle | undefined = sprite && {
+			image: iconName,
+			size: getLayout('icon-size', feature) as number,
+			anchor: getLayout('icon-anchor', feature) as string,
+			offset: getLayout('icon-offset', feature) as [number, number],
+			rotate: getLayout('icon-rotate', feature) as number,
+			opacity: getPaint('icon-opacity', feature) as number,
+			sdf: sprite.sdf,
+			color: getPaint('icon-color', feature) as MaplibreColor,
+			haloColor: getPaint('icon-halo-color', feature) as MaplibreColor,
+			haloWidth: getPaint('icon-halo-width', feature) as number,
+		};
+
 		const textField = getLayout('text-field', feature);
 		const textRaw = textField != null ? (textField as { toString(): string }).toString() : '';
 		const text = transformText(
 			resolveTokens(textRaw, feature.properties),
 			getLayout('text-transform', feature),
 		);
-		if (!text) return [];
-		return [
-			[
-				feature,
-				{
+		const labelStyle: SymbolStyle | undefined = text
+			? {
 					text,
 					size: getLayout('text-size', feature) as number,
 					font: getLayout('text-font', feature) as string[],
@@ -441,32 +473,58 @@ async function renderSymbolLayer(layer: Layer): Promise<void> {
 					opacity: getPaint('text-opacity', feature) as number,
 					haloColor: getPaint('text-halo-color', feature) as MaplibreColor,
 					haloWidth: getPaint('text-halo-width', feature) as number,
-				},
-			],
-		];
-	});
+				}
+			: undefined;
+		if (!iconStyle && !labelStyle) continue;
 
-	// Styles are evaluated for the feature itself (`geometry-type` must see a polygon as a
-	// polygon); only then is each symbol moved to the points it is placed at.
-	const placed = new Map<LayerFeature, LayerFeature[]>();
-	const place = <S>([feature, style]: [LayerFeature, S]): [LayerFeature, S][] => {
-		let points = placed.get(feature);
-		if (!points) {
-			points = labelAnchors(feature, getLayout('symbol-placement', feature) as string).map(
-				(point) =>
-					new LayerFeature({
-						type: 'Point',
-						geometry: [[point]],
-						id: feature.id,
-						properties: feature.properties,
-					}),
-			);
-			placed.set(feature, points);
+		const options: CollisionOptions = {
+			textAllowOverlap: getLayout('text-allow-overlap', feature) === true,
+			iconAllowOverlap: getLayout('icon-allow-overlap', feature) === true,
+			textIgnorePlacement: getLayout('text-ignore-placement', feature) === true,
+			iconIgnorePlacement: getLayout('icon-ignore-placement', feature) === true,
+			textOptional: getLayout('text-optional', feature) === true,
+			iconOptional: getLayout('icon-optional', feature) === true,
+		};
+		const textPadding = getLayout('text-padding', feature) as number;
+		const iconPadding = (getLayout('icon-padding', feature) as { values: number[] }).values;
+
+		const placement = getLayout('symbol-placement', feature) as string;
+		// Along a line, the label has to fit on it: its text or its icon, whichever is longer.
+		const labelLength =
+			placement === 'point'
+				? 0
+				: Math.max(
+						labelStyle ? textWidth(labelStyle.text, labelStyle.font, labelStyle.size) : 0,
+						iconStyle ? (sprite!.width / sprite!.pixelRatio) * iconStyle.size : 0,
+					);
+		for (const point of labelAnchors(feature, placement, labelLength)) {
+			const at = new LayerFeature({
+				type: 'Point',
+				geometry: [[point]],
+				id: feature.id,
+				properties: feature.properties,
+			});
+			entries.push({
+				icon: iconStyle && [at, iconStyle],
+				label: labelStyle && [at, labelStyle],
+				iconBox: iconStyle && iconBox(point.x, point.y, iconStyle, sprite!, iconPadding),
+				textBox: labelStyle && textBox(point.x, point.y, labelStyle, textPadding),
+				options,
+				showIcon: false,
+				showText: false,
+			});
 		}
-		return points.map((point) => [point, style]);
-	};
+	}
+	return entries;
+}
 
-	// Icons first, underneath the text.
-	await job.renderer.drawIcons(`${layerStyle.id}-icons`, icons.flatMap(place), spriteAtlas);
-	job.renderer.drawLabels(`${layerStyle.id}-labels`, labels.flatMap(place));
+/** Draws the symbols of a layer that collision detection kept: icons first, then labels. */
+async function renderSymbolLayer(layer: Layer, symbols: SymbolEntry[]): Promise<void> {
+	const { job, layerStyle, spriteAtlas } = layer;
+	const icons = symbols.flatMap((symbol) => (symbol.showIcon && symbol.icon ? [symbol.icon] : []));
+	const labels = symbols.flatMap((symbol) =>
+		symbol.showText && symbol.label ? [symbol.label] : [],
+	);
+	await job.renderer.drawIcons(`${layerStyle.id}-icons`, icons, spriteAtlas);
+	job.renderer.drawLabels(`${layerStyle.id}-labels`, labels);
 }
