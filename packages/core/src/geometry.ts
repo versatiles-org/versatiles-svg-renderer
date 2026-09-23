@@ -31,6 +31,12 @@ export interface Features {
 
 export type LayerFeatures = Map<string, Features>;
 
+/** The features of each source, by source name. Layer names only need to be unique per source. */
+export type SourceFeatures = Map<string, LayerFeatures>;
+
+/** The layer name a GeoJSON source keeps its features under: GeoJSON has no layers. */
+export const GEOJSON_LAYER = '';
+
 export class Point2D implements MapLibrePoint2D {
 	public x: number;
 

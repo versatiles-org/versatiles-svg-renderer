@@ -2,7 +2,12 @@ import { describe, expect, test, vi, beforeEach, type Mock } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { SVGRenderer } from '../renderer/svg.js';
 import { Feature, Point2D } from '../geometry.js';
-import type { Features, LayerFeatures } from '../geometry.js';
+import {
+	GEOJSON_LAYER,
+	type Features,
+	type LayerFeatures,
+	type SourceFeatures,
+} from '../geometry.js';
 
 vi.mock('../sources/index.js', () => ({
 	getLayerFeatures: vi.fn().mockResolvedValue(new Map()),
@@ -71,8 +76,13 @@ function makePointFeature(
 	});
 }
 
-function setLayerFeatures(features: LayerFeatures): void {
+function setSourceFeatures(features: SourceFeatures): void {
 	(getLayerFeatures as Mock).mockResolvedValue(features);
+}
+
+/** Sets the features of the source `src`, which most test layers use. */
+function setLayerFeatures(features: LayerFeatures): void {
+	setSourceFeatures(new Map([['src', features]]));
 }
 
 describe('renderMap', () => {
@@ -766,8 +776,8 @@ describe('renderMap', () => {
 	});
 
 	describe('feature lookup', () => {
-		test('falls back to source name when source-layer not found', async () => {
-			const polygon = makePolygonFeature([
+		const square = (): Feature =>
+			makePolygonFeature([
 				[
 					[10, 10],
 					[100, 10],
@@ -775,21 +785,45 @@ describe('renderMap', () => {
 					[10, 10],
 				],
 			]);
-			const features = new Map<string, Features>();
-			features.set('my-source', makeFeatures({ polygons: [polygon] }));
-			setLayerFeatures(features);
+		const fillLayer = (source: string, sourceLayer?: string) => ({
+			id: `fill-${source}`,
+			type: 'fill' as const,
+			source,
+			...(sourceLayer === undefined ? {} : { 'source-layer': sourceLayer }),
+			paint: { 'fill-color': '#00ff00' },
+		});
 
-			const style = makeStyle([
-				{
-					id: 'fill-layer',
-					type: 'fill',
-					source: 'my-source',
-					'source-layer': 'nonexistent',
-					paint: { 'fill-color': '#00ff00' },
-				},
-			]);
-			const result = await renderMap(makeJob(style));
+		test('draws a GeoJSON source, ignoring source-layer', async () => {
+			setSourceFeatures(
+				new Map([['geo', new Map([[GEOJSON_LAYER, makeFeatures({ polygons: [square()] })]])]]),
+			);
+			const result = await renderMap(makeJob(makeStyle([fillLayer('geo', 'nonexistent')])));
 			expect(result).toContain('<path');
+		});
+
+		test("takes features only from the layer's own source", async () => {
+			// Both sources have a layer "water"; only source "b" has features in it.
+			setSourceFeatures(
+				new Map([
+					['a', new Map([['water', makeFeatures()]])],
+					['b', new Map([['water', makeFeatures({ polygons: [square()] })]])],
+				]),
+			);
+			expect(await renderMap(makeJob(makeStyle([fillLayer('a', 'water')])))).not.toContain('<path');
+			expect(await renderMap(makeJob(makeStyle([fillLayer('b', 'water')])))).toContain('<path');
+		});
+
+		test('does not mix a GeoJSON source into a vector layer of the same name', async () => {
+			setSourceFeatures(
+				new Map([
+					['vec', new Map([['water', makeFeatures()]])],
+					['water', new Map([[GEOJSON_LAYER, makeFeatures({ polygons: [square()] })]])],
+				]),
+			);
+			expect(await renderMap(makeJob(makeStyle([fillLayer('vec', 'water')])))).not.toContain(
+				'<path',
+			);
+			expect(await renderMap(makeJob(makeStyle([fillLayer('water')])))).toContain('<path');
 		});
 	});
 

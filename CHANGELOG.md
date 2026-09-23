@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Features of different sources no longer mix when their layer names match.** A style with two vector sources that both have a layer `water` drew the `water` features of both sources in each style layer, and a GeoJSON source named like a vector layer (e.g. `water`) added its features to that layer. Features are now kept per source. A GeoJSON style layer also ignores `source-layer` now, as in MapLibre. ([#36](https://github.com/versatiles-org/versatiles-svg-renderer/issues/36))
+
 ## [2.1.0] - 2026-09-22
 
 ### Added

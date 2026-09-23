@@ -1,6 +1,6 @@
 import type { GeoJSON } from 'geojson';
 import { describe, expect, test } from 'vitest';
-import type { LayerFeatures } from '../geometry.js';
+import { GEOJSON_LAYER, type LayerFeatures } from '../geometry.js';
 import { loadGeoJSONSource } from './geojson.js';
 
 // Center on 0,0 at zoom 0 — keeps projection math simple
@@ -12,7 +12,6 @@ const ZOOM = 0;
 function load(data: GeoJSON): LayerFeatures {
 	const layerFeatures: LayerFeatures = new Map();
 	loadGeoJSONSource({
-		sourceName: 'test',
 		data,
 		width: WIDTH,
 		height: HEIGHT,
@@ -24,8 +23,8 @@ function load(data: GeoJSON): LayerFeatures {
 }
 
 function getFeatures(lf: LayerFeatures) {
-	const features = lf.get('test');
-	if (!features) throw new Error('expected features for "test"');
+	const features = lf.get(GEOJSON_LAYER);
+	if (!features) throw new Error('expected GeoJSON features');
 	return features;
 }
 
@@ -248,7 +247,7 @@ describe('loadGeoJSONSource', () => {
 				geometry: { type: 'Point', coordinates: [179, 80] },
 			});
 
-			const features = lf.get('test');
+			const features = lf.get(GEOJSON_LAYER);
 			// Feature is far outside the viewport at zoom 0 centered on 0,0
 			// with 512x512 — may or may not be culled depending on projection.
 			// At minimum the layer entry should exist.
@@ -257,12 +256,11 @@ describe('loadGeoJSONSource', () => {
 	});
 
 	describe('merging into existing layer', () => {
-		test('appends to existing features for the same source name', () => {
+		test('appends to existing features when loaded into the same map', () => {
 			const layerFeatures: LayerFeatures = new Map();
 
 			loadGeoJSONSource({
-				sourceName: 'test',
-				data: { type: 'Point', coordinates: [0, 0] },
+						data: { type: 'Point', coordinates: [0, 0] },
 				width: WIDTH,
 				height: HEIGHT,
 				zoom: ZOOM,
@@ -271,8 +269,7 @@ describe('loadGeoJSONSource', () => {
 			});
 
 			loadGeoJSONSource({
-				sourceName: 'test',
-				data: { type: 'Point', coordinates: [5, 5] },
+						data: { type: 'Point', coordinates: [5, 5] },
 				width: WIDTH,
 				height: HEIGHT,
 				zoom: ZOOM,

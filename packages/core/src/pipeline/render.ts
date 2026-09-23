@@ -12,7 +12,8 @@ import type {
 	StyleLayer,
 } from './style_layer.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
-import type { Feature as LayerFeature, Features, LayerFeatures } from '../geometry.js';
+import { GEOJSON_LAYER } from '../geometry.js';
+import type { Feature as LayerFeature, Features, SourceFeatures } from '../geometry.js';
 import { Projection } from '../projection.js';
 
 function resolveTokens(text: string, properties: Record<string, unknown>): string {
@@ -83,12 +84,14 @@ export async function renderMap(
 	return (await drawMap(job, context)).getString();
 }
 
-function getFeatures(layerFeatures: LayerFeatures, layerStyle: StyleLayer): Features | undefined {
-	return layerFeatures.get(layerStyle.sourceLayer) ?? layerFeatures.get(layerStyle.source);
+function getFeatures(sourceFeatures: SourceFeatures, layerStyle: StyleLayer): Features | undefined {
+	const layerFeatures = sourceFeatures.get(layerStyle.source);
+	// GeoJSON sources ignore "source-layer", as in MapLibre.
+	return layerFeatures?.get(layerStyle.sourceLayer) ?? layerFeatures?.get(GEOJSON_LAYER);
 }
 
 async function render(job: RenderJob, context: RenderContext): Promise<void> {
-	const [layerFeatures, spriteAtlas] = await Promise.all([
+	const [sourceFeatures, spriteAtlas] = await Promise.all([
 		getLayerFeatures(job, context.loadTile),
 		job.renderLabels ? context.getSprite() : Promise.resolve(new Map() as SpriteAtlas),
 	]);
@@ -99,7 +102,7 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 
 		// One function per layer type. Besides keeping each short, this lets a CPU profile
 		// tell the layer types apart: `npm run bench` divides the time by these functions.
-		const layer: Layer = { job, context, layerStyle, layerFeatures, spriteAtlas, availableImages };
+		const layer: Layer = { job, context, layerStyle, sourceFeatures, spriteAtlas, availableImages };
 		switch (layerStyle.type) {
 			case 'background':
 				renderBackgroundLayer(layer);
@@ -135,7 +138,7 @@ interface Layer {
 	job: RenderJob;
 	context: RenderContext;
 	layerStyle: StyleLayer;
-	layerFeatures: LayerFeatures;
+	sourceFeatures: SourceFeatures;
 	spriteAtlas: SpriteAtlas;
 	availableImages: string[];
 }
@@ -200,7 +203,7 @@ function renderFillLayer(layer: Layer): void {
 	// MapLibre's fill layer also fills LineString features (auto-closing the ring), so
 	// include linestrings alongside polygons for parity. drawPolygons closes every subpath,
 	// so a linestring is filled as a closed ring.
-	const features = getFeatures(layer.layerFeatures, layer.layerStyle);
+	const features = getFeatures(layer.sourceFeatures, layer.layerStyle);
 	const fillable = [...(features?.polygons ?? []), ...(features?.linestrings ?? [])];
 	if (fillable.length === 0) return;
 	const polygonFeatures = filterFeatures(layer, fillable);
@@ -227,7 +230,7 @@ function renderLineLayer(layer: Layer): void {
 	// Stroke real linestrings plus polygon boundaries (MapLibre draws polygon rings in a
 	// line layer). polygonOutlines is kept out of `fill` so polygons are not filled a
 	// second time.
-	const features = getFeatures(layer.layerFeatures, layer.layerStyle);
+	const features = getFeatures(layer.sourceFeatures, layer.layerStyle);
 	const lineStrings = [...(features?.linestrings ?? []), ...(features?.polygonOutlines ?? [])];
 	if (lineStrings.length === 0) return;
 	const lineStringFeatures = filterFeatures(layer, lineStrings);
@@ -270,7 +273,7 @@ async function renderRasterLayer(layer: Layer): Promise<void> {
 }
 
 function renderCircleLayer(layer: Layer): void {
-	const points = getFeatures(layer.layerFeatures, layer.layerStyle)?.points;
+	const points = getFeatures(layer.sourceFeatures, layer.layerStyle)?.points;
 	if (!points || points.length === 0) return;
 	const pointFeatures = filterFeatures(layer, points);
 	if (pointFeatures.length === 0) return;
@@ -293,7 +296,7 @@ function renderCircleLayer(layer: Layer): void {
 async function renderSymbolLayer(layer: Layer): Promise<void> {
 	const { job, layerStyle, spriteAtlas } = layer;
 	if (!job.renderLabels) return;
-	const features = getFeatures(layer.layerFeatures, layerStyle);
+	const features = getFeatures(layer.sourceFeatures, layerStyle);
 	const allFeatures = [
 		...(features?.points ?? []),
 		...(features?.linestrings ?? []),

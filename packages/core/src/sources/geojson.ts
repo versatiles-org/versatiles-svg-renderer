@@ -1,12 +1,11 @@
 import type { GeoJSON, Geometry } from 'geojson';
-import { Point2D, Feature } from '../geometry.js';
+import { Point2D, Feature, GEOJSON_LAYER } from '../geometry.js';
 import type { Features, LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
 
 type Coord = [number, number];
 
 export interface GeoJSONLoadOptions {
-	sourceName: string;
 	data: GeoJSON;
 	width: number;
 	height: number;
@@ -17,8 +16,8 @@ export interface GeoJSONLoadOptions {
 }
 
 export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
-	const { sourceName, data, width, height, zoom, center, layerFeatures, projection } = options;
-	const existing = layerFeatures.get(sourceName);
+	const { data, width, height, zoom, center, layerFeatures, projection } = options;
+	const existing = layerFeatures.get(GEOJSON_LAYER);
 	const features: Features = existing ?? {
 		points: [],
 		linestrings: [],
@@ -26,7 +25,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 		polygonOutlines: [],
 	};
 	features.polygonOutlines ??= [];
-	if (!existing) layerFeatures.set(sourceName, features);
+	if (!existing) layerFeatures.set(GEOJSON_LAYER, features);
 
 	const worldSize = 512 * 2 ** zoom;
 	const centerMercator = new Point2D(center[0], center[1]).getProject2Pixel();

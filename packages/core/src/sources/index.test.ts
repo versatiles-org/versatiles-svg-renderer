@@ -63,7 +63,6 @@ describe('getLayerFeatures', () => {
 		await getLayerFeatures(job);
 
 		expect(loadGeoJSONSource).toHaveBeenCalledWith({
-			sourceName: 'geo',
 			data: geojsonData,
 			width: 512,
 			height: 512,
@@ -72,6 +71,24 @@ describe('getLayerFeatures', () => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			layerFeatures: expect.any(Map),
 		});
+	});
+
+	test('keeps the features of each source apart', async () => {
+		const job = makeJob({
+			a: { type: 'vector', tiles: ['https://a/{z}/{x}/{y}.pbf'] },
+			b: { type: 'vector', tiles: ['https://b/{z}/{x}/{y}.pbf'] },
+			geo: { type: 'geojson', data: { type: 'Point', coordinates: [0, 0] } },
+		});
+		const result = await getLayerFeatures(job);
+
+		expect([...result.keys()]).toEqual(['a', 'b', 'geo']);
+		const maps = [...result.values()];
+		expect(new Set(maps).size).toBe(3);
+
+		const [vectorA, vectorB] = vi.mocked(loadVectorSource).mock.calls;
+		expect(vectorA?.[2]).toBe(result.get('a'));
+		expect(vectorB?.[2]).toBe(result.get('b'));
+		expect(vi.mocked(loadGeoJSONSource).mock.calls[0]?.[0].layerFeatures).toBe(result.get('geo'));
 	});
 
 	test('skips geojson sources without data', async () => {
