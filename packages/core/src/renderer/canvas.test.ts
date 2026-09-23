@@ -879,6 +879,25 @@ describe('CanvasRenderer', () => {
 			return count;
 		};
 
+		test('draws a label along a line glyph by glyph, where the path says', () => {
+			const r = makeRenderer();
+			const feature = makePointFeature([[0, 0]]);
+			// Two glyphs far apart in the lower right, the second turned by 90°.
+			const path = [
+				{ text: 'H', x: 150, y: 150, angle: 0 },
+				{ text: 'H', x: 220, y: 220, angle: 90 },
+			];
+			r.drawLabels('l', [[feature, symbolStyle({ text: 'HH', path })]]);
+			const red = (px: number[]) => px[0]! > 200 && px[1]! < 80 && px[3]! > 200;
+			expect(paintedPixels(r, red)).toBeGreaterThan(50);
+			// Nothing at the feature's own point.
+			expect(at(r, 2, 2)[3]).toBe(0);
+			// The glyphs are around their positions.
+			const nearFirst = [...Array(20).keys()].some((d) => red(at(r, 140 + d, 150)));
+			const nearSecond = [...Array(20).keys()].some((d) => red(at(r, 220, 210 + d)));
+			expect(nearFirst && nearSecond).toBe(true);
+		});
+
 		test('draws the label text', () => {
 			const r = makeRenderer();
 			r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle()]]);

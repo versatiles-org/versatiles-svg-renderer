@@ -1142,6 +1142,31 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('&lt;b&gt;A&amp;B&lt;/b&gt;');
 		});
 
+		test('draws a label along a line glyph by glyph: first all halos, then all glyphs', () => {
+			const r = makeRenderer();
+			const path = [
+				{ text: 'A', x: 10, y: 20, angle: 0 },
+				{ text: 'B', x: 20, y: 25, angle: 30 },
+			];
+			const feature = new Feature({
+				type: 'Point',
+				properties: {},
+				geometry: [[new Point2D(0, 0)]],
+			});
+			r.drawLabels('l', [
+				[feature, defaultSymbolStyle({ text: 'AB', path, haloWidth: 2, haloColor: mc('#FFFFFF') })],
+			]);
+			const svg = r.getString();
+			const glyphs =
+				'<text transform="translate(10,20)">A</text><text transform="translate(20,25) rotate(30)">B</text>';
+			expect(svg).toContain(
+				`<g fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round">${glyphs}</g>`,
+			);
+			expect(svg).toContain(`<g fill="#`);
+			expect(svg.indexOf('stroke="#FFFFFF"')).toBeLessThan(svg.lastIndexOf(glyphs));
+			expect(svg).toContain('text-anchor="middle" dominant-baseline="central"');
+		});
+
 		test("draws at the feature's first point, where the pipeline placed it", () => {
 			const feature = new Feature({
 				type: 'Point',

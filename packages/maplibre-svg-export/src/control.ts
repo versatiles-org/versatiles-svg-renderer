@@ -191,7 +191,7 @@ export class SVGExportControl implements MapLibreControl {
 			<div class="panel-notice">
 				Note:<br>
 				<span class="panel-attribution"></span><br>
-				Street names are drawn straight, not along their streets. You can improve me on <a href="https://github.com/versatiles-org/versatiles-svg-renderer" target="_blank" rel="noopener noreferrer">GitHub</a>.<br>
+				Labels are an approximation of MapLibre's. You can improve me on <a href="https://github.com/versatiles-org/versatiles-svg-renderer" target="_blank" rel="noopener noreferrer">GitHub</a>.<br>
 			</div>
 			<div class="panel-inputs">
 				<div class="grid">

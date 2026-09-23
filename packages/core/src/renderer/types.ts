@@ -146,7 +146,20 @@ export interface RasterStyle {
 	resampling: 'linear' | 'nearest';
 }
 
+/** One character of a label along a line: its center, and its angle in degrees. */
+export interface GlyphPlacement {
+	text: string;
+	x: number;
+	y: number;
+	angle: number;
+}
+
 export interface SymbolStyle {
+	/**
+	 * For a label along a line: where each of its characters goes. The label is drawn glyph
+	 * by glyph there, centered on each position, instead of at the feature's point.
+	 */
+	path?: GlyphPlacement[];
 	text: string;
 	size: number;
 	font: string[];

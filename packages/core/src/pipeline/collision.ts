@@ -5,7 +5,7 @@
  * box placed before, and then blocks its own area. The renderers draw what is kept.
  */
 import { mapIconAnchor, mapTextAnchor } from '../renderer/anchors.js';
-import type { IconStyle, SymbolStyle } from '../renderer/types.js';
+import type { GlyphPlacement, IconStyle, SymbolStyle } from '../renderer/types.js';
 import type { SpriteEntry } from '../sources/sprite.js';
 import { textWidth } from './text_metrics.js';
 
@@ -33,7 +33,8 @@ export interface CollisionOptions {
 
 /** A label, an icon or both at one point, and whether they are shown. */
 export interface PlacedSymbol {
-	textBox?: Box;
+	/** The label's area: one box, or one per glyph for a label along a line. */
+	textBoxes?: Box[];
 	iconBox?: Box;
 	options: CollisionOptions;
 	showText: boolean;
@@ -87,6 +88,23 @@ export function textBox(x: number, y: number, style: SymbolStyle, padding: numbe
 		(baseline === 'central' ? height / 2 : baseline === 'text-after-edge' ? height : 0);
 	const box = rotate([left, top, left + width, top + height], style.rotate, [x, y]);
 	return pad(box, padding);
+}
+
+/** The box of one glyph of a label along a line, grown by `text-padding`. */
+export function glyphBox(
+	glyph: GlyphPlacement,
+	advance: number,
+	size: number,
+	padding: number,
+): Box {
+	const height = size * LINE_HEIGHT;
+	const box: Box = [
+		glyph.x - advance / 2,
+		glyph.y - height / 2,
+		glyph.x + advance / 2,
+		glyph.y + height / 2,
+	];
+	return pad(rotate(box, glyph.angle, [glyph.x, glyph.y]), padding);
 }
 
 /** The box an icon covers, placed as the renderers draw it, grown by `icon-padding`. */
@@ -168,21 +186,23 @@ export class CollisionIndex {
  */
 export function placeSymbols(symbols: PlacedSymbol[], index: CollisionIndex): void {
 	for (const symbol of symbols) {
-		const { textBox, iconBox, options } = symbol;
+		const { textBoxes, iconBox, options } = symbol;
+		const hasText = textBoxes !== undefined && textBoxes.length > 0;
 		const inView =
-			(textBox !== undefined && index.isInView(textBox)) ||
+			(hasText && textBoxes.some((box) => index.isInView(box))) ||
 			(iconBox !== undefined && index.isInView(iconBox));
 		if (!inView) {
 			symbol.showText = false;
 			symbol.showIcon = false;
 			continue;
 		}
-		let showText = textBox !== undefined && (options.textAllowOverlap || !index.collides(textBox));
+		let showText =
+			hasText && (options.textAllowOverlap || !textBoxes.some((box) => index.collides(box)));
 		let showIcon = iconBox !== undefined && (options.iconAllowOverlap || !index.collides(iconBox));
 
 		// A label with an icon: both are shown, or neither, unless one is optional. An optional
 		// label lets the icon stand alone, but not the label without the icon, and vice versa.
-		if (textBox && iconBox) {
+		if (hasText && iconBox) {
 			if (!options.textOptional && !options.iconOptional) {
 				showText = showIcon = showText && showIcon;
 			} else if (!options.iconOptional) {
@@ -192,7 +212,7 @@ export function placeSymbols(symbols: PlacedSymbol[], index: CollisionIndex): vo
 			}
 		}
 
-		if (showText && !options.textIgnorePlacement) index.insert(textBox!);
+		if (showText && !options.textIgnorePlacement) for (const box of textBoxes!) index.insert(box);
 		if (showIcon && !options.iconIgnorePlacement) index.insert(iconBox!);
 		symbol.showText = showText;
 		symbol.showIcon = showIcon;

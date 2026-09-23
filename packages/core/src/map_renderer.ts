@@ -29,12 +29,12 @@ export interface SVGMapRendererOptions {
 	 * Draw the style's symbol layers: text labels and icons.
 	 *
 	 * Off by default, because labels are the least faithful part of the output. They are
-	 * placed as in MapLibre: at points, and inside each polygon at the point farthest from
-	 * its edges; labels and icons that would overlap one placed before are left out, from
-	 * the top layer down. But labels that MapLibre curves along a line
-	 * (`symbol-placement: "line"`, typically street names) come out straight, once in the
-	 * middle of a line long enough for them, and text is measured with the widths of Noto
-	 * Sans, so in other fonts labels may keep a little too much or too little distance.
+	 * placed as in MapLibre: at points, inside each polygon at the point farthest from its
+	 * edges, and along lines (street names follow their streets, glyph by glyph); labels and
+	 * icons that would overlap one placed before are left out, from the top layer down. Text
+	 * is measured and laid out with the widths of Noto Sans, so in other fonts, labels may
+	 * keep a little too much or too little distance, and letters along a line may sit a
+	 * little apart or close together.
 	 *
 	 * The SVG names each label's font (`text-font`) and leaves resolving it to whatever
 	 * displays the SVG, so labels use the intended typeface only where that font is

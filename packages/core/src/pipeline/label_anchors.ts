@@ -1,31 +1,18 @@
 /**
- * Where a symbol (label or icon) of a feature is placed. For `symbol-placement: "point"`
+ * Where a symbol (label or icon) of a feature is placed for `symbol-placement: "point"`,
  * as MapLibre GL JS does (`symbol_layout.ts`): a point at each point, the first vertex of
  * each line, and the pole of inaccessibility of each polygon — the point inside it that is
  * farthest from its edges.
  *
- * Labels along lines (`"line"`, `"line-center"`) are not supported: such a feature gets a
- * single, straight label in the middle of its longest line, as `"line-center"` would place
- * it, and only if that line is at least as long as the label, as MapLibre requires. One per
- * feature, not per line: a street is made of many short lines.
+ * Labels along lines are placed in `line_labels.ts`.
  */
 import { Point2D, type Feature } from '../geometry.js';
 
 /** How close to the true pole of inaccessibility the search has to get, in pixels. */
 const PRECISION = 1;
 
-/**
- * The points of `feature` its symbols are placed at, in screen coordinates. `labelLength`
- * is the length of the label (text or icon) along a line, in pixels.
- */
-export function labelAnchors(feature: Feature, placement = 'point', labelLength = 0): Point2D[] {
-	if (placement !== 'point' && feature.type !== 'Point') {
-		// A polygon along a line is placed on its outline, like a line.
-		const longest = longestLine(feature.geometry);
-		if (!longest) return [];
-		const length = lineLength(longest);
-		return length >= labelLength ? [pointAlong(longest, length / 2)] : [];
-	}
+/** The points of `feature` its symbols are placed at, in screen coordinates. */
+export function labelAnchors(feature: Feature): Point2D[] {
 	switch (feature.type) {
 		case 'Point':
 			return feature.geometry.flat();
@@ -37,43 +24,6 @@ export function labelAnchors(feature: Feature, placement = 'point', labelLength 
 				poleOfInaccessibility(polygon, PRECISION),
 			);
 	}
-}
-
-function lineLength(line: Point2D[]): number {
-	let length = 0;
-	for (let i = 1; i < line.length; i++) {
-		length += Math.hypot(line[i]!.x - line[i - 1]!.x, line[i]!.y - line[i - 1]!.y);
-	}
-	return length;
-}
-
-function longestLine(lines: Point2D[][]): Point2D[] | undefined {
-	let longest: Point2D[] | undefined;
-	let longestLength = -1;
-	for (const line of lines) {
-		if (line.length === 0) continue;
-		const length = lineLength(line);
-		if (length > longestLength) {
-			longest = line;
-			longestLength = length;
-		}
-	}
-	return longest;
-}
-
-/** The point at `distance` along `line`, measured from its start. */
-function pointAlong(line: Point2D[], distance: number): Point2D {
-	for (let i = 1; i < line.length; i++) {
-		const a = line[i - 1]!;
-		const b = line[i]!;
-		const segment = Math.hypot(b.x - a.x, b.y - a.y);
-		if (segment > 0 && distance <= segment) {
-			const t = distance / segment;
-			return new Point2D(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-		}
-		distance -= segment;
-	}
-	return line[line.length - 1]!;
 }
 
 /**

@@ -736,6 +736,72 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test('places labels and icons along lines, repeated and turned with the line', async () => {
+			// A long street running down the image at 45°.
+			const street = makeLineFeature(
+				[
+					[
+						[0, 0],
+						[600, 600],
+					],
+				],
+				{ name: 'Main', oneway: true },
+			);
+			setLayerFeatures(new Map([['streets', makeFeatures({ linestrings: [street] })]]));
+			const arrow = {
+				width: 20,
+				height: 10,
+				x: 0,
+				y: 0,
+				pixelRatio: 1,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 20,
+				sheetHeight: 10,
+			};
+			(loadSpriteAtlas as Mock).mockResolvedValue(new Map([['arrow', arrow]]));
+			const job = makeJob(
+				makeStyle([
+					// The arrows lie below the names, as in the VersaTiles styles.
+					{
+						id: 'oneway',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'streets',
+						layout: {
+							'icon-image': 'arrow',
+							'symbol-placement': 'line',
+							'symbol-spacing': 100,
+							'icon-rotation-alignment': 'map',
+						},
+					},
+					{
+						id: 'names',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'streets',
+						layout: { 'text-field': '{name}', 'symbol-placement': 'line' },
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			const drawIcons = vi.spyOn(job.renderer, 'drawIcons');
+			await renderMap(job);
+
+			const labels = drawLabels.mock.calls.find(([id]) => id === 'names-labels')![1];
+			// ~849 px of line, 250 px spacing: several labels, each glyph turned by 45°.
+			expect(labels.length).toBeGreaterThan(1);
+			for (const [, style] of labels) {
+				expect(style.path!.map((g) => g.text).join('')).toBe('Main');
+				for (const glyph of style.path!) expect(glyph.angle).toBeCloseTo(45);
+			}
+			const icons = drawIcons.mock.calls.find(([id]) => id === 'oneway-icons')![1];
+			expect(icons.length).toBeGreaterThan(labels.length);
+			for (const [, style] of icons) expect(style.rotate).toBeCloseTo(45);
+		});
+
 		test('drops labels that overlap one placed before, the upper layer first', async () => {
 			// Three labels at the same spot in two layers, and one elsewhere.
 			const points = [

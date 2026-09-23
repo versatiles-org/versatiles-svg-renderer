@@ -16,9 +16,11 @@ import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
 import type { FillPattern, IconStyle, LineStyle, SymbolStyle } from '../renderer/types.js';
 import {
 	CollisionIndex,
+	glyphBox,
 	iconBox,
 	placeSymbols,
 	textBox,
+	type Box,
 	type CollisionOptions,
 	type PlacedSymbol,
 } from './collision.js';
@@ -26,7 +28,8 @@ import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
-import { textWidth } from './text_metrics.js';
+import { glyphAdvances } from './text_metrics.js';
+import { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
 import { Projection } from '../projection.js';
 
 function resolveTokens(text: string, properties: Record<string, unknown>): string {
@@ -419,7 +422,7 @@ interface SymbolEntry extends PlacedSymbol {
  * and icon at each point it is placed at, with their collision boxes.
  */
 function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
-	const { layerStyle, spriteAtlas } = layer;
+	const { job, layerStyle, spriteAtlas } = layer;
 	const features = getFeatures(layer.sourceFeatures, layerStyle);
 	const allFeatures = [
 		...(features?.points ?? []),
@@ -489,30 +492,99 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 		const iconPadding = (getLayout('icon-padding', feature) as { values: number[] }).values;
 
 		const placement = getLayout('symbol-placement', feature) as string;
-		// Along a line, the label has to fit on it: its text or its icon, whichever is longer.
-		const labelLength =
-			placement === 'point'
-				? 0
-				: Math.max(
-						labelStyle ? textWidth(labelStyle.text, labelStyle.font, labelStyle.size) : 0,
-						iconStyle ? (sprite!.width / sprite!.pixelRatio) * iconStyle.size : 0,
-					);
-		for (const point of labelAnchors(feature, placement, labelLength)) {
-			const at = new LayerFeature({
+		const pointAtAnchor = (x: number, y: number): LayerFeature =>
+			new LayerFeature({
 				type: 'Point',
-				geometry: [[point]],
+				geometry: [[new Point2D(x, y)]],
 				id: feature.id,
 				properties: feature.properties,
 			});
-			entries.push({
-				icon: iconStyle && [at, iconStyle],
-				label: labelStyle && [at, labelStyle],
-				iconBox: iconStyle && iconBox(point.x, point.y, iconStyle, sprite!, iconPadding),
-				textBox: labelStyle && textBox(point.x, point.y, labelStyle, textPadding),
-				options,
-				showIcon: false,
-				showText: false,
-			});
+
+		if (placement === 'point' || feature.type === 'Point') {
+			for (const point of labelAnchors(feature)) {
+				const at = pointAtAnchor(point.x, point.y);
+				entries.push({
+					icon: iconStyle && [at, iconStyle],
+					label: labelStyle && [at, labelStyle],
+					iconBox: iconStyle && iconBox(point.x, point.y, iconStyle, sprite!, iconPadding),
+					textBoxes: labelStyle && [textBox(point.x, point.y, labelStyle, textPadding)],
+					options,
+					showIcon: false,
+					showText: false,
+				});
+			}
+			continue;
+		}
+
+		// Along lines: anchors repeated along each line, where the label fits.
+		// "auto" means "map" for symbols along lines.
+		const alignedToMap = (alignment: unknown): boolean =>
+			alignment === 'map' || alignment === 'auto';
+		const textAlongLine =
+			labelStyle !== undefined && alignedToMap(getLayout('text-rotation-alignment', feature));
+		const iconAlongLine =
+			iconStyle !== undefined && alignedToMap(getLayout('icon-rotation-alignment', feature));
+		const glyphs = labelStyle && glyphAdvances(labelStyle.text, labelStyle.font, labelStyle.size);
+		const textLength = glyphs ? glyphs.advances.reduce((sum, width) => sum + width, 0) : 0;
+		const iconLength = iconStyle ? (sprite!.width / sprite!.pixelRatio) * iconStyle.size : 0;
+		const labelLength = Math.max(textLength, iconLength);
+		const textSize = labelStyle?.size ?? (getLayout('text-size', feature) as number);
+		// Spacing is in pixels of the tile's zoom level, whose tiles a fractional zoom enlarges.
+		const spacing =
+			(getLayout('symbol-spacing', feature) as number) *
+			2 ** (job.view.zoom - Math.floor(job.view.zoom));
+		const maxAngle = ((getLayout('text-max-angle', feature) as number) * Math.PI) / 180;
+		const keepUpright = getLayout('text-keep-upright', feature) !== false;
+
+		for (const points of feature.geometry) {
+			const line = measureLine(points);
+			for (const distance of lineAnchors(line, labelLength, spacing, textSize, placement)) {
+				// MapLibre leaves out a label where its line bends too sharply.
+				if (textAlongLine && !fitsMaxAngle(line, distance, textLength, textSize * 0.6, maxAngle)) {
+					continue;
+				}
+				const anchor = pointAt(line, distance);
+				const at = pointAtAnchor(anchor.x, anchor.y);
+				const lineAngle = (anchor.angle * 180) / Math.PI;
+
+				let label: [LayerFeature, SymbolStyle] | undefined;
+				let textBoxes: Box[] | undefined;
+				if (labelStyle && glyphs && textAlongLine) {
+					const offset: [number, number] = [
+						labelStyle.offset[0] * labelStyle.size,
+						labelStyle.offset[1] * labelStyle.size,
+					];
+					const path = layoutAlongLine(
+						line,
+						distance,
+						glyphs.chars,
+						glyphs.advances,
+						offset,
+						keepUpright,
+					);
+					label = [at, { ...labelStyle, path }];
+					textBoxes = path.map((glyph, i) =>
+						glyphBox(glyph, glyphs.advances[i]!, labelStyle.size, textPadding),
+					);
+				} else if (labelStyle) {
+					label = [at, labelStyle];
+					textBoxes = [textBox(anchor.x, anchor.y, labelStyle, textPadding)];
+				}
+
+				const lineIcon =
+					iconStyle && iconAlongLine
+						? { ...iconStyle, rotate: iconStyle.rotate + lineAngle }
+						: iconStyle;
+				entries.push({
+					icon: lineIcon && [at, lineIcon],
+					label,
+					iconBox: lineIcon && iconBox(anchor.x, anchor.y, lineIcon, sprite!, iconPadding),
+					textBoxes,
+					options,
+					showIcon: false,
+					showText: false,
+				});
+			}
 		}
 	}
 	return entries;

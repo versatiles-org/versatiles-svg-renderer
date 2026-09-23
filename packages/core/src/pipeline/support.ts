@@ -65,9 +65,11 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'icon-optional',
 		'icon-padding',
 		'icon-rotate',
+		'icon-rotation-alignment',
 		'icon-size',
 		'symbol-placement',
 		'symbol-sort-key',
+		'symbol-spacing',
 		'text-allow-overlap',
 		'text-anchor',
 		'text-color',
@@ -76,11 +78,14 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-halo-color',
 		'text-halo-width',
 		'text-ignore-placement',
+		'text-keep-upright',
+		'text-max-angle',
 		'text-offset',
 		'text-opacity',
 		'text-optional',
 		'text-padding',
 		'text-rotate',
+		'text-rotation-alignment',
 		'text-size',
 		'text-transform',
 	],
@@ -88,7 +93,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 
 /**
  * Properties that make no difference to a flat, north-up image, or only to a feature that
- * is already reported (labels along lines, wrapped text): not worth a warning.
+ * is already reported (wrapped text): not worth a warning.
  */
 const WITHOUT_EFFECT = new Set([
 	'visibility',
@@ -102,14 +107,9 @@ const WITHOUT_EFFECT = new Set([
 	'circle-pitch-scale',
 	'text-pitch-alignment',
 	'icon-pitch-alignment',
-	'text-rotation-alignment',
-	'icon-rotation-alignment',
 	'symbol-avoid-edges',
 	'symbol-z-order',
-	'symbol-spacing',
-	'text-keep-upright',
 	'icon-keep-upright',
-	'text-max-angle',
 	'text-justify',
 	'text-line-height',
 	'line-round-limit',

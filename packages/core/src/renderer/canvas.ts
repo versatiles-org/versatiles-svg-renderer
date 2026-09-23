@@ -9,6 +9,7 @@ import type {
 	CircleStyle,
 	FillPattern,
 	FillStyle,
+	GlyphPlacement,
 	IconStyle,
 	LineStyle,
 	RasterStyle,
@@ -670,6 +671,34 @@ export class CanvasRenderer implements Renderer {
 		});
 	}
 
+	/**
+	 * A label along a line: each glyph centered on its place and turned with the line. All
+	 * halos come first, then all glyphs, as MapLibre draws them.
+	 */
+	#labelAlongLine(style: SymbolStyle, path: GlyphPlacement[], color: Color): void {
+		const haloColor = new Color(style.haloColor);
+		const hasHalo = style.haloWidth > 0 && haloColor.alpha > 0;
+		this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
+			ctx.font = `${String(roundToTenths(style.size))}px ${style.font.join(', ')}, Helvetica, Arial, sans-serif`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.strokeStyle = haloColor.hex;
+			ctx.lineWidth = roundToTenths(style.haloWidth);
+			ctx.lineJoin = 'round';
+			ctx.fillStyle = color.hex;
+			for (const pass of hasHalo ? ['halo', 'fill'] : ['fill']) {
+				for (const glyph of path) {
+					ctx.save();
+					ctx.translate(glyph.x, glyph.y);
+					ctx.rotate((glyph.angle * Math.PI) / 180);
+					if (pass === 'halo') ctx.strokeText(glyph.text, 0, 0);
+					else ctx.fillText(glyph.text, 0, 0);
+					ctx.restore();
+				}
+			}
+		});
+	}
+
 	public drawLabels(_id: string, features: [Feature, SymbolStyle][]): void {
 		if (features.length === 0) return;
 
@@ -677,6 +706,11 @@ export class CanvasRenderer implements Renderer {
 			if (style.opacity <= 0 || !style.text) continue;
 			const color = new Color(style.color);
 			if (color.alpha <= 0) continue;
+
+			if (style.path) {
+				this.#labelAlongLine(style, style.path, color);
+				continue;
+			}
 
 			// The pipeline places each symbol: its feature is a single point.
 			const point = feature.geometry[0]?.[0];

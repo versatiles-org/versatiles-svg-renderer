@@ -69,47 +69,6 @@ describe('labelAnchors', () => {
 	});
 });
 
-describe('labelAnchors along lines', () => {
-	test('places one label in the middle of the longest line, measured along it', () => {
-		const street = feature('LineString', [
-			ring([
-				[0, 0],
-				[10, 0],
-			]),
-			ring([
-				[0, 100],
-				[60, 100],
-				[60, 140],
-			]),
-		]);
-		for (const placement of ['line', 'line-center']) {
-			expect(xy(labelAnchors(street, placement))).toEqual([[50, 100]]);
-		}
-	});
-
-	test('places no label on a line shorter than the label', () => {
-		const street = feature('LineString', [
-			ring([
-				[0, 0],
-				[40, 0],
-			]),
-		]);
-		expect(xy(labelAnchors(street, 'line', 40))).toEqual([[20, 0]]);
-		expect(labelAnchors(street, 'line', 41)).toEqual([]);
-		// Point placement does not care.
-		expect(labelAnchors(street, 'point', 100)).toHaveLength(1);
-	});
-
-	test('places a polygon on its longest ring, like a line', () => {
-		expect(xy(labelAnchors(feature('Polygon', [square(0, 0, 100)]), 'line'))).toEqual([[100, 100]]);
-	});
-
-	test('still places points at every point', () => {
-		const points = feature('Point', [ring([[1, 2]]), ring([[3, 4]])]);
-		expect(labelAnchors(points, 'line')).toHaveLength(2);
-	});
-});
-
 describe('classifyRings', () => {
 	test('groups holes with the outer ring before them', () => {
 		const outer = square(0, 0, 100);

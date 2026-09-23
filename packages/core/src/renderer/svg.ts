@@ -7,6 +7,7 @@ import type {
 	CircleStyle,
 	FillPattern,
 	FillStyle,
+	GlyphPlacement,
 	IconStyle,
 	LineStyle,
 	RasterStyle,
@@ -381,6 +382,11 @@ export class SVGRenderer {
 			const color = new Color(style.color);
 			if (color.alpha <= 0) continue;
 
+			if (style.path) {
+				this.#svg.push(this.#labelAlongLine(style, style.path, color));
+				continue;
+			}
+
 			// The pipeline places each symbol: its feature is a single point.
 			const point = feature.geometry[0]?.[0];
 			if (!point) continue;
@@ -488,6 +494,35 @@ export class SVGRenderer {
 			this.#patternDefs.set(key, def);
 		}
 		return `url(#${def.id})`;
+	}
+
+	/**
+	 * A label along a line: each glyph centered on its place and turned with the line. All
+	 * halos come first, then all glyphs, as MapLibre draws them, so a glyph's halo does not
+	 * cover its neighbour.
+	 */
+	#labelAlongLine(style: LabelStyle, path: GlyphPlacement[], color: Color): string {
+		const fontFamily = style.font.join(', ') + ', Helvetica, Arial, sans-serif';
+		const glyphs = path
+			.map((glyph) => {
+				const [x, y] = roundXY(glyph.x, glyph.y);
+				const angle = Math.round(glyph.angle * 10) / 10;
+				const rotate = angle === 0 ? '' : ` rotate(${String(angle)})`;
+				return `<text transform="translate(${formatNum(x)},${formatNum(y)})${rotate}">${escapeXml(glyph.text)}</text>`;
+			})
+			.join('');
+		const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
+		const parts = [
+			`<g font-family="${escapeXml(fontFamily)}" font-size="${formatScaled(style.size)}" text-anchor="middle" dominant-baseline="central"${opacity}>`,
+		];
+		const haloColor = new Color(style.haloColor);
+		if (style.haloWidth > 0 && haloColor.alpha > 0) {
+			parts.push(
+				`<g fill="none" ${strokeAttr(haloColor, formatScaled(style.haloWidth))} stroke-linejoin="round">${glyphs}</g>`,
+			);
+		}
+		parts.push(`<g ${fillAttr(color)}>${glyphs}</g>`, '</g>');
+		return parts.join('');
 	}
 
 	public drawIcons(id: string, features: [Feature, IconStyle][], spriteAtlas: SpriteAtlas): void {

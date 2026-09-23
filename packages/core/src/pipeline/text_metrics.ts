@@ -46,6 +46,21 @@ export function isBold(fonts: readonly string[] | undefined): boolean {
 	return /bold|black|heavy/i.test(name);
 }
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/**
+ * The glyphs of `text` (its graphemes: a letter with its accents stays one), and the
+ * advance of each in pixels, set in `fonts` at `size`.
+ */
+export function glyphAdvances(
+	text: string,
+	fonts: readonly string[] | undefined,
+	size: number,
+): { chars: string[]; advances: number[] } {
+	const chars = Array.from(graphemes.segment(text), ({ segment }) => segment);
+	return { chars, advances: chars.map((char) => textWidth(char, fonts, size)) };
+}
+
 /** The width of `text` in pixels, set in `fonts` at `size` pixels. */
 export function textWidth(
 	text: string,

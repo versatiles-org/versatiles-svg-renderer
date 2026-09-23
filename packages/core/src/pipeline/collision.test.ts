@@ -116,7 +116,7 @@ describe('placeSymbols', () => {
 		boxes: { text?: Box; icon?: Box },
 		overrides: Partial<CollisionOptions> = {},
 	): PlacedSymbol => ({
-		textBox: boxes.text,
+		textBoxes: boxes.text && [boxes.text],
 		iconBox: boxes.icon,
 		options: options(overrides),
 		showText: false,
