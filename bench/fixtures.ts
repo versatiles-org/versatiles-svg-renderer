@@ -118,14 +118,16 @@ export function cases(scenario: Scenario): Case[] {
 		zoom: region.zoom,
 	};
 	const noSetup = (): Promise<void> => Promise.resolve();
+	// The cold runs create a renderer each time, which would report the same warnings again.
+	const onWarning = (): void => undefined;
 
-	const svgMap = new SVGMapRenderer({ style, renderLabels });
-	const pngMap = new PNGMapRenderer({ style, renderLabels, fonts });
+	const svgMap = new SVGMapRenderer({ style, renderLabels, onWarning });
+	const pngMap = new PNGMapRenderer({ style, renderLabels, fonts, onWarning });
 	return [
 		{
 			name: 'svg-cold',
 			setup: noSetup,
-			run: () => renderToSVG({ style, renderLabels, ...view }),
+			run: () => renderToSVG({ style, renderLabels, onWarning, ...view }),
 		},
 		{
 			name: 'svg-warm',
@@ -137,7 +139,7 @@ export function cases(scenario: Scenario): Case[] {
 		{
 			name: 'png-cold',
 			setup: noSetup,
-			run: () => renderToPNG({ style, renderLabels, fonts, ...view }),
+			run: () => renderToPNG({ style, renderLabels, fonts, onWarning, ...view }),
 		},
 		{
 			name: 'png-warm',

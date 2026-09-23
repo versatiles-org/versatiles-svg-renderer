@@ -69,6 +69,7 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 | `zoom`         | `number`             | `2`            | Zoom level                                                                             |
 | `renderLabels` | `boolean`            | `false`        | Enable rendering of text labels and icons                                              |
 | `fetch`        | `FetchFunction`      | global `fetch` | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
+| `onWarning`    | `(message) => void`  | `console.warn` | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
 
 ### `new SVGMapRenderer(options)`
 
@@ -80,6 +81,7 @@ Renders many views of one style. The options stay the same for every view:
 | `renderLabels`  | `boolean`            | `false`              | Enable rendering of text labels and icons                                                 |
 | `tileCacheSize` | `number`             | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
 | `fetch`         | `FetchFunction`      | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
+| `onWarning`     | `(message) => void`  | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                  |
 
 - **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat` and `zoom`, with the same defaults as `renderToSVG`. Renders may run concurrently.
 - **`project(view, [lon, lat]): [x, y] | undefined`** tells where a coordinate lands in the image of `view`, in the units of `width` and `height`, to place your own drawing on the map. On the globe, a point on the far side gives `undefined`.
@@ -114,6 +116,16 @@ The SVG names each label's font (`text-font`) and leaves resolving it to whateve
 > - **Simplified text placement:** Labels can not be positioned along lines.
 >
 > Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
+
+### Warnings
+
+Parts of a style the renderer does not draw are reported, not skipped silently: layer types such as `fill-extrusion` or `heatmap`, properties such as `fill-pattern`, unsupported sources, and TileJSON documents that could not be loaded. Each message goes to `onWarning`, once per renderer, by default to `console.warn`:
+
+```ts
+const map = new SVGMapRenderer({ style, onWarning: (message) => warnings.push(message) });
+```
+
+Pass `onWarning: () => {}` to silence them. Properties that make no difference to a flat, north-up map (e.g. `*-pitch-alignment`) are not reported, nor are symbol layers unless `renderLabels` is set. The [MapLibre GL JS coverage table](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage) lists what is supported.
 
 ### Projections
 

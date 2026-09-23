@@ -9,6 +9,7 @@ import { MAX_LATITUDE, mercatorToLonLat, Projection } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 import { resolveSources } from './sources/tilejson.js';
+import { checkSources, checkStyle } from './pipeline/support.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
 export interface SVGMapRendererOptions {
@@ -58,6 +59,17 @@ export interface SVGMapRendererOptions {
 	 * @defaultValue the global `fetch`
 	 */
 	fetch?: FetchFunction;
+	/**
+	 * Called with a message for each part of the style the renderer does not draw: a layer
+	 * type, a layer property, a source, or a TileJSON document that could not be loaded. Each
+	 * message is reported once per instance. Pass `() => {}` to silence them.
+	 *
+	 * Properties that make no difference to a flat, north-up map (e.g. `*-pitch-alignment`)
+	 * are not reported, nor are symbol layers unless {@link SVGMapRendererOptions.renderLabels}
+	 * is set.
+	 * @defaultValue `console.warn`
+	 */
+	onWarning?: (message: string) => void;
 }
 
 /** Default for {@link SVGMapRendererOptions.tileCacheSize}: 128 MB. */
@@ -151,10 +163,12 @@ export class SVGMapRenderer {
 	readonly #fetch: FetchFunction;
 	#sprite: Promise<SpriteAtlas> | undefined;
 	#sources: Promise<StyleSpecification['sources']> | undefined;
+	readonly #onWarning: (message: string) => void;
+	readonly #warned = new Set<string>();
 
 	/**
-	 * @param options - The style, whether to draw labels, the tile cache size, and how to
-	 *   load tiles and sprites.
+	 * @param options - The style, whether to draw labels, the tile cache size, how to load
+	 *   tiles and sprites, and where to report unsupported parts of the style.
 	 * @throws If `tileCacheSize` is negative or not a number.
 	 */
 	public constructor(options: SVGMapRendererOptions) {
@@ -168,6 +182,8 @@ export class SVGMapRenderer {
 			getSources: () => this.#getSources(),
 			loadTile: this.#tiles.load,
 		};
+		this.#onWarning = options.onWarning ?? ((message) => console.warn(message));
+		for (const warning of checkStyle(options.style, this.#renderLabels)) this.#warn(warning);
 	}
 
 	/**
@@ -288,9 +304,17 @@ export class SVGMapRenderer {
 		if (this.#sources) return this.#sources;
 		const sources = resolveSources(this.#style.sources, this.#fetch).then((result) => {
 			if (!result.complete && this.#sources === sources) this.#sources = undefined;
+			for (const warning of checkSources(result.sources)) this.#warn(warning);
 			return result.sources;
 		});
 		this.#sources = sources;
 		return sources;
+	}
+
+	/** Reports `message` through `onWarning`, unless it was reported before. */
+	#warn(message: string): void {
+		if (this.#warned.has(message)) return;
+		this.#warned.add(message);
+		this.#onWarning(message);
 	}
 }

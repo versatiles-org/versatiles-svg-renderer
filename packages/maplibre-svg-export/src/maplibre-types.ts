@@ -21,6 +21,8 @@ export interface MapLibreMap {
 	getContainer(): HTMLElement;
 	getCenter(): { lng: number; lat: number };
 	getZoom(): number;
+	getBearing(): number;
+	getPitch(): number;
 	getStyle(): StyleSpecification;
 	boxZoom: MapInteractionHandler;
 	doubleClickZoom: MapInteractionHandler;

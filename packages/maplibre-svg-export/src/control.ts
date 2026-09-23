@@ -22,6 +22,18 @@ function querySelector(parent: Element, selector: string): HTMLElement {
 	return el;
 }
 
+/** Shows `warnings` as the items of `list`, as text; hides the list when there are none. */
+function showWarnings(list: HTMLElement, warnings: string[]): void {
+	list.replaceChildren(
+		...warnings.map((warning) => {
+			const item = document.createElement('li');
+			item.textContent = warning;
+			return item;
+		}),
+	);
+	list.hidden = warnings.length === 0;
+}
+
 const ALLOWED_TAGS = new Set(['a', 'b', 'i', 'em', 'strong', 'span']);
 
 function sanitizeHTML(html: string): string {
@@ -191,6 +203,7 @@ export class SVGExportControl implements MapLibreControl {
 			<div class="preview-container">
 				<span class="preview-loading">Rendering preview\u2026</span>
 			</div>
+			<ul class="preview-warnings" hidden></ul>
 			<div class="panel-actions">
 				<button class="btn-download" disabled>Download</button>
 				<button class="btn-open" disabled>Open in Tab</button>
@@ -289,6 +302,8 @@ export class SVGExportControl implements MapLibreControl {
 		const map = this.map;
 
 		const previewContainer = querySelector(panel, '.preview-container');
+		const warningList = querySelector(panel, '.preview-warnings');
+		showWarnings(warningList, []);
 		const downloadBtn = querySelector(panel, '.btn-download') as HTMLButtonElement;
 		const openBtn = querySelector(panel, '.btn-open') as HTMLButtonElement;
 
@@ -305,6 +320,15 @@ export class SVGExportControl implements MapLibreControl {
 			return;
 		}
 
+		const warnings: string[] = [];
+		// The renderer draws a flat, north-up map only (a fraction of a degree is not visible).
+		if (Math.abs(map.getBearing()) >= 0.1) {
+			warnings.push('The map is rotated: the SVG is exported north-up.');
+		}
+		if (map.getPitch() >= 0.1) {
+			warnings.push('The map is tilted: the SVG is exported as a flat, top-down view.');
+		}
+
 		try {
 			const center = map.getCenter();
 			const zoom = map.getZoom();
@@ -318,9 +342,11 @@ export class SVGExportControl implements MapLibreControl {
 				lat: center.lat,
 				zoom,
 				renderLabels,
+				onWarning: (message) => warnings.push(message),
 			});
 
 			if (this.renderGeneration !== generation) return;
+			showWarnings(warningList, warnings);
 
 			this.currentSVG = svg;
 
@@ -332,6 +358,7 @@ export class SVGExportControl implements MapLibreControl {
 			openBtn.disabled = false;
 		} catch (error: unknown) {
 			if (this.renderGeneration !== generation) return;
+			showWarnings(warningList, warnings);
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			const errorSpan = document.createElement('span');
 			errorSpan.className = 'preview-loading';

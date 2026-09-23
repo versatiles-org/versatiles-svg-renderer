@@ -150,7 +150,7 @@ If the workflow fails, fix the cause and use "Re-run failed jobs": versions alre
 
 ## MapLibre GL JS Coverage
 
-What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Unsupported features are skipped without a warning ([#58]). All gaps carry the label [`maplibre-parity`][parity].
+What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Unsupported features are reported through the `onWarning` option. All gaps carry the label [`maplibre-parity`][parity].
 
 ✅ supported · ⚠️ partly · ❌ not yet
 
@@ -223,4 +223,3 @@ Labels and icons are only drawn with `renderLabels: true`. Interaction, animatio
 [#55]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/55
 [#56]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/56
 [#57]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/57
-[#58]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/58

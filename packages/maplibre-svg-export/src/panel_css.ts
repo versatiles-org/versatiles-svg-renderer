@@ -118,6 +118,22 @@ export const PANEL_CSS = `
 	font-size: 13px;
 }
 
+.svg-export-panel .preview-warnings {
+	font-size: 11px;
+	color: #8a5a00;
+	line-height: 1.4;
+	margin: -4px 0 12px;
+	padding-left: 16px;
+	max-width: 304px;
+	max-height: 96px;
+	overflow-y: auto;
+	overflow-wrap: anywhere;
+}
+
+.svg-export-panel .preview-warnings[hidden] {
+	display: none;
+}
+
 .svg-export-panel .panel-notice {
 	font-size: 11px;
 	color: #888;

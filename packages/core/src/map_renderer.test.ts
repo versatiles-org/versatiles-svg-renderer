@@ -204,7 +204,7 @@ describe('SVGMapRenderer', () => {
 
 	test('fetches a TileJSON document that failed to load again', async () => {
 		let fetchMock = mockFetch({ tileJSONFails: true });
-		const map = new SVGMapRenderer({ style: makeTileJSONStyle() });
+		const map = new SVGMapRenderer({ style: makeTileJSONStyle(), onWarning: vi.fn() });
 		await map.renderSVG({ zoom: 3 });
 		expect(tileJSONRequests(fetchMock)).toBe(1);
 		expect(tileRequests(fetchMock)).toBe(0);
@@ -223,6 +223,42 @@ describe('SVGMapRenderer', () => {
 		map.clearCache();
 		await map.renderSVG();
 		expect(tileJSONRequests(fetchMock)).toBe(2);
+	});
+
+	test('reports unsupported parts of the style once, across renders', async () => {
+		const style = makeStyle();
+		style.layers.push({ id: 'heat', type: 'heatmap', source: 'points' });
+		const onWarning = vi.fn();
+		const map = new SVGMapRenderer({ style, onWarning });
+		await map.renderSVG();
+		await map.renderSVG();
+		expect(onWarning.mock.calls).toEqual([
+			['Layers of type "heatmap" are not supported and are not drawn: "heat".'],
+		]);
+	});
+
+	test('reports a TileJSON document that could not be loaded, once', async () => {
+		mockFetch({ tileJSONFails: true });
+		const onWarning = vi.fn();
+		const map = new SVGMapRenderer({ style: makeTileJSONStyle(), onWarning });
+		await map.renderSVG({ zoom: 3 });
+		await map.renderSVG({ zoom: 3 });
+		expect(onWarning.mock.calls).toEqual([
+			[
+				`Source "raster": the TileJSON document could not be loaded from ${TILEJSON_URL}; the source is empty.`,
+			],
+		]);
+	});
+
+	test('reports warnings with console.warn by default', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(vi.fn());
+		const style = makeStyle();
+		style.terrain = { source: 'raster' };
+		new SVGMapRenderer({ style });
+		expect(warn).toHaveBeenCalledWith(
+			'The style property "terrain" is not supported and is ignored.',
+		);
+		warn.mockRestore();
 	});
 
 	test('fetches each tile only once for overlapping views', async () => {

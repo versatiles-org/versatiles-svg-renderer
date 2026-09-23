@@ -19,6 +19,8 @@ function createMockMap(overrides?: Record<string, unknown>) {
 		getContainer: vi.fn(() => container),
 		getCenter: vi.fn(() => ({ lng: 13.4, lat: 52.5 })),
 		getZoom: vi.fn(() => 10),
+		getBearing: vi.fn(() => 0),
+		getPitch: vi.fn(() => 0),
 		getStyle: vi.fn(() => ({
 			version: 8,
 			sources: {},
@@ -336,6 +338,81 @@ describe('SVGExportControl', () => {
 				.getContainer()
 				.querySelector<HTMLIFrameElement>('.preview-container iframe')!;
 			expect(iframe.srcdoc).toContain('<svg>mock</svg>');
+		});
+
+		test('shows no warnings for a supported, north-up map', async () => {
+			const control = new SVGExportControl();
+			const map = createMockMap();
+			control
+				.onAdd(map as never)
+				.querySelector('button')!
+				.click();
+
+			await vi.waitFor(() => {
+				expect(map.getContainer().querySelector('.preview-container iframe')).toBeTruthy();
+			});
+			const list = map.getContainer().querySelector<HTMLUListElement>('.preview-warnings')!;
+			expect(list.hidden).toBe(true);
+			expect(list.children).toHaveLength(0);
+		});
+
+		test('lists the warnings of the renderer, as text', async () => {
+			(renderToSVG as Mock).mockImplementationOnce(
+				(options: { onWarning: (message: string) => void }) => {
+					options.onWarning('Layers of type "heatmap" are not supported: "<b>heat</b>".');
+					return Promise.resolve('<svg>mock</svg>');
+				},
+			);
+			const control = new SVGExportControl();
+			const map = createMockMap();
+			control
+				.onAdd(map as never)
+				.querySelector('button')!
+				.click();
+
+			const list = await vi.waitFor(() => {
+				const el = map.getContainer().querySelector<HTMLUListElement>('.preview-warnings')!;
+				expect(el.hidden).toBe(false);
+				return el;
+			});
+			expect([...list.children].map((li) => li.textContent)).toEqual([
+				'Layers of type "heatmap" are not supported: "<b>heat</b>".',
+			]);
+			expect(list.querySelector('b')).toBeNull();
+		});
+
+		test('warns that a rotated or tilted map is exported north-up and flat', async () => {
+			const control = new SVGExportControl();
+			const map = createMockMap({ getBearing: vi.fn(() => 30), getPitch: vi.fn(() => 45) });
+			control
+				.onAdd(map as never)
+				.querySelector('button')!
+				.click();
+
+			const list = await vi.waitFor(() => {
+				const el = map.getContainer().querySelector<HTMLUListElement>('.preview-warnings')!;
+				expect(el.hidden).toBe(false);
+				return el;
+			});
+			expect([...list.children].map((li) => li.textContent)).toEqual([
+				'The map is rotated: the SVG is exported north-up.',
+				'The map is tilted: the SVG is exported as a flat, top-down view.',
+			]);
+		});
+
+		test('keeps the warnings when rendering fails', async () => {
+			(renderToSVG as Mock).mockRejectedValueOnce(new Error('render failed'));
+			const control = new SVGExportControl();
+			const map = createMockMap({ getBearing: vi.fn(() => -90) });
+			control
+				.onAdd(map as never)
+				.querySelector('button')!
+				.click();
+
+			await vi.waitFor(() => {
+				const el = map.getContainer().querySelector<HTMLUListElement>('.preview-warnings')!;
+				expect(el.textContent).toBe('The map is rotated: the SVG is exported north-up.');
+			});
 		});
 
 		test('shows error message on render failure', async () => {
