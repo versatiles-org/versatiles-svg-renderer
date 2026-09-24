@@ -1,7 +1,7 @@
 import type { Canvas, CanvasPattern, Image, SKRSContext2D } from '@napi-rs/canvas';
-import type { Feature } from '../geometry.js';
-import type { ClipCircle } from '../projection.js';
-import { Color } from './color.js';
+import type { Feature } from '../../geometry.js';
+import type { ClipCircle } from '../../projection.js';
+import { Color } from '../color.js';
 import {
 	chainSegments,
 	iconQuads,
@@ -12,7 +12,7 @@ import {
 	quadsBox,
 	type Segment,
 	strokeLines,
-} from '../layout/index.js';
+} from '../../layout/index.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -28,10 +28,12 @@ import type {
 	Renderer,
 	RendererOptions,
 	SymbolStyle,
-} from '../types.js';
-import type { SpriteAtlas } from '../sources/index.js';
-import { circleGradient, circleShape } from './circle.js';
-import { LRUCache } from '../lru_cache.js';
+} from '../../types.js';
+import type { SpriteAtlas } from '../../sources/index.js';
+import { circleGradient, circleShape } from '../circle.js';
+import { dilate, Offscreen, type Region } from './offscreen.js';
+import { CanvasPatterns } from './patterns.js';
+import { LRUCache } from '../../lru_cache.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -40,16 +42,13 @@ import {
 	RASTER_TILE_UNITS,
 	RASTER_TRIANGLE_OVERLAP_PX,
 	type Triangle,
-} from './raster_mesh.js';
+} from '../raster_mesh.js';
 
 // These mirror the SVG backend's constants but are deliberately *separate*: they are
 // calibrated per backend against MapLibre in the e2e comparison, and Skia's rasterizer
 // is not Chromium's. Tuning one backend must not silently move the other.
 const FILL_OUTLINE_WIDTH_PX = 0.5;
 const BLUR_STD_FACTOR = 0.15;
-
-/** The largest offscreen image a turned pattern is drawn from, in pixels (32 MB). */
-const MAX_PATTERN_IMAGE_PIXELS = 8_000_000;
 const BLUR_OPACITY_K = 1.5;
 // A Gaussian leaves soft, infinite tails; MapLibre's feather has a hard cutoff. The
 // blurred layer's alpha is steepened (slope > 1, intercept < 0) to clip those tails, the
@@ -106,21 +105,17 @@ export class CanvasRenderer implements Renderer {
 
 	public readonly ctx: SKRSContext2D;
 
-	readonly #createCanvas: (width: number, height: number) => Canvas;
-
 	readonly #loadImage: ((source: string) => Promise<Image>) | undefined;
 
 	/** Whether the context was saved for the clip circle, to be restored by `finish`. */
 	#clipped = false;
 
-	/** Reused offscreen layer for effects that must not see what is already drawn. */
-	#scratch: { canvas: Canvas; ctx: SKRSContext2D } | undefined;
-
 	/** Decoded tile and sprite images, keyed by data URI: a tile may repeat within a layer. */
 	readonly #images: ImageCache;
 
-	/** Canvas patterns by sprite image (name and sheet), each cropped from its sheet once. */
-	readonly #patterns = new Map<string, CanvasPattern>();
+	readonly #patterns: CanvasPatterns;
+
+	readonly #offscreen: Offscreen;
 
 	public constructor(opt: CanvasRendererOptions) {
 		this.width = opt.width;
@@ -130,13 +125,16 @@ export class CanvasRenderer implements Renderer {
 			Math.round(this.width * this.scale),
 			Math.round(this.height * this.scale),
 		);
-		this.#createCanvas = opt.createCanvas;
 		this.#loadImage = opt.loadImage;
 		this.#images = opt.images ?? new LRUCache<Image>(Infinity, () => 0);
 		this.ctx = this.canvas.getContext('2d');
 		// Draw in user units; the scale factor only changes how many device pixels each
 		// unit covers.
 		this.ctx.scale(this.scale, this.scale);
+		this.#patterns = new CanvasPatterns(this.ctx, opt.createCanvas, this.scale, (dataUri) =>
+			this.#decode(dataUri),
+		);
+		this.#offscreen = new Offscreen(this.canvas, this.ctx, opt.createCanvas, this.scale);
 	}
 
 	/**
@@ -161,9 +159,9 @@ export class CanvasRenderer implements Renderer {
 			if (style.opacity <= 0) return;
 			const { pattern } = style;
 			const sheet = await this.#decode(pattern.sprite.sheetDataUri);
-			if (pattern.angle) await this.#patternFill(pattern);
+			if (pattern.angle) await this.#patterns.fill(pattern);
 			this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
-				this.#tilePattern(ctx, pattern, sheet, [0, 0, this.width, this.height]);
+				this.#patterns.tile(ctx, pattern, sheet, [0, 0, this.width, this.height]);
 			});
 			return;
 		}
@@ -174,134 +172,6 @@ export class CanvasRenderer implements Renderer {
 		this.ctx.fillStyle = color.hex;
 		this.ctx.fillRect(-1, -1, this.width + 2, this.height + 2);
 		this.ctx.restore();
-	}
-
-	/**
-	 * Covers `box` (in user units) with copies of the sprite image of `pattern`, at its
-	 * display size, with a copy's corner at `pattern.origin`: the area is clipped by the
-	 * caller. Copies are drawn one by one, because a canvas pattern of `@napi-rs/canvas`
-	 * always resamples its image, which blurs thin hatching; `drawImage` does not.
-	 */
-	#tilePattern(
-		ctx: SKRSContext2D,
-		pattern: FillPattern,
-		sheet: Image,
-		box: [number, number, number, number],
-	): void {
-		const { sprite } = pattern;
-		const width = (sprite.width / sprite.pixelRatio) * (pattern.scale ?? 1);
-		const height = (sprite.height / sprite.pixelRatio) * (pattern.scale ?? 1);
-		const angle = pattern.angle ?? 0;
-		if (angle !== 0) {
-			// Turned with the map: the copies are drawn crisply into an offscreen image of the
-			// area, in the pattern's own frame, which is then drawn turned, in one piece.
-			// (Turned copies drawn one by one would show seams, and a canvas pattern blurs, see
-			// #patternFill.)
-			const radians = (angle * Math.PI) / 180;
-			const cos = Math.cos(radians);
-			const sin = Math.sin(radians);
-			const corners = [
-				[box[0], box[1]],
-				[box[2], box[1]],
-				[box[2], box[3]],
-				[box[0], box[3]],
-			].map(([x, y]) => {
-				const dx = x! - pattern.origin[0];
-				const dy = y! - pattern.origin[1];
-				return [dx * cos + dy * sin, -dx * sin + dy * cos] as const;
-			});
-			const i0 = Math.floor(Math.min(...corners.map(([u]) => u)) / width);
-			const i1 = Math.ceil(Math.max(...corners.map(([u]) => u)) / width);
-			const j0 = Math.floor(Math.min(...corners.map(([, v]) => v)) / height);
-			const j1 = Math.ceil(Math.max(...corners.map(([, v]) => v)) / height);
-			const imageWidth = Math.ceil((i1 - i0) * width * this.scale);
-			const imageHeight = Math.ceil((j1 - j0) * height * this.scale);
-			ctx.save();
-			ctx.translate(pattern.origin[0], pattern.origin[1]);
-			ctx.rotate(radians);
-			if (imageWidth * imageHeight <= MAX_PATTERN_IMAGE_PIXELS) {
-				const image = this.#createCanvas(imageWidth, imageHeight);
-				const tiles = image.getContext('2d');
-				tiles.scale(this.scale, this.scale);
-				for (let j = 0; j < j1 - j0; j++) {
-					for (let i = 0; i < i1 - i0; i++) {
-						tiles.drawImage(
-							sheet,
-							sprite.x,
-							sprite.y,
-							sprite.width,
-							sprite.height,
-							i * width,
-							j * height,
-							width,
-							height,
-						);
-					}
-				}
-				ctx.drawImage(
-					image,
-					i0 * width,
-					j0 * height,
-					imageWidth / this.scale,
-					imageHeight / this.scale,
-				);
-			} else {
-				// A huge area: a canvas pattern, blurred a little, instead of a huge image.
-				const fill = this.#patterns.get(`${pattern.name}\0${sprite.sheetDataUri}`);
-				if (fill) {
-					const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
-					fill.setTransform({ a: scale, b: 0, c: 0, d: scale, e: 0, f: 0 });
-					ctx.fillStyle = fill;
-					ctx.fillRect(i0 * width, j0 * height, (i1 - i0) * width, (j1 - j0) * height);
-				}
-			}
-			ctx.restore();
-			return;
-		}
-		// The copies' corners, on whole device pixels so that neighbours meet without a seam.
-		const snap = (value: number): number => Math.round(value * this.scale) / this.scale;
-		const x0 = snap(box[0] - mod(box[0] - pattern.origin[0], width));
-		const y0 = snap(box[1] - mod(box[1] - pattern.origin[1], height));
-		for (let y = y0; y < box[3]; y = snap(y + height)) {
-			for (let x = x0; x < box[2]; x = snap(x + width)) {
-				ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, x, y, width, height);
-			}
-		}
-	}
-
-	/**
-	 * A canvas pattern of `pattern`, for the outline of a pattern fill: its slight blur
-	 * does not show on a 1 px line (see {@link CanvasRenderer.#tilePattern}).
-	 */
-	async #patternFill(pattern: FillPattern): Promise<CanvasPattern> {
-		const { sprite } = pattern;
-		const key = `${pattern.name}\0${sprite.sheetDataUri}`;
-		let fill = this.#patterns.get(key);
-		if (!fill) {
-			const sheet = await this.#decode(sprite.sheetDataUri);
-			const image = this.#createCanvas(sprite.width, sprite.height);
-			image
-				.getContext('2d')
-				.drawImage(
-					sheet,
-					sprite.x,
-					sprite.y,
-					sprite.width,
-					sprite.height,
-					0,
-					0,
-					sprite.width,
-					sprite.height,
-				);
-			fill = this.ctx.createPattern(image, 'repeat');
-			this.#patterns.set(key, fill);
-		}
-		const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
-		// Only the origin's position within one copy matters; keeping it small keeps it precise.
-		const e = mod(pattern.origin[0], sprite.width * scale);
-		const f = mod(pattern.origin[1], sprite.height * scale);
-		fill.setTransform({ a: scale, b: 0, c: 0, d: scale, e, f });
-		return fill;
 	}
 
 	public async drawPolygons(_id: string, features: [Feature, FillStyle][]): Promise<void> {
@@ -316,10 +186,10 @@ export class CanvasRenderer implements Renderer {
 			if (!pattern) continue;
 			const uri = pattern.sprite.sheetDataUri;
 			if (!sheets.has(uri)) sheets.set(uri, await this.#decode(uri));
-			// A turned pattern is drawn as a canvas pattern (see #tilePattern).
-			if (pattern.angle) await this.#patternFill(pattern);
+			// A turned pattern is drawn as a canvas pattern (see CanvasPatterns.tile).
+			if (pattern.angle) await this.#patterns.fill(pattern);
 			if (style.antialias && style.outlineColor === undefined && !outlineFills.has(pattern)) {
-				outlineFills.set(pattern, await this.#patternFill(pattern));
+				outlineFills.set(pattern, await this.#patterns.fill(pattern));
 			}
 		}
 
@@ -343,7 +213,7 @@ export class CanvasRenderer implements Renderer {
 				this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
 					this.#trace(ctx, toSegments(feature.geometry), true);
 					ctx.clip();
-					this.#tilePattern(ctx, pattern, sheet, feature.getBbox());
+					this.#patterns.tile(ctx, pattern, sheet, feature.getBbox());
 				});
 			} else if (color.alpha > 0) {
 				this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
@@ -447,7 +317,7 @@ export class CanvasRenderer implements Renderer {
 			// parts rarely overlap, so the two stay close.)
 			const stdDeviation = style.blur * BLUR_STD_FACTOR;
 			const margin = style.width / 2 + 3 * stdDeviation + 2;
-			this.#isolate(
+			this.#offscreen.isolate(
 				regionOf([...segments, ...rings], style.translate, margin),
 				opacity,
 				[BLUR_ALPHA_SLOPE, BLUR_ALPHA_INTERCEPT],
@@ -479,7 +349,7 @@ export class CanvasRenderer implements Renderer {
 		const rings = lines.closed.map(toSegment);
 		const margin = (width / 2) * Math.max(style.miterLimit, 1) + 2;
 
-		this.#isolate(
+		this.#offscreen.isolate(
 			regionOf([...segments, ...rings], style.translate, margin),
 			style.opacity,
 			undefined,
@@ -622,7 +492,7 @@ export class CanvasRenderer implements Renderer {
 		// the seams (and the globe mesh draws a bleeding underlay beneath them), so applying
 		// opacity per tile would let those overlaps show through.
 		if (style.opacity < 1) {
-			this.#isolate(
+			this.#offscreen.isolate(
 				{ x: 0, y: 0, width: this.width, height: this.height },
 				style.opacity,
 				undefined,
@@ -847,7 +717,7 @@ export class CanvasRenderer implements Renderer {
 		};
 
 		const haloPixels = Math.round(halo * this.scale);
-		this.#isolateRaw(region, style.opacity, blit, (data, width, height) => {
+		this.#offscreen.isolateRaw(region, style.opacity, blit, (data, width, height) => {
 			// MapLibre's SDF edge: alpha >= 0.75 is inside the glyph.
 			const inside = new Uint8Array(width * height);
 			for (let i = 0; i < inside.length; i++) inside[i] = data[i * 4 + 3]! >= 191 ? 1 : 0;
@@ -1034,93 +904,6 @@ export class CanvasRenderer implements Renderer {
 		ctx.restore();
 	}
 
-	/**
-	 * Draws into an offscreen layer and composites the result back at `opacity`, so an
-	 * effect sees only what `draw` puts there. Two things need it: the alpha curve that
-	 * clips a blur's Gaussian tails, which would otherwise rewrite every pixel underneath,
-	 * and a translucent raster layer, whose tiles deliberately overlap along their seams
-	 * and so must be flattened before the layer's opacity is applied.
-	 *
-	 * Only `region` (in user units) is cleared, transformed and copied, so the cost follows
-	 * the size of what is actually drawn rather than the size of the map.
-	 */
-	#isolate(
-		region: Region,
-		opacity: number,
-		alphaCurve: [number, number] | undefined,
-		draw: (ctx: SKRSContext2D) => void,
-	): void {
-		this.#isolateRaw(
-			region,
-			opacity,
-			draw,
-			alphaCurve &&
-				((data): void => {
-					const [slope, intercept] = alphaCurve;
-					for (let i = 3; i < data.length; i += 4) {
-						const alpha = data[i]! * slope + intercept * 255;
-						data[i] = alpha <= 0 ? 0 : alpha >= 255 ? 255 : Math.round(alpha);
-					}
-				}),
-		);
-	}
-
-	/**
-	 * The general form of {@link #isolate}: `pixels` may rewrite the layer's device pixels
-	 * however it likes (straight, un-premultiplied RGBA) before it is composited.
-	 */
-	#isolateRaw(
-		region: Region,
-		opacity: number,
-		draw: (ctx: SKRSContext2D) => void,
-		pixels?: (data: Uint8ClampedArray, width: number, height: number) => void,
-	): void {
-		const scratch = this.#scratchLayer();
-		// The device-pixel window of the region, clamped to the canvas.
-		const x = Math.max(0, Math.floor(region.x * this.scale));
-		const y = Math.max(0, Math.floor(region.y * this.scale));
-		const width =
-			Math.min(this.canvas.width, Math.ceil((region.x + region.width) * this.scale)) - x;
-		const height =
-			Math.min(this.canvas.height, Math.ceil((region.y + region.height) * this.scale)) - y;
-		if (width <= 0 || height <= 0) return;
-
-		scratch.ctx.save();
-		scratch.ctx.setTransform(1, 0, 0, 1, 0, 0);
-		scratch.ctx.clearRect(x, y, width, height);
-		scratch.ctx.restore();
-
-		scratch.ctx.save();
-		draw(scratch.ctx);
-		scratch.ctx.restore();
-
-		if (pixels) {
-			// getImageData/putImageData work in device pixels and in straight (un-premultiplied)
-			// alpha, which is what an SVG filter primitive operates on too.
-			const image = scratch.ctx.getImageData(x, y, width, height);
-			pixels(image.data, width, height);
-			scratch.ctx.putImageData(image, x, y);
-		}
-
-		const { ctx } = this;
-		ctx.save();
-		// Composite in device pixels; any clip set earlier still applies.
-		ctx.setTransform(1, 0, 0, 1, 0, 0);
-		if (opacity < 1) ctx.globalAlpha = opacity;
-		ctx.drawImage(scratch.canvas, x, y, width, height, x, y, width, height);
-		ctx.restore();
-	}
-
-	#scratchLayer(): { canvas: Canvas; ctx: SKRSContext2D } {
-		if (!this.#scratch) {
-			const canvas = this.#createCanvas(this.canvas.width, this.canvas.height);
-			const ctx = canvas.getContext('2d');
-			ctx.scale(this.scale, this.scale);
-			this.#scratch = { canvas, ctx };
-		}
-		return this.#scratch;
-	}
-
 	/** Starts a new path and traces every segment into it. */
 	#trace(ctx: SKRSContext2D, segments: Segment[], close: boolean): void {
 		ctx.beginPath();
@@ -1149,40 +932,8 @@ const CANVAS_TEXT_BASELINE = {
 	'text-after-edge': 'bottom',
 } as const satisfies Record<string, CanvasTextBaseline>;
 
-/**
- * Grows a binary mask by `radius` pixels, the way feMorphology's dilate does: with a
- * rectangular structuring element, applied separably so the cost is O(pixels x radius)
- * rather than O(pixels x radius^2).
- */
-function dilate(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
-	const pass = (source: Uint8Array, horizontal: boolean): Uint8Array => {
-		const out = new Uint8Array(source.length);
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < width; x++) {
-				let on = 0;
-				for (let d = -radius; d <= radius && !on; d++) {
-					const sx = horizontal ? x + d : x;
-					const sy = horizontal ? y : y + d;
-					if (sx >= 0 && sx < width && sy >= 0 && sy < height && source[sy * width + sx]) on = 1;
-				}
-				out[y * width + x] = on;
-			}
-		}
-		return out;
-	};
-	return pass(pass(mask, true), false);
-}
-
 function roundToTenths(v: number): number {
 	return Math.round(v * UNITS_PER_PX) / UNITS_PER_PX;
-}
-
-/** A rectangle in user units. */
-interface Region {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
 }
 
 function applyTranslate(ctx: SKRSContext2D, translate: [number, number]): void {
@@ -1224,9 +975,4 @@ function toSegment(points: { x: number; y: number }[]): Segment {
 
 function toSegments(rings: { x: number; y: number }[][]): Segment[] {
 	return rings.map(toSegment);
-}
-
-/** `value` modulo `period`, always in `[0, period)`. */
-function mod(value: number, period: number): number {
-	return ((value % period) + period) % period;
 }

@@ -66,9 +66,9 @@ export const RULES: Rule[] = [
 		step: byLayer('style'),
 	})),
 	...drawRules('core/src/renderer/svg/renderer.ts'),
-	...drawRules('core/src/renderer/canvas.ts'),
+	...drawRules('core/src/renderer/canvas/renderer.ts'),
 	{ name: 'getString', file: 'core/src/renderer/svg/renderer.ts', step: 'output · serialize SVG' },
-	{ name: 'toBuffer', file: 'core/src/renderer/canvas.ts', step: 'output · encode PNG' },
+	{ name: 'toBuffer', file: 'core/src/renderer/canvas/renderer.ts', step: 'output · encode PNG' },
 ];
 
 /** The draw calls name their layer type themselves, since some resume after an await. */

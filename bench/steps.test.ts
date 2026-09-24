@@ -59,14 +59,14 @@ describe('classify', () => {
 	});
 
 	test('recognizes a draw call without its layer function, as after an await', () => {
-		expect(classify([frame('drawRasterTiles', 'core/src/renderer/canvas.ts')])).toBe(
+		expect(classify([frame('drawRasterTiles', 'core/src/renderer/canvas/renderer.ts')])).toBe(
 			'raster · draw',
 		);
 	});
 
 	test('counts native code to the JS function that called it', () => {
 		const stack = [
-			frame('toBuffer', 'core/src/renderer/canvas.ts'),
+			frame('toBuffer', 'core/src/renderer/canvas/renderer.ts'),
 			{ functionName: 'FontKey', url: '' },
 		];
 		expect(classify(stack)).toBe('output · encode PNG');

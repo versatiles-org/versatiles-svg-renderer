@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
 import { createCanvas, loadImage, type Image } from '@napi-rs/canvas';
-import { LRUCache } from '../lru_cache.js';
+import { LRUCache } from '../../lru_cache.js';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
-import { CanvasRenderer } from './canvas.js';
-import { Feature, Point2D } from '../geometry.js';
+import { CanvasRenderer } from './renderer.js';
+import { Feature, Point2D } from '../../geometry.js';
 import type {
 	CircleStyle,
 	FillPattern,
@@ -13,8 +13,8 @@ import type {
 	RasterStyle,
 	RasterTile,
 	SymbolStyle,
-} from '../types.js';
-import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
+} from '../../types.js';
+import type { SpriteAtlas, SpriteEntry } from '../../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {
 	const r = (parseInt(hex.slice(1, 3), 16) / 255) * alpha;
