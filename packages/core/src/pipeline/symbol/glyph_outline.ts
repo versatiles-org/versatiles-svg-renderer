@@ -3,7 +3,8 @@
  * crosses MapLibre GL JS's edge value, the glyph's shape as MapLibre draws it. The outline
  * is placed in MapLibre's glyph frame, so a renderer only has to move, turn and scale it.
  */
-import { type Glyph, GLYPH_BORDER, GLYPH_EM } from '../sources/index.js';
+import type { GlyphOutline } from '../../renderer/types.js';
+import { type Glyph, GLYPH_BORDER, GLYPH_EM } from '../../sources/index.js';
 
 /** The SDF value of the glyph's edge: MapLibre's shader draws the glyph above 0.75. */
 const EDGE = 0.75 * 255;
@@ -13,18 +14,6 @@ const TOLERANCE = 0.08;
 
 /** MapLibre's `SHAPING_DEFAULT_OFFSET`: from the middle of a line of text to its glyphs. */
 const LINE_OFFSET = -17;
-
-/**
- * A glyph's outline, in pixels at {@link GLYPH_EM} per em, as closed rings (to be filled
- * even-odd): x from the middle of its advance, y from the middle of its line of text.
- */
-export interface GlyphOutline {
-	/** Identifies the outline, for renderers that define each once. */
-	key: string;
-	rings: [number, number][][];
-	/** The glyph's advance, in ems. */
-	advance: number;
-}
 
 /** Traces `glyph`'s outline; `key` identifies it (e.g. font stack and code point). */
 export function traceGlyph(glyph: Glyph, key: string): GlyphOutline {

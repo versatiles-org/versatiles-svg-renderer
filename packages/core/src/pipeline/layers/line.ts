@@ -3,7 +3,7 @@ import { Feature as LayerFeature, Point2D } from '../../geometry.js';
 import { patternPeriod } from '../../renderer/line_pattern.js';
 import type { Renderer } from '../../renderer/svg.js';
 import type { LineStyle } from '../../renderer/types.js';
-import { gapBands } from '../line_gap.js';
+import { gapBands } from './line_gap.js';
 import {
 	evaluateLayer,
 	filterFeatures,

@@ -4,12 +4,12 @@
  * features (by `symbol-sort-key` first). A symbol is shown if its boxes do not overlap any
  * box placed before, and then blocks its own area. The renderers draw what is kept.
  */
-import { mapTextAnchor } from '../renderer/anchors.js';
-import { iconQuads, quadsBox } from '../renderer/icon_quads.js';
-import type { GlyphPlacement, IconStyle, SymbolStyle } from '../renderer/types.js';
-import type { SpriteEntry } from '../sources/index.js';
+import { mapTextAnchor } from '../../renderer/anchors.js';
+import { iconQuads, quadsBox } from '../../renderer/icon_quads.js';
+import type { GlyphPlacement, IconStyle, SymbolStyle } from '../../renderer/types.js';
+import type { SpriteEntry } from '../../sources/index.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
-import { VIEW_MARGIN } from '../geometry.js';
+import { VIEW_MARGIN } from '../../geometry.js';
 
 /** An axis-aligned box on screen: `[left, top, right, bottom]`. */
 export type Box = [number, number, number, number];

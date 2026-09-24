@@ -2,7 +2,6 @@ import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/mapli
 import type { Feature } from '../geometry.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
 import type { ClipCircle, Padding, Projection } from '../projection.js';
-import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 
 export interface View {
 	center: [number, number];
@@ -67,6 +66,18 @@ export interface StringRenderer extends Renderer {
  * into outlines, or as those with invisible text over them.
  */
 export type LabelMode = 'none' | 'text' | 'glyphs' | 'glyphs-text';
+
+/**
+ * A glyph's outline, in pixels at 24 per em (`GLYPH_EM`), as closed rings (to be filled
+ * even-odd): x from the middle of its advance, y from the middle of its line of text.
+ */
+export interface GlyphOutline {
+	/** Identifies the outline, for renderers that define each once. */
+	key: string;
+	rings: [number, number][][];
+	/** The glyph's advance, in ems. */
+	advance: number;
+}
 
 /** A glyph of a label drawn as glyphs: its outline, its middle on screen, angle and scale. */
 export interface PlacedGlyph {

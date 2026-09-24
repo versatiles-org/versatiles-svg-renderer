@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Point2D } from '../geometry.js';
+import { Point2D } from '../../geometry.js';
 import { gapBands } from './line_gap.js';
 
 const line = (...points: [number, number][]) => points.map(([x, y]) => new Point2D(x, y));

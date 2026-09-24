@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { traceContours, traceGlyph } from './glyph_outline.js';
-import { rectangleSdf } from '../sources/__fixtures__/glyphs.js';
+import { rectangleSdf } from '../../sources/__fixtures__/glyphs.js';
 
 /** The bounding box of rings. */
 const bounds = (rings: [number, number][][]) => {

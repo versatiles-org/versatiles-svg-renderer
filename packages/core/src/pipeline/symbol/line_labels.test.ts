@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { Point2D } from '../geometry.js';
-import type { GlyphPlacement } from '../renderer/types.js';
+import { Point2D } from '../../geometry.js';
+import type { GlyphPlacement } from '../../renderer/types.js';
 import { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
 
 const line = (points: [number, number][]) => measureLine(points.map(([x, y]) => new Point2D(x, y)));

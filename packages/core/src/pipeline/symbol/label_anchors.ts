@@ -6,7 +6,7 @@
  *
  * Labels along lines are placed in `line_labels.ts`.
  */
-import { Point2D, type Feature } from '../geometry.js';
+import { Point2D, type Feature } from '../../geometry.js';
 
 /** How close to the true pole of inaccessibility the search has to get, in pixels. */
 const PRECISION = 1;

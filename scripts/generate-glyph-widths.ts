@@ -1,5 +1,5 @@
 /**
- * Generates `packages/core/src/pipeline/glyph_widths.ts`: the advance width of every
+ * Generates `packages/core/src/pipeline/symbol/glyph_widths.ts`: the advance width of every
  * character Noto Sans covers (Latin, Greek, Cyrillic and Vietnamese; not Devanagari), in
  * regular and bold, so the pipeline can measure label text without a font engine. Both
  * renderers then drop the same labels in collision detection, and the widths match the
@@ -13,7 +13,7 @@ import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 
 const root = resolve(import.meta.dirname, '..');
 const fontsource = resolve(root, 'node_modules/@fontsource/noto-sans');
-const output = resolve(root, 'packages/core/src/pipeline/glyph_widths.ts');
+const output = resolve(root, 'packages/core/src/pipeline/symbol/glyph_widths.ts');
 
 /** Subsets to measure: every subset but Devanagari, which needs shaping. */
 const SUBSETS = [

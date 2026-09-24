@@ -1,6 +1,7 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Projection } from '../projection.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
+import type { GlyphOutline } from '../renderer/types.js';
 import {
 	defaultFetch,
 	type FetchFunction,
@@ -13,12 +14,10 @@ import {
 	type SpriteAtlas,
 	type TileLoader,
 } from '../sources/index.js';
-import { placeSymbols, CollisionIndex } from './collision.js';
-import type { GlyphOutline } from './glyph_outline.js';
 import { getGlobalState, getLayerStyles } from './style_layer.js';
 import type { StyleLayer } from './style_layer.js';
 import {
-	prepareSymbolLayer,
+	placeSymbolLayers,
 	renderBackgroundLayer,
 	renderCircleLayer,
 	renderFillLayer,
@@ -26,7 +25,6 @@ import {
 	renderRasterLayer,
 	renderSymbolLayer,
 	type Layer,
-	type SymbolEntry,
 } from './layers/index.js';
 
 /**
@@ -124,18 +122,8 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 		availableImages,
 	});
 
-	// Labels and icons are placed before anything is drawn, from the top layer down, as
-	// in MapLibre: a symbol of a higher layer wins over one below that it would overlap.
-	const symbols = new Map<StyleLayer, SymbolEntry[]>();
-	if ((job.labels ?? 'none') !== 'none') {
-		const index = new CollisionIndex(job.renderer.width, job.renderer.height);
-		for (const layerStyle of [...context.layers].reverse()) {
-			if (layerStyle.type !== 'symbol' || layerStyle.isHidden(job.view.zoom)) continue;
-			const entries = await prepareSymbolLayer(makeLayer(layerStyle));
-			placeSymbols(entries, index);
-			symbols.set(layerStyle, entries);
-		}
-	}
+	// Labels and icons are placed before anything is drawn.
+	const symbols = await placeSymbolLayers(job, context.layers, makeLayer);
 
 	for (const layerStyle of context.layers) {
 		if (layerStyle.isHidden(job.view.zoom)) continue;

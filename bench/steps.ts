@@ -49,7 +49,11 @@ export const RULES: Rule[] = [
 	{ name: 'loadSprite', file: 'core/src/sources/sprite.ts', step: 'sprite' },
 	{ name: 'getRasterTiles', file: 'core/src/sources/raster.ts', step: 'raster · tiles' },
 	{ name: '', file: 'core/src/sources/raster.ts', step: 'raster · tiles' },
-	{ name: 'placeSymbols', file: 'core/src/pipeline/collision.ts', step: 'symbol · placement' },
+	{
+		name: 'placeSymbols',
+		file: 'core/src/pipeline/symbol/collision.ts',
+		step: 'symbol · placement',
+	},
 	{ name: 'filterFeatures', file: LAYER_FILE, step: byLayer('filter') },
 	{ name: 'evaluateLayer', file: LAYER_FILE, step: byLayer('style') },
 	{ name: 'getPaint', file: LAYER_FILE, step: byLayer('style') },

@@ -12,8 +12,8 @@
  *
  * The result is the middle of each band, to be stroked with the line's width and butt caps.
  */
-import { Point2D } from '../geometry.js';
-import { offsetSegmentPoints, strokeLines } from '../renderer/svg_path.js';
+import { Point2D } from '../../geometry.js';
+import { offsetSegmentPoints, strokeLines } from '../../renderer/svg_path.js';
 
 type Cap = 'butt' | 'round' | 'square';
 

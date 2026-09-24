@@ -3,4 +3,4 @@ dist
 node_modules
 package-lock.json
 package.json
-packages/core/src/pipeline/glyph_widths.ts
+packages/core/src/pipeline/symbol/glyph_widths.ts

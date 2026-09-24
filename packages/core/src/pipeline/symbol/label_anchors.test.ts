@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Feature, Point2D } from '../geometry.js';
+import { Feature, Point2D } from '../../geometry.js';
 import { classifyRings, labelAnchors, poleOfInaccessibility } from './label_anchors.js';
 
 type XY = [number, number];

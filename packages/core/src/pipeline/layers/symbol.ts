@@ -1,34 +1,41 @@
 import type { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
 import { Feature as LayerFeature, Point2D } from '../../geometry.js';
+import type { RenderJob } from '../../renderer/svg.js';
 import { fitIconToText, iconQuads, quadsBox } from '../../renderer/icon_quads.js';
-import type { GlyphPlacement, IconStyle, PlacedGlyph, SymbolStyle } from '../../renderer/types.js';
+import type {
+	GlyphOutline,
+	GlyphPlacement,
+	IconStyle,
+	PlacedGlyph,
+	SymbolStyle,
+} from '../../renderer/types.js';
 import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources/index.js';
+import type { StyleLayer } from '../style_layer.js';
 import {
-	glyphBox,
-	iconBox,
-	layoutText,
-	paddedBox,
-	type Box,
-	type CollisionOptions,
-	type PlacedSymbol,
-} from '../collision.js';
-import { traceGlyph, type GlyphOutline } from '../glyph_outline.js';
-import { labelAnchors } from '../label_anchors.js';
-import {
+	anchorOffsets,
+	breakLines,
+	CollisionIndex,
 	fitsMaxAngle,
+	glyphAdvances,
+	glyphBox,
+	glyphMetrics,
+	iconBox,
+	labelAnchors,
 	layoutAlongLine,
+	layoutText,
 	lineAnchors,
 	measureLine,
+	paddedBox,
+	placeSymbols,
 	pointAt,
-} from '../line_labels.js';
-import {
-	breakLines,
-	glyphAdvances,
-	glyphMetrics,
+	radialOffset,
 	tableMetrics,
+	traceGlyph,
+	type Box,
+	type CollisionOptions,
 	type FontMetrics,
-} from '../text_metrics.js';
-import { anchorOffsets, radialOffset } from '../variable_anchor.js';
+	type PlacedSymbol,
+} from '../symbol/index.js';
 import {
 	evaluateLayer,
 	filterFeatures,
@@ -56,7 +63,7 @@ export function transformText(text: string, transform: unknown): string {
 }
 
 /** A label, an icon or both at one point, and whether collision detection keeps them. */
-export interface SymbolEntry extends PlacedSymbol {
+interface SymbolEntry extends PlacedSymbol {
 	icon?: [LayerFeature, IconStyle];
 	label?: [LayerFeature, SymbolStyle];
 	/** The label, and the icon if fitted to it, at each place to try (see `PlacedSymbol`). */
@@ -67,10 +74,32 @@ export interface SymbolEntry extends PlacedSymbol {
 }
 
 /**
+ * The symbols of every visible symbol layer, placed from the top layer down, as in
+ * MapLibre: a symbol of a higher layer wins over one below that it would overlap. Empty
+ * when labels are not rendered.
+ */
+export async function placeSymbolLayers(
+	job: RenderJob,
+	layers: StyleLayer[],
+	makeLayer: (layerStyle: StyleLayer) => Layer,
+): Promise<Map<StyleLayer, SymbolEntry[]>> {
+	const symbols = new Map<StyleLayer, SymbolEntry[]>();
+	if ((job.labels ?? 'none') === 'none') return symbols;
+	const index = new CollisionIndex(job.renderer.width, job.renderer.height);
+	for (const layerStyle of [...layers].reverse()) {
+		if (layerStyle.type !== 'symbol' || layerStyle.isHidden(job.view.zoom)) continue;
+		const entries = await prepareSymbolLayer(makeLayer(layerStyle));
+		placeSymbols(entries, index);
+		symbols.set(layerStyle, entries);
+	}
+	return symbols;
+}
+
+/**
  * The symbols of a layer, in the order they are placed and drawn: each feature's label
  * and icon at each point it is placed at, with their collision boxes.
  */
-export async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
+async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 	const { job, context, layerStyle, spriteAtlas } = layer;
 	const features = getFeatures(layer.sourceFeatures, layerStyle);
 	const allFeatures = [

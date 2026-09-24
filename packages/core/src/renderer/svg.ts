@@ -9,6 +9,7 @@ import type {
 	CircleStyle,
 	FillPattern,
 	FillStyle,
+	GlyphOutline,
 	GlyphPlacement,
 	IconStyle,
 	LinePattern,
@@ -21,7 +22,6 @@ import type {
 	SymbolStyle as LabelStyle,
 } from './types.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
-import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 import type { ClipCircle } from '../projection.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape, type CircleGradientStop } from './circle.js';

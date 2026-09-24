@@ -5,4 +5,4 @@ export { renderFillLayer } from './fill.js';
 export type { Layer } from './layer.js';
 export { renderLineLayer } from './line.js';
 export { renderRasterLayer } from './raster.js';
-export { prepareSymbolLayer, renderSymbolLayer, type SymbolEntry } from './symbol.js';
+export { placeSymbolLayers, renderSymbolLayer } from './symbol.js';
