@@ -1,4 +1,4 @@
-import type { Feature } from '../../geometry.js';
+import type { ClipCircle, Feature } from '../../geo/index.js';
 import { Color } from '../color.js';
 import {
 	chainSegments,
@@ -40,7 +40,6 @@ import type {
 	SymbolStyle as LabelStyle,
 } from '../../types.js';
 import type { SpriteAtlas } from '../../sources/index.js';
-import type { ClipCircle } from '../../projection.js';
 import { circleGradient, circleShape } from '../circle.js';
 import {
 	affineFromTriangles,

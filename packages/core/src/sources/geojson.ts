@@ -1,8 +1,14 @@
 import type { GeoJSON, Geometry, Feature as GeoJSONFeature } from 'geojson';
 import { createExpression, type FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { Point2D, Feature, GEOJSON_LAYER, viewArea } from '../geometry.js';
-import type { Features, LayerFeatures } from '../geometry.js';
-import type { Projection } from '../projection.js';
+import {
+	Feature,
+	type Features,
+	GEOJSON_LAYER,
+	type LayerFeatures,
+	Point2D,
+	type Projection,
+	viewArea,
+} from '../geo/index.js';
 
 type Coord = [number, number];
 

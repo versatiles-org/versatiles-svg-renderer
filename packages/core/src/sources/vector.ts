@@ -1,8 +1,6 @@
-import { Point2D, Feature, viewArea } from '../geometry.js';
+import { Feature, type LayerFeatures, Point2D, type Projection, viewArea } from '../geo/index.js';
 import type { RenderJob } from '../types.js';
 import { calculateTileGrid, getTile, loadSourceTile, type TileLoader } from './tiles.js';
-import type { LayerFeatures } from '../geometry.js';
-import type { Projection } from '../projection.js';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
 import { clipLine, clipPolygon, clipPolygonOutline, exceedsSquare, type XY } from './clip.js';

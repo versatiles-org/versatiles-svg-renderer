@@ -1,6 +1,5 @@
 import type { Canvas, CanvasPattern, Image, SKRSContext2D } from '@napi-rs/canvas';
-import type { Feature } from '../../geometry.js';
-import type { ClipCircle } from '../../projection.js';
+import type { ClipCircle, Feature } from '../../geo/index.js';
 import { Color } from '../color.js';
 import {
 	chainSegments,

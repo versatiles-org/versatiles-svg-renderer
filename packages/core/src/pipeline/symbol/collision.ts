@@ -8,7 +8,7 @@ import { iconQuads, mapTextAnchor, quadsBox } from '../../layout/index.js';
 import type { GlyphPlacement, IconStyle, SymbolStyle } from '../../types.js';
 import type { SpriteEntry } from '../../sources/index.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
-import { VIEW_MARGIN } from '../../geometry.js';
+import { VIEW_MARGIN } from '../../geo/index.js';
 
 /** An axis-aligned box on screen: `[left, top, right, bottom]`. */
 export type Box = [number, number, number, number];

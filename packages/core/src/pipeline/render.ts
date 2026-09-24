@@ -1,5 +1,5 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { Projection } from '../projection.js';
+import { Projection } from '../geo/index.js';
 import type { GlyphOutline, Renderer, RenderJob, StringRenderer } from '../types.js';
 import {
 	defaultFetch,

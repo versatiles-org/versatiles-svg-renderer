@@ -3,7 +3,7 @@ import { createCanvas, loadImage, type Image } from '@napi-rs/canvas';
 import { LRUCache } from '../../lru_cache.js';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { CanvasRenderer } from './renderer.js';
-import { Feature, Point2D } from '../../geometry.js';
+import { Feature, Point2D } from '../../geo/index.js';
 import type {
 	CircleStyle,
 	FillPattern,

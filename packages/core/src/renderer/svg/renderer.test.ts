@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { SVGRenderer } from './renderer.js';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
-import { Feature, Point2D } from '../../geometry.js';
+import { Feature, Point2D } from '../../geo/index.js';
 import type {
 	CircleStyle,
 	FillStyle,

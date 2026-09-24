@@ -1,6 +1,6 @@
 import { arrayBufferToBase64 } from './base64.js';
 import { defaultFetch, type FetchFunction } from './fetch.js';
-import { Point2D } from '../geometry.js';
+import { Point2D } from '../geo/index.js';
 
 export interface TileInfo {
 	x: number;

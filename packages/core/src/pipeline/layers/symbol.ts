@@ -1,5 +1,5 @@
 import type { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
-import { Feature as LayerFeature, Point2D } from '../../geometry.js';
+import { Feature as LayerFeature, Point2D } from '../../geo/index.js';
 import type {
 	GlyphOutline,
 	GlyphPlacement,

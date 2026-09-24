@@ -2,7 +2,7 @@ import type { GeoJSON } from 'geojson';
 import type { RenderJob } from '../types.js';
 import { loadVectorSource } from './vector.js';
 import { compileSourceFilter, loadGeoJSONSource, type SourceFilter } from './geojson.js';
-import type { LayerFeatures, SourceFeatures } from '../geometry.js';
+import type { LayerFeatures, SourceFeatures } from '../geo/index.js';
 import { getTile, type TileLoader } from './tiles.js';
 
 export async function getLayerFeatures(

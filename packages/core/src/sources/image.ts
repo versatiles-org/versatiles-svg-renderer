@@ -1,6 +1,5 @@
 import type { RasterTile, RenderJob } from '../types.js';
-import { Point2D } from '../geometry.js';
-import { Projection } from '../projection.js';
+import { Point2D, Projection } from '../geo/index.js';
 import { tileDataUri, type TileLoader } from './tiles.js';
 
 type Corners = [[number, number], [number, number], [number, number], [number, number]];

@@ -1,7 +1,6 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import type { Feature } from './geometry.js';
+import type { ClipCircle, Feature, Padding, Projection } from './geo/index.js';
 import type { SpriteAtlas, SpriteEntry } from './sources/index.js';
-import type { ClipCircle, Padding, Projection } from './projection.js';
 
 export interface View {
 	center: [number, number];

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Point2D } from '../../geometry.js';
+import { Point2D } from '../../geo/index.js';
 import type { GlyphPlacement } from '../../types.js';
 import { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
 

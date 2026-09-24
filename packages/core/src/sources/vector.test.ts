@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { LayerFeatures } from '../geometry.js';
+import type { LayerFeatures } from '../geo/index.js';
 import type { RenderJob } from '../types.js';
 import { SVGRenderer } from '../renderer/svg/index.js';
 

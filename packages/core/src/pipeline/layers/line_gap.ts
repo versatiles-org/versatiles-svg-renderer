@@ -12,7 +12,7 @@
  *
  * The result is the middle of each band, to be stroked with the line's width and butt caps.
  */
-import { Point2D } from '../../geometry.js';
+import { Point2D } from '../../geo/index.js';
 import { offsetSegmentPoints, strokeLines } from '../../layout/index.js';
 
 type Cap = 'butt' | 'round' | 'square';

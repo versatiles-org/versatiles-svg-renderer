@@ -6,7 +6,7 @@
  */
 import type { GlyphOutline, FillPattern, LinePattern } from '../../types.js';
 import type { SpriteEntry } from '../../sources/index.js';
-import type { ClipCircle } from '../../projection.js';
+import type { ClipCircle } from '../../geo/index.js';
 import type { Color } from '../color.js';
 import type { CircleGradientStop } from '../circle.js';
 import { escapeXml, formatNum, formatScale, formatScaled, formatUnit } from './format.js';

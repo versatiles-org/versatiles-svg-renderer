@@ -13,8 +13,7 @@ import {
 	TileCache,
 	toFetchFunction,
 } from './sources/index.js';
-import { MAX_LATITUDE, mercatorToLonLat, Projection, type Padding } from './projection.js';
-import { Point2D } from './geometry.js';
+import { MAX_LATITUDE, mercatorToLonLat, type Padding, Point2D, Projection } from './geo/index.js';
 import { checkSources, checkStyle } from './pipeline/support.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
