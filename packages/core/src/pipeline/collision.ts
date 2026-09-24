@@ -7,7 +7,7 @@
 import { mapIconAnchor, mapTextAnchor } from '../renderer/anchors.js';
 import type { GlyphPlacement, IconStyle, SymbolStyle } from '../renderer/types.js';
 import type { SpriteEntry } from '../sources/sprite.js';
-import { textWidth } from './text_metrics.js';
+import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
 import { VIEW_MARGIN } from '../geometry.js';
 
 /** An axis-aligned box on screen: `[left, top, right, bottom]`. */
@@ -74,6 +74,8 @@ function rotate(box: Box, degrees: number, pivot: [number, number]): Box {
 /** A label's lines placed around its point, and the box the block covers. */
 export interface TextLayout {
 	box: Box;
+	/** Each line: where it starts, how wide it is, and its middle, before rotation. */
+	lineBoxes: { text: string; left: number; width: number; y: number }[];
 	/** Only for more than one line (see `SymbolStyle.lines`). */
 	lines?: { text: string; x: number; y: number }[];
 	justify?: 'left' | 'center' | 'right';
@@ -92,11 +94,12 @@ export function layoutText(
 	lines: string[],
 	lineHeight = LINE_HEIGHT,
 	justify = 'center',
+	metrics: FontMetrics = tableMetrics(style.font),
 ): TextLayout {
 	const spacing = (style.letterSpacing ?? 0) * style.size;
 	const widths = lines.map(
 		(line) =>
-			textWidth(line, style.font, style.size) + spacing * Math.max(0, Array.from(line).length - 1),
+			textWidth(line, metrics, style.size) + spacing * Math.max(0, Array.from(line).length - 1),
 	);
 	const width = Math.max(0, ...widths);
 	const height = style.size * lineHeight * Math.max(1, lines.length);
@@ -110,8 +113,6 @@ export function layoutText(
 		style.offset[1] * style.size -
 		(baseline === 'central' ? height / 2 : baseline === 'text-after-edge' ? height : 0);
 	const box: Box = [left, top, left + width, top + height];
-	if (lines.length <= 1) return { box };
-
 	const side =
 		justify === 'auto'
 			? align === 'start'
@@ -121,14 +122,21 @@ export function layoutText(
 					: 'center'
 			: (justify as 'left' | 'center' | 'right');
 	const lineX = side === 'left' ? left : side === 'right' ? left + width : left + width / 2;
+	const lineBoxes = lines.map((text, i) => {
+		const lineWidth = widths[i]!;
+		return {
+			text,
+			left: side === 'left' ? left : side === 'right' ? lineX - lineWidth : lineX - lineWidth / 2,
+			width: lineWidth,
+			y: top + (i + 0.5) * style.size * lineHeight,
+		};
+	});
+	if (lines.length <= 1) return { box, lineBoxes };
 	return {
 		box,
+		lineBoxes,
 		justify: side,
-		lines: lines.map((text, i) => ({
-			text,
-			x: lineX,
-			y: top + (i + 0.5) * style.size * lineHeight,
-		})),
+		lines: lineBoxes.map(({ text, y }) => ({ text, x: lineX, y })),
 	};
 }
 
@@ -136,8 +144,20 @@ export function layoutText(
  * The box a label covers, placed as the renderers draw it (see `mapTextAnchor`): its
  * width measured from Noto Sans, one line high, grown by `text-padding`.
  */
-export function textBox(x: number, y: number, style: SymbolStyle, padding: number): Box {
-	return paddedBox(layoutText(x, y, style, [style.text]).box, style, x, y, padding);
+export function textBox(
+	x: number,
+	y: number,
+	style: SymbolStyle,
+	padding: number,
+	metrics: FontMetrics = tableMetrics(style.font),
+): Box {
+	return paddedBox(
+		layoutText(x, y, style, [style.text], LINE_HEIGHT, 'center', metrics).box,
+		style,
+		x,
+		y,
+		padding,
+	);
 }
 
 /** A label's box rotated with it (`text-rotate`, around its point) and grown by `padding`. */

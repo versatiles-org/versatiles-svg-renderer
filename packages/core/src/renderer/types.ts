@@ -2,6 +2,7 @@ import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/mapli
 import type { Feature } from '../geometry.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 import type { ClipCircle, Padding, Projection } from '../projection.js';
+import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 
 export interface View {
 	center: [number, number];
@@ -60,11 +61,30 @@ export interface StringRenderer extends Renderer {
 	getString(): string;
 }
 
+/**
+ * How labels and icons are drawn: not at all, as `<text>`, as the style's glyphs traced
+ * into outlines, or as those with invisible text over them.
+ */
+export type LabelMode = 'none' | 'text' | 'glyphs' | 'glyphs-text';
+
+/** A glyph of a label drawn as glyphs: its outline, its middle on screen, angle and scale. */
+export interface PlacedGlyph {
+	outline: GlyphOutline;
+	/** Where the middle of the glyph's advance lies, in the middle of its line of text. */
+	x: number;
+	y: number;
+	/** Clockwise, in degrees. */
+	angle: number;
+	/** From the outline's units (24 per em) to pixels: the text size / 24. */
+	scale: number;
+}
+
 export interface RenderJob<R extends Renderer = Renderer> {
 	style: StyleSpecification;
 	view: View;
 	renderer: R;
-	renderLabels?: boolean;
+	/** How to draw labels and icons (see `SVGMapRendererOptions.labels`). */
+	labels?: LabelMode;
 	/** Derived from `view` and `style.projection` when not given. */
 	projection?: Projection;
 }
@@ -169,11 +189,18 @@ export interface SymbolStyle {
 	 */
 	path?: GlyphPlacement[];
 	/**
+	 * For a label drawn as the style's glyphs: each glyph's outline, where it goes and how
+	 * large. Drawn instead of the text.
+	 */
+	glyphs?: PlacedGlyph[];
+	/** With `glyphs`: also the text, invisible, so the label stays selectable and searchable. */
+	textOverlay?: boolean;
+	/**
 	 * For a label of several lines: each line, and the point its alignment (`justify`)
 	 * refers to, vertically at the middle of the line. The anchor and offset are applied
 	 * already; `text` is all lines.
 	 */
-	lines?: { text: string; x: number; y: number }[];
+	lines?: { text: string; x: number; y: number; width?: number }[];
 	/** How the `lines` align at their points (`text-justify`). */
 	justify?: 'left' | 'center' | 'right';
 	/** `text-letter-spacing`, in ems. */

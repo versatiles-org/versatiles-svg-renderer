@@ -1201,6 +1201,67 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('text-anchor="middle" dominant-baseline="central"');
 		});
 
+		test('draws a label as glyph outlines, each defined once, with text over them', () => {
+			const outline = {
+				key: 'F\u000065',
+				rings: [
+					[
+						[0, 0],
+						[10, 0],
+						[10, -10],
+					] as [number, number][],
+				],
+				advance: 0.5,
+			};
+			const glyphs = [
+				{ outline, x: 10, y: 20, angle: 0, scale: 0.5 },
+				{ outline, x: 20, y: 20, angle: 30, scale: 0.5 },
+			];
+			const feature = new Feature({
+				type: 'Point',
+				properties: {},
+				geometry: [[new Point2D(0, 0)]],
+			});
+			const style = defaultSymbolStyle({
+				text: 'AA',
+				glyphs,
+				textOverlay: true,
+				haloWidth: 2,
+				haloColor: mc('#FFFFFF'),
+				lines: [{ text: 'AA', x: 15, y: 20, width: 12 }],
+				justify: 'center',
+			});
+			const r = makeRenderer();
+			r.drawLabels('l', [[feature, style]]);
+			const svg = r.getString();
+			// One definition, two uses, in the halo and in the fill.
+			expect(
+				svg.match(/<path id="glyph-0" fill-rule="evenodd" d="M0,0L10,0L10,-10Z" \/>/g),
+			).toHaveLength(1);
+			expect(svg.match(/<use xlink:href="#glyph-0"/g)).toHaveLength(4);
+			expect(svg).toContain('transform="translate(20,20) rotate(30) scale(0.5)"');
+			// The halo is 2 px on screen: 4 in the outlines' units, scaled by 0.5.
+			expect(svg).toContain('stroke="#FFFFFF" stroke-width="4"');
+			// The invisible text, as wide as the glyphs.
+			expect(svg).toMatch(
+				/<text [^>]*fill-opacity="0"><tspan x="15" y="20" textLength="12" lengthAdjust="spacingAndGlyphs">AA<\/tspan><\/text>/,
+			);
+		});
+
+		test('draws no text over glyph outlines without textOverlay', () => {
+			const outline = { key: 'k', rings: [], advance: 0.5 };
+			const feature = new Feature({
+				type: 'Point',
+				properties: {},
+				geometry: [[new Point2D(0, 0)]],
+			});
+			const r = makeRenderer();
+			r.drawLabels('l', [
+				[feature, defaultSymbolStyle({ glyphs: [{ outline, x: 1, y: 1, angle: 0, scale: 1 }] })],
+			]);
+			expect(r.getString()).not.toContain('<text');
+		});
+
 		test('draws a label of several lines as tspans at their points', () => {
 			const r = makeRenderer();
 			const feature = new Feature({

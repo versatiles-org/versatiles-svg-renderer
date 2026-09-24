@@ -2,13 +2,14 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { drawMap, type RenderContext } from './pipeline/render.js';
 import { getGlobalState, getLayerStyles, type GlobalState } from './pipeline/style_layer.js';
 import { SVGRenderer } from './renderer/svg.js';
-import type { Renderer } from './renderer/types.js';
+import type { LabelMode, Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
 import { TileCache } from './sources/tile_cache.js';
 import { MAX_LATITUDE, mercatorToLonLat, Projection, type Padding } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 import { resolveSources } from './sources/resolve.js';
+import { loadGlyphRange, type GlyphRange } from './sources/glyphs.js';
 import { checkSources, checkStyle } from './pipeline/support.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */
@@ -26,19 +27,30 @@ export interface SVGMapRendererOptions {
 	 */
 	style: StyleSpecification;
 	/**
-	 * Draw the style's symbol layers: text labels and icons.
+	 * Whether and how to draw the style's symbol layers, its labels and icons:
 	 *
-	 * Off by default, because labels are the least faithful part of the output. They are
-	 * placed as in MapLibre: at points, inside each polygon at the point farthest from its
-	 * edges, and along lines (street names follow their streets, glyph by glyph); labels and
-	 * icons that would overlap one placed before are left out, from the top layer down. Text
-	 * is measured and laid out with the widths of Noto Sans, so in other fonts, labels may
-	 * keep a little too much or too little distance, and letters along a line may sit a
-	 * little apart or close together.
+	 * - `'none'`: neither labels nor icons.
+	 * - `'text'`: labels as `<text>` naming the style's fonts (`text-font`), which whatever
+	 *   displays the SVG resolves, so they show in the intended typeface only where that font
+	 *   is installed. In PNG output, with the fonts given by `fonts`.
+	 * - `'glyphs'`: labels as the style's own glyphs (`glyphs`), the letter shapes MapLibre
+	 *   draws, traced into outlines: exact in every viewer and editor, but not text. Each
+	 *   glyph is defined once and reused.
+	 * - `'glyphs-text'`: as `'glyphs'`, with the text laid invisibly over the outlines, so labels
+	 *   stay selectable and searchable. (In PNG output, the same as `'glyphs'`.)
 	 *
-	 * The SVG names each label's font (`text-font`) and leaves resolving it to whatever
-	 * displays the SVG, so labels use the intended typeface only where that font is
-	 * installed or provided with `@font-face`.
+	 * Labels are placed as in MapLibre: at points, inside each polygon at the point farthest
+	 * from its edges, and along lines; labels and icons that would overlap one placed before
+	 * are left out, from the top layer down. With glyphs, they are laid out with MapLibre's
+	 * own metrics; as text, with the widths of Noto Sans. A style without `glyphs`, or glyphs
+	 * that cannot be loaded, fall back to `'text'`, reported through `onWarning`.
+	 * @defaultValue `'none'`, or as given by {@link SVGMapRendererOptions.renderLabels}
+	 */
+	labels?: LabelMode;
+	/**
+	 * Draw the style's labels and icons.
+	 * @deprecated Use {@link SVGMapRendererOptions.labels}: `true` is `'glyphs-text'`, `false`
+	 *   is `'none'`.
 	 * @defaultValue `false`
 	 */
 	renderLabels?: boolean;
@@ -69,7 +81,7 @@ export interface SVGMapRendererOptions {
 	 * message is reported once per instance. Pass `() => {}` to silence them.
 	 *
 	 * Properties that make no difference to a flat, north-up map (e.g. `*-pitch-alignment`)
-	 * are not reported, nor are symbol layers unless {@link SVGMapRendererOptions.renderLabels}
+	 * are not reported, nor are symbol layers unless {@link SVGMapRendererOptions.labels}
 	 * is set.
 	 * @defaultValue `console.warn`
 	 */
@@ -185,7 +197,7 @@ export function viewSize(view: ViewOptions): { width: number; height: number } {
  *
  * Does the work that depends only on the style once, when constructed or on the first
  * render, instead of on every call as {@link renderToSVG} does: the style is parsed once,
- * and the sprite (the icons, needed with `renderLabels`) is fetched once. Tiles are kept
+ * and the sprite (the icons, needed with `labels`) and the glyphs are fetched once. Tiles are kept
  * too (up to {@link SVGMapRendererOptions.tileCacheSize}), so overlapping views share
  * them. Use it to render a batch of views, e.g. thumbnails or a series of map sections.
  *
@@ -205,12 +217,13 @@ export function viewSize(view: ViewOptions): { width: number; height: number } {
  */
 export class SVGMapRenderer {
 	readonly #style: StyleSpecification;
-	readonly #renderLabels: boolean;
+	readonly #labels: LabelMode;
 	readonly #context: RenderContext;
 	readonly #tiles: TileCache;
 	readonly #fetch: FetchFunction;
 	#sprite: Promise<SpriteAtlas> | undefined;
 	#sources: Promise<StyleSpecification['sources']> | undefined;
+	readonly #glyphRanges = new Map<string, Promise<GlyphRange | undefined>>();
 	readonly #onWarning: (message: string) => void;
 	readonly #warned = new Set<string>();
 
@@ -221,7 +234,18 @@ export class SVGMapRenderer {
 	 */
 	public constructor(options: SVGMapRendererOptions) {
 		this.#style = options.style;
-		this.#renderLabels = options.renderLabels ?? false;
+		this.#onWarning = options.onWarning ?? ((message) => console.warn(message));
+		let labels: LabelMode =
+			// eslint-disable-next-line @typescript-eslint/no-deprecated -- still supported, mapped to `labels`
+			options.labels ?? (options.renderLabels === true ? 'glyphs-text' : 'none');
+		if (
+			(labels === 'glyphs' || labels === 'glyphs-text') &&
+			typeof options.style.glyphs !== 'string'
+		) {
+			this.#warn('The style has no "glyphs": labels are drawn as text.');
+			labels = 'text';
+		}
+		this.#labels = labels;
 		this.#fetch = toFetchFunction(options.fetch);
 		this.#tiles = new TileCache(options.tileCacheSize ?? DEFAULT_TILE_CACHE_SIZE, this.#fetch);
 		this.#context = {
@@ -232,9 +256,10 @@ export class SVGMapRenderer {
 			getSprite: () => this.#getSprite(),
 			getSources: () => this.#getSources(),
 			loadTile: this.#tiles.load,
+			getGlyphRange: (fontStack, start) => this.#getGlyphRange(fontStack, start),
+			outlines: new Map(),
 		};
-		this.#onWarning = options.onWarning ?? ((message) => console.warn(message));
-		for (const warning of checkStyle(options.style, this.#renderLabels)) this.#warn(warning);
+		for (const warning of checkStyle(options.style, labels !== 'none')) this.#warn(warning);
 	}
 
 	/**
@@ -258,6 +283,8 @@ export class SVGMapRenderer {
 		this.#tiles.clear();
 		this.#sprite = undefined;
 		this.#sources = undefined;
+		this.#glyphRanges.clear();
+		this.#context.outlines.clear();
 	}
 
 	/** Draws `view` onto `renderer`, which must already have the view's size. */
@@ -267,7 +294,7 @@ export class SVGMapRenderer {
 				renderer,
 				style: this.#style,
 				view: viewCenter(this.#style, view),
-				renderLabels: this.#renderLabels,
+				labels: this.#labels,
 				projection: projectionOf(this.#style, renderer.width, renderer.height, view),
 			},
 			this.#context,
@@ -360,6 +387,30 @@ export class SVGMapRenderer {
 		});
 		this.#sources = sources;
 		return sources;
+	}
+
+	/**
+	 * Loads a range of glyphs once and shares it between renders. A range that could not be
+	 * loaded is reported, and loaded again by the next render.
+	 */
+	#getGlyphRange(fontStack: string, start: number): Promise<GlyphRange | undefined> {
+		const template = this.#style.glyphs;
+		if (typeof template !== 'string') return Promise.resolve(undefined);
+		const key = `${fontStack}\0${String(start)}`;
+		let range = this.#glyphRanges.get(key);
+		if (!range) {
+			range = loadGlyphRange(template, fontStack, start, this.#fetch).then((glyphs) => {
+				if (!glyphs) {
+					this.#glyphRanges.delete(key);
+					this.#warn(
+						`The glyphs ${String(start)}-${String(start + 255)} of "${fontStack}" could not be loaded: their labels are drawn as text.`,
+					);
+				}
+				return glyphs;
+			});
+			this.#glyphRanges.set(key, range);
+		}
+		return range;
 	}
 
 	/** Reports `message` through `onWarning`, unless it was reported before. */

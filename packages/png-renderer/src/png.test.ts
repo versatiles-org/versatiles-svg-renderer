@@ -184,7 +184,7 @@ describe('renderToPNG', () => {
 
 		const png = await renderToPNG({
 			style: symbolStyle,
-			renderLabels: true,
+			labels: 'text',
 			width: 64,
 			height: 64,
 		});

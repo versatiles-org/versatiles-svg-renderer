@@ -24,7 +24,7 @@ console.log('Rendering SVG...');
 const style = await inlineSources(osm({ theme: 'colorful', projection: 'mercator' }));
 
 // Remove all symbol layers that only have text (keep ones with icons)
-// Actually: renderLabels=true enables both icons and labels.
+// Actually: `labels` enables both icons and labels.
 // To get icons without text labels, we filter out text-field from symbol layers.
 for (const layer of style.layers) {
 	if (layer.type === 'symbol' && 'layout' in layer && layer.layout) {
@@ -38,7 +38,7 @@ const svg = await renderToSVG({
 	height: HEIGHT,
 	style,
 	...LOCATION,
-	renderLabels: true,
+	labels: 'glyphs-text',
 });
 
 const svgPath = resolve(outDir, 'map.svg');

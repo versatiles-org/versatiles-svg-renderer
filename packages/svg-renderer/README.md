@@ -59,33 +59,33 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 
 ### `renderToSVG(options): Promise<string>`
 
-| Option         | Type                 | Default                     | Description                                                                            |
-| -------------- | -------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
-| `style`        | `StyleSpecification` | _(required)_                | MapLibre style specification                                                           |
-| `width`        | `number`             | `1024`                      | Output width in pixels                                                                 |
-| `height`       | `number`             | `1024`                      | Output height in pixels                                                                |
-| `lon`          | `number`             | style's `center`, else `0`  | Center longitude                                                                       |
-| `lat`          | `number`             | style's `center`, else `0`  | Center latitude                                                                        |
-| `zoom`         | `number`             | style's `zoom`, else `2`    | Zoom level                                                                             |
-| `bearing`      | `number`             | style's `bearing`, else `0` | Compass direction that is up, in degrees (`90`: east is up)                            |
-| `padding`      | `number \| Padding`  | `0`                         | Space around the center, in pixels: it sits in the middle of the area inside           |
-| `renderLabels` | `boolean`            | `false`                     | Enable rendering of text labels and icons                                              |
-| `fetch`        | `FetchFunction`      | global `fetch`              | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
-| `onWarning`    | `(message) => void`  | `console.warn`              | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
-| `globalState`  | `GlobalState`        | style's `state`             | Values for `global-state` expressions, over the style's defaults                       |
+| Option        | Type                                            | Default                     | Description                                                                            |
+| ------------- | ----------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
+| `style`       | `StyleSpecification`                            | _(required)_                | MapLibre style specification                                                           |
+| `width`       | `number`                                        | `1024`                      | Output width in pixels                                                                 |
+| `height`      | `number`                                        | `1024`                      | Output height in pixels                                                                |
+| `lon`         | `number`                                        | style's `center`, else `0`  | Center longitude                                                                       |
+| `lat`         | `number`                                        | style's `center`, else `0`  | Center latitude                                                                        |
+| `zoom`        | `number`                                        | style's `zoom`, else `2`    | Zoom level                                                                             |
+| `bearing`     | `number`                                        | style's `bearing`, else `0` | Compass direction that is up, in degrees (`90`: east is up)                            |
+| `padding`     | `number \| Padding`                             | `0`                         | Space around the center, in pixels: it sits in the middle of the area inside           |
+| `labels`      | `'none' \| 'text' \| 'glyphs' \| 'glyphs-text'` | `'none'`                    | Whether and how to draw labels and icons; see [About labels](#about-labels)            |
+| `fetch`       | `FetchFunction`                                 | global `fetch`              | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
+| `onWarning`   | `(message) => void`                             | `console.warn`              | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
+| `globalState` | `GlobalState`                                   | style's `state`             | Values for `global-state` expressions, over the style's defaults                       |
 
 ### `new SVGMapRenderer(options)`
 
 Renders many views of one style. The options stay the same for every view:
 
-| Option          | Type                 | Default              | Description                                                                               |
-| --------------- | -------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
-| `style`         | `StyleSpecification` | _(required)_         | MapLibre style specification. Read once: to render a changed style, create a new instance |
-| `renderLabels`  | `boolean`            | `false`              | Enable rendering of text labels and icons                                                 |
-| `tileCacheSize` | `number`             | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
-| `fetch`         | `FetchFunction`      | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
-| `onWarning`     | `(message) => void`  | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                  |
-| `globalState`   | `GlobalState`        | style's `state`      | Values for `global-state` expressions, over the style's defaults                          |
+| Option          | Type                                            | Default              | Description                                                                               |
+| --------------- | ----------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
+| `style`         | `StyleSpecification`                            | _(required)_         | MapLibre style specification. Read once: to render a changed style, create a new instance |
+| `labels`        | `'none' \| 'text' \| 'glyphs' \| 'glyphs-text'` | `'none'`             | Whether and how to draw labels and icons; see [About labels](#about-labels)               |
+| `tileCacheSize` | `number`                                        | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
+| `fetch`         | `FetchFunction`                                 | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
+| `onWarning`     | `(message) => void`                             | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                  |
+| `globalState`   | `GlobalState`                                   | style's `state`      | Values for `global-state` expressions, over the style's defaults                          |
 
 - **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat`, `zoom`, `bearing` and `padding`, with the same defaults as `renderToSVG`. Renders may run concurrently.
 - **`project(view, [lon, lat]): [x, y] | undefined`** tells where a coordinate lands in the image of `view`, in the units of `width` and `height`, to place your own drawing on the map. On the globe, a point on the far side gives `undefined`.
@@ -107,16 +107,28 @@ const map = new SVGMapRenderer({
 
 It must return a real `Response`, and the status counts: a 404 or 204 means the server has no such tile, and the renderer remembers that; any other error status, or a rejected promise, counts as failed, so the next render tries again. The renderer asks it for tiles, sprites, and the TileJSON documents and GeoJSON data of the style's sources.
 
-### About `renderLabels`
+### About labels
 
-When `renderLabels` is set to `true`, symbol layers are rendered, including text labels and sprite-based icons. By default, this option is disabled.
+Labels and icons (the style's symbol layers) are drawn with `labels`:
 
-The SVG names each label's font (`text-font`) and leaves resolving it to whatever displays the SVG, so labels use the intended typeface only where that font is installed or provided with `@font-face`.
+| `labels`        | Labels drawn as                                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'none'`        | nothing: no labels and no icons (the default)                                                                                                   |
+| `'text'`        | `<text>` naming the style's fonts (`text-font`), which whatever displays the SVG resolves: the intended typeface only where it is installed     |
+| `'glyphs'`      | the style's own glyphs (`glyphs`), the letter shapes MapLibre GL JS draws, traced into outlines: exact in every viewer and editor, but not text |
+| `'glyphs-text'` | as `'glyphs'`, with the text laid invisibly over the outlines, so labels stay selectable and searchable                                         |
+
+With glyphs, each glyph is defined once in the SVG's `<defs>` and placed with `<use>`, and labels are laid out with MapLibre's own metrics. A style without `glyphs`, or a label whose glyphs cannot be loaded, is drawn as `'text'`, and reported through `onWarning`.
+
+Labels are placed as in MapLibre GL JS: at points, inside each polygon at the point farthest from its edges, and along lines, glyph by glyph; labels and icons that would overlap one placed before are left out, from the top layer down; point labels break into lines of at most `text-max-width` ems.
+
+The option `renderLabels: true` of earlier versions still works, as `labels: 'glyphs-text'`, but is deprecated.
 
 > [!WARNING]
-> The rendering of labels and icons is experimental and may produce imperfect results. Since we cannot use the original layouting engine of MapLibre GL JS, there are known limitations:
+> Labels are drawn without MapLibre GL JS's own layout engine, so there are known differences:
 >
-> - **Text measured with Noto Sans:** Labels are placed and kept apart as in MapLibre GL JS, and street names follow their streets glyph by glyph, but text is measured with the widths of Noto Sans (the font of the VersaTiles styles). In other fonts, labels keep a little too much or too little distance, and letters along a line sit a little apart or close together.
+> - **Text measured with Noto Sans:** With `labels: 'text'`, text is measured with the widths of Noto Sans (the font of the VersaTiles styles). In other fonts, labels keep a little too much or too little distance.
+> - **Placement:** Labels along lines are placed from the lines on screen, not from the tiles as in MapLibre, so a few labels differ.
 >
 > Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
 

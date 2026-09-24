@@ -128,7 +128,7 @@ async function renderSvgShot(
 		zoom: region.zoom,
 		bearing: region.bearing ?? 0,
 		padding: region.padding,
-		renderLabels: region.labels ?? false,
+		labels: region.labels ? 'glyphs-text' : 'none',
 		onWarning: collectWarning,
 	});
 	writeFileSync(resolve(svgDir, `${id}.svg`), svg);
@@ -174,7 +174,7 @@ async function renderPngShot(
 		zoom: region.zoom,
 		bearing: region.bearing ?? 0,
 		padding: region.padding,
-		renderLabels: region.labels ?? false,
+		labels: region.labels ? 'glyphs-text' : 'none',
 		fonts,
 		onWarning: collectWarning,
 	});

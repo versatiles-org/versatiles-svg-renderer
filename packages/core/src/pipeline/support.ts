@@ -121,7 +121,6 @@ const WITHOUT_EFFECT = new Set([
 
 /** Properties whose default value is what the renderer draws; any other value is not supported. */
 const SUPPORTED_VALUES: Readonly<Record<string, unknown>> = {
-	'symbol-placement': 'point',
 	'icon-text-fit': 'none',
 };
 

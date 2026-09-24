@@ -5,6 +5,14 @@ import type { SpriteAtlas } from '../sources/sprite.js';
 import { getTile, type TileLoader } from '../sources/tiles.js';
 import { defaultFetch, type FetchFunction } from '../sources/fetch.js';
 import { resolveSources } from '../sources/resolve.js';
+import {
+	GLYPH_EM,
+	loadGlyphRange,
+	rangeStart,
+	type Glyph,
+	type GlyphRange,
+} from '../sources/glyphs.js';
+import type { GlyphOutline } from './glyph_outline.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { getGlobalState, getLayerStyles } from './style_layer.js';
 import type {
@@ -13,7 +21,14 @@ import type {
 	StyleLayer,
 } from './style_layer.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
-import type { FillPattern, IconStyle, LineStyle, SymbolStyle } from '../renderer/types.js';
+import type {
+	FillPattern,
+	GlyphPlacement,
+	IconStyle,
+	LineStyle,
+	PlacedGlyph,
+	SymbolStyle,
+} from '../renderer/types.js';
 import {
 	CollisionIndex,
 	glyphBox,
@@ -21,7 +36,6 @@ import {
 	layoutText,
 	paddedBox,
 	placeSymbols,
-	textBox,
 	type Box,
 	type CollisionOptions,
 	type PlacedSymbol,
@@ -30,7 +44,14 @@ import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
-import { breakLines, glyphAdvances } from './text_metrics.js';
+import {
+	breakLines,
+	glyphAdvances,
+	glyphMetrics,
+	tableMetrics,
+	type FontMetrics,
+} from './text_metrics.js';
+import { traceGlyph } from './glyph_outline.js';
 import { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
 import { Projection } from '../projection.js';
 
@@ -57,6 +78,13 @@ export interface RenderContext {
 	/** The style's sources, with TileJSON sources completed (see {@link resolveSources}). */
 	getSources(): Promise<StyleSpecification['sources']>;
 	loadTile: TileLoader;
+	/**
+	 * A range of 256 glyphs of a font stack, from the style's `glyphs`: `undefined` if it cannot
+	 * be loaded.
+	 */
+	getGlyphRange(fontStack: string, start: number): Promise<GlyphRange | undefined>;
+	/** Traced glyph outlines, by font stack and code point, shared by renders. */
+	outlines: Map<string, GlyphOutline>;
 }
 
 /** A context without any caching, for rendering a single view. */
@@ -69,6 +97,11 @@ export function createRenderContext(
 		getSprite: () => loadSpriteAtlas(style, fetchFn),
 		getSources: async () => (await resolveSources(style.sources, fetchFn)).sources,
 		loadTile: (url, z, x, y) => getTile(url, z, x, y, fetchFn),
+		getGlyphRange: (fontStack, start) =>
+			typeof style.glyphs === 'string'
+				? loadGlyphRange(style.glyphs, fontStack, start, fetchFn)
+				: Promise.resolve(undefined),
+		outlines: new Map(),
 	};
 }
 
@@ -117,7 +150,7 @@ function getFeatures(sourceFeatures: SourceFeatures, layerStyle: StyleLayer): Fe
 async function render(job: RenderJob, context: RenderContext): Promise<void> {
 	// The sprite holds the icons, and the images of patterns.
 	const needsSprite =
-		job.renderLabels === true ||
+		(job.labels ?? 'none') !== 'none' ||
 		context.layers.some((layer) => layer.usesPattern && !layer.isHidden(job.view.zoom));
 	const [sourceFeatures, spriteAtlas] = await Promise.all([
 		getLayerFeatures(job, context.loadTile),
@@ -136,11 +169,11 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 	// Labels and icons are placed before anything is drawn, from the top layer down, as
 	// in MapLibre: a symbol of a higher layer wins over one below that it would overlap.
 	const symbols = new Map<StyleLayer, SymbolEntry[]>();
-	if (job.renderLabels) {
+	if ((job.labels ?? 'none') !== 'none') {
 		const index = new CollisionIndex(job.renderer.width, job.renderer.height);
 		for (const layerStyle of [...context.layers].reverse()) {
 			if (layerStyle.type !== 'symbol' || layerStyle.isHidden(job.view.zoom)) continue;
-			const entries = prepareSymbolLayer(makeLayer(layerStyle));
+			const entries = await prepareSymbolLayer(makeLayer(layerStyle));
 			placeSymbols(entries, index);
 			symbols.set(layerStyle, entries);
 		}
@@ -473,8 +506,8 @@ interface SymbolEntry extends PlacedSymbol {
  * The symbols of a layer, in the order they are placed and drawn: each feature's label
  * and icon at each point it is placed at, with their collision boxes.
  */
-function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
-	const { job, layerStyle, spriteAtlas } = layer;
+async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
+	const { job, context, layerStyle, spriteAtlas } = layer;
 	const features = getFeatures(layer.sourceFeatures, layerStyle);
 	const allFeatures = [
 		...(features?.points ?? []),
@@ -487,6 +520,35 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
 	const symbolFeatures = sortByKey(filtered, (feature) => getLayout('symbol-sort-key', feature));
+	const labelText = (feature: LayerFeature): string => {
+		const textField = getLayout('text-field', feature);
+		const textRaw = textField != null ? (textField as { toString(): string }).toString() : '';
+		return transformText(
+			resolveTokens(textRaw, feature.properties),
+			getLayout('text-transform', feature),
+		);
+	};
+
+	// Drawn as glyphs, labels need the style's glyphs before they are laid out, with their
+	// metrics: all ranges the layer's labels use, loaded together.
+	const glyphMode = job.labels === 'glyphs' || job.labels === 'glyphs-text';
+	const glyphRanges = new Map<string, GlyphRange | undefined>();
+	if (glyphMode) {
+		const wanted = new Set<string>();
+		for (const feature of symbolFeatures) {
+			const fontStack = (getLayout('text-font', feature) as string[]).join(',');
+			for (const char of labelText(feature)) {
+				wanted.add(`${fontStack}\0${String(rangeStart(char.codePointAt(0)!))}`);
+			}
+		}
+		await Promise.all(
+			[...wanted].map(async (key) => {
+				const [fontStack, start] = key.split('\0') as [string, string];
+				glyphRanges.set(key, await context.getGlyphRange(fontStack, Number(start)));
+			}),
+		);
+	}
+
 	const entries: SymbolEntry[] = [];
 	for (const feature of symbolFeatures) {
 		// Styles are evaluated for the feature itself (`geometry-type` must see a polygon as
@@ -510,12 +572,7 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 			haloWidth: getPaint('icon-halo-width', feature) as number,
 		};
 
-		const textField = getLayout('text-field', feature);
-		const textRaw = textField != null ? (textField as { toString(): string }).toString() : '';
-		const text = transformText(
-			resolveTokens(textRaw, feature.properties),
-			getLayout('text-transform', feature),
-		);
+		const text = labelText(feature);
 		const labelStyle: SymbolStyle | undefined = text
 			? {
 					text,
@@ -532,6 +589,28 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 				}
 			: undefined;
 		if (!iconStyle && !labelStyle) continue;
+
+		// The label's glyphs, if all of them could be loaded: then it is measured with their
+		// metrics and drawn as them; else measured with Noto Sans and drawn as text.
+		const fontStack = labelStyle?.font.join(',') ?? '';
+		const glyphAt = (codePoint: number): Glyph | undefined =>
+			glyphRanges.get(`${fontStack}\0${String(rangeStart(codePoint))}`)?.get(codePoint);
+		const asGlyphs =
+			glyphMode && labelStyle !== undefined && hasAllGlyphs(labelStyle.text, glyphAt);
+		const fallbackMetrics = tableMetrics(labelStyle?.font);
+		const metrics = asGlyphs ? glyphMetrics(glyphAt, fallbackMetrics) : fallbackMetrics;
+		const outlineOf = (codePoint: number): GlyphOutline | undefined => {
+			const glyph = glyphAt(codePoint);
+			if (!glyph) return undefined;
+			const key = `${fontStack}\0${String(codePoint)}`;
+			let outline = context.outlines.get(key);
+			if (!outline) {
+				outline = traceGlyph(glyph, key);
+				context.outlines.set(key, outline);
+			}
+			return outline;
+		};
+		const textOverlay = job.labels === 'glyphs-text';
 
 		const options: CollisionOptions = {
 			textAllowOverlap: getLayout('text-allow-overlap', feature) === true,
@@ -568,7 +647,7 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 			const lines = labelStyle
 				? breakLines(
 						labelStyle.text,
-						labelStyle.font,
+						metrics,
 						getLayout('text-max-width', feature) as number,
 						labelStyle.letterSpacing,
 					)
@@ -597,13 +676,26 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 				let label: [LayerFeature, SymbolStyle] | undefined;
 				let textBoxes: Box[] | undefined;
 				if (lineStyle) {
-					const layout = layoutText(tx, ty, lineStyle, lines, lineHeight, justify);
-					label = [
-						pointAtAnchor(tx, ty),
-						layout.lines
-							? { ...lineStyle, lines: layout.lines, justify: layout.justify }
-							: lineStyle,
-					];
+					const layout = layoutText(tx, ty, lineStyle, lines, lineHeight, justify, metrics);
+					let drawn: SymbolStyle = layout.lines
+						? { ...lineStyle, lines: layout.lines, justify: layout.justify }
+						: lineStyle;
+					if (asGlyphs) {
+						drawn = {
+							...lineStyle,
+							glyphs: glyphsOfLines(layout.lineBoxes, lineStyle, outlineOf, tx, ty, metrics),
+							textOverlay,
+							// The invisible text, line by line, as wide as the glyphs.
+							lines: layout.lineBoxes.map((line) => ({
+								text: line.text,
+								x: line.left + line.width / 2,
+								y: line.y,
+								width: line.width,
+							})),
+							justify: 'center',
+						};
+					}
+					label = [pointAtAnchor(tx, ty), drawn];
 					textBoxes = [paddedBox(layout.box, lineStyle, tx, ty, textPadding)];
 				}
 				entries.push({
@@ -629,8 +721,7 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 			iconStyle !== undefined && alignedToMap(getLayout('icon-rotation-alignment', feature));
 		// Along a line, a label is one line.
 		const glyphs =
-			labelStyle &&
-			glyphAdvances(labelStyle.text.replace(/\s+/g, ' '), labelStyle.font, labelStyle.size);
+			labelStyle && glyphAdvances(labelStyle.text.replace(/\s+/g, ' '), metrics, labelStyle.size);
 		const textLength = glyphs ? glyphs.advances.reduce((sum, width) => sum + width, 0) : 0;
 		const iconLength = iconStyle ? (sprite!.width / sprite!.pixelRatio) * iconStyle.size : 0;
 		const labelLength = Math.max(textLength, iconLength);
@@ -672,15 +763,43 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 						x: glyph.x + textTranslate[0],
 						y: glyph.y + textTranslate[1],
 					}));
-					label = [at, { ...labelStyle, path }];
+					label = [
+						at,
+						asGlyphs
+							? {
+									...labelStyle,
+									path,
+									glyphs: glyphsAlongPath(path, labelStyle, outlineOf, metrics),
+									textOverlay,
+								}
+							: { ...labelStyle, path },
+					];
 					textBoxes = path.map((glyph, i) =>
 						glyphBox(glyph, glyphs.advances[i]!, labelStyle.size, textPadding),
 					);
 				} else if (labelStyle) {
 					const tx = anchor.x + textTranslate[0];
 					const ty = anchor.y + textTranslate[1];
-					label = [pointAtAnchor(tx, ty), labelStyle];
-					textBoxes = [textBox(tx, ty, labelStyle, textPadding)];
+					const layout = layoutText(
+						tx,
+						ty,
+						labelStyle,
+						[labelStyle.text],
+						undefined,
+						undefined,
+						metrics,
+					);
+					label = [
+						pointAtAnchor(tx, ty),
+						asGlyphs
+							? {
+									...labelStyle,
+									glyphs: glyphsOfLines(layout.lineBoxes, labelStyle, outlineOf, tx, ty, metrics),
+									textOverlay,
+								}
+							: labelStyle,
+					];
+					textBoxes = [paddedBox(layout.box, labelStyle, tx, ty, textPadding)];
 				}
 
 				const lineIcon =
@@ -702,6 +821,88 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 		}
 	}
 	return entries;
+}
+
+/** Whether every character of `text` has a glyph, except white space, which needs none. */
+function hasAllGlyphs(text: string, glyphAt: (codePoint: number) => Glyph | undefined): boolean {
+	for (const char of text) {
+		if (!/\s/.test(char) && !glyphAt(char.codePointAt(0)!)) return false;
+	}
+	return true;
+}
+
+/**
+ * The glyphs of a label's lines, as MapLibre places them: along each line from its start,
+ * one advance after the other, turned with `text-rotate` around the label's point `x`, `y`.
+ */
+function glyphsOfLines(
+	lineBoxes: { text: string; left: number; y: number }[],
+	style: SymbolStyle,
+	outlineOf: (codePoint: number) => GlyphOutline | undefined,
+	x: number,
+	y: number,
+	metrics: FontMetrics,
+): PlacedGlyph[] {
+	const scale = style.size / GLYPH_EM;
+	const spacing = (style.letterSpacing ?? 0) * style.size;
+	const radians = (style.rotate * Math.PI) / 180;
+	const cos = Math.cos(radians);
+	const sin = Math.sin(radians);
+	const placed: PlacedGlyph[] = [];
+	for (const line of lineBoxes) {
+		let pen = line.left;
+		for (const char of line.text) {
+			const advance = metrics.advance(char) * style.size;
+			const outline = outlineOf(char.codePointAt(0)!);
+			if (outline) {
+				const dx = pen + advance / 2 - x;
+				const dy = line.y - y;
+				placed.push({
+					outline,
+					x: x + dx * cos - dy * sin,
+					y: y + dx * sin + dy * cos,
+					angle: style.rotate,
+					scale,
+				});
+			}
+			pen += advance + spacing;
+		}
+	}
+	return placed;
+}
+
+/**
+ * The glyphs of a label along a line: each grapheme's glyphs at its place on the line,
+ * turned with it (a letter's accents follow the letter along the line).
+ */
+function glyphsAlongPath(
+	path: GlyphPlacement[],
+	style: SymbolStyle,
+	outlineOf: (codePoint: number) => GlyphOutline | undefined,
+	metrics: FontMetrics,
+): PlacedGlyph[] {
+	const scale = style.size / GLYPH_EM;
+	const placed: PlacedGlyph[] = [];
+	for (const grapheme of path) {
+		const radians = (grapheme.angle * Math.PI) / 180;
+		let along = -(metrics.advance(grapheme.text) * style.size) / 2;
+		for (const char of grapheme.text) {
+			const advance = metrics.advance(char) * style.size;
+			const outline = outlineOf(char.codePointAt(0)!);
+			if (outline) {
+				const offset = along + advance / 2;
+				placed.push({
+					outline,
+					x: grapheme.x + offset * Math.cos(radians),
+					y: grapheme.y + offset * Math.sin(radians),
+					angle: grapheme.angle,
+					scale,
+				});
+			}
+			along += advance;
+		}
+	}
+	return placed;
 }
 
 /** Draws the symbols of a layer that collision detection kept: icons first, then labels. */

@@ -11,6 +11,7 @@ import type {
 	FillStyle,
 	GlyphPlacement,
 	IconStyle,
+	PlacedGlyph,
 	LineStyle,
 	RasterStyle,
 	RasterTile,
@@ -805,6 +806,45 @@ export class CanvasRenderer implements Renderer {
 		});
 	}
 
+	/**
+	 * A label drawn as its glyphs' outlines, each moved, turned and scaled into place. All
+	 * halos come first, then all glyphs, as MapLibre draws them.
+	 */
+	#glyphLabel(style: SymbolStyle, glyphs: PlacedGlyph[], color: Color): void {
+		const haloColor = new Color(style.haloColor);
+		const hasHalo = style.haloWidth > 0 && haloColor.alpha > 0;
+		this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
+			ctx.fillStyle = color.hex;
+			ctx.strokeStyle = haloColor.hex;
+			ctx.lineJoin = 'round';
+			for (const pass of hasHalo ? ['halo', 'fill'] : ['fill']) {
+				for (const glyph of glyphs) {
+					if (glyph.outline.rings.length === 0) continue;
+					ctx.save();
+					ctx.translate(glyph.x, glyph.y);
+					ctx.rotate((glyph.angle * Math.PI) / 180);
+					ctx.scale(glyph.scale, glyph.scale);
+					ctx.beginPath();
+					for (const ring of glyph.outline.rings) {
+						ring.forEach(([x, y], i) => {
+							if (i === 0) ctx.moveTo(x, y);
+							else ctx.lineTo(x, y);
+						});
+						ctx.closePath();
+					}
+					if (pass === 'halo') {
+						// The outlines are scaled; the halo's width is on screen.
+						ctx.lineWidth = style.haloWidth / glyph.scale;
+						ctx.stroke();
+					} else {
+						ctx.fill('evenodd');
+					}
+					ctx.restore();
+				}
+			}
+		});
+	}
+
 	public drawLabels(_id: string, features: [Feature, SymbolStyle][]): void {
 		if (features.length === 0) return;
 
@@ -812,6 +852,12 @@ export class CanvasRenderer implements Renderer {
 			if (style.opacity <= 0 || !style.text) continue;
 			const color = new Color(style.color);
 			if (color.alpha <= 0) continue;
+
+			// Drawn as glyphs: their outlines. (Text over them, invisible, only matters in SVG.)
+			if (style.glyphs) {
+				this.#glyphLabel(style, style.glyphs, color);
+				continue;
+			}
 
 			if (style.path) {
 				this.#labelAlongLine(style, style.path, color);

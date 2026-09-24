@@ -182,36 +182,33 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `hillshade`, `color-relief`           | ❌  | ❌  | [#47] |
 | `fill-pattern`, `background-pattern`  | ✅  | ✅  |       |
 | `line-pattern`                        | ❌  | ❌  | [#44] |
-| `line-gap-width`                      | ⚠️⁴ | ⚠️⁴ | [#61] |
+| `line-gap-width`                      | ⚠️² | ⚠️² | [#61] |
 | Line layers on polygons               | ✅  | ✅  |       |
 | `line-gradient`                       | ❌  | ❌  | [#53] |
 | Other paint/layout properties         | ⚠️  | ⚠️  | [#54] |
 | **Labels and icons**                  |     |     |       |
 | Icons from the sprite, SDF icons      | ✅  | ✅  |       |
 | Point labels                          | ✅  | ✅  |       |
-| Style's fonts                         | ⚠️¹ | ✅² | [#43] |
+| Letter shapes of the style's glyphs   | ✅  | ✅  |       |
 | Dropping overlaps                     | ✅  | ✅  |       |
 | Labels along lines                    | ✅  | ✅  |       |
 | Label position in polygons            | ✅  | ✅  |       |
 | Line breaks, wrapping, justification  | ✅  | ✅  |       |
 | Variable anchors, vertical text       | ❌  | ❌  | [#41] |
-| `format` expressions                  | ⚠️³ | ⚠️³ | [#42] |
+| `format` expressions                  | ⚠️¹ | ⚠️¹ | [#42] |
 | **Expressions**                       |     |     |       |
 | Filters, zoom expressions             | ✅  | ✅  |       |
 | `global-state`                        | ✅  | ✅  |       |
 
-¹ The SVG names the font; the viewer has to provide it.
-² With the `fonts` option; otherwise installed fonts.
-³ The text is drawn, its formatting is lost.
-⁴ Round joins and caps differ at sharp turns and line ends.
+¹ The text is drawn, its formatting is lost.
+² Round joins and caps differ at sharp turns and line ends.
 
-Labels and icons are only drawn with `renderLabels: true`. Interaction, animation and `feature-state` do not apply to a static image.
+Labels and icons are only drawn with the `labels` option. Interaction, animation and `feature-state` do not apply to a static image.
 
 [parity]: https://github.com/versatiles-org/versatiles-svg-renderer/issues?q=is%3Aopen+label%3Amaplibre-parity
 [#37]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/37
 [#41]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/41
 [#42]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/42
-[#43]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/43
 [#44]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/44
 [#45]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/45
 [#46]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/46

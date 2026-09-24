@@ -101,12 +101,20 @@ describe('checkStyle', () => {
 			id: value,
 			type: 'symbol',
 			source: 's',
-			layout: { 'symbol-placement': value as 'point' },
+			layout: { 'icon-text-fit': value as 'none' },
 		});
-		expect(checkStyle(makeStyle([layout('point')]), true)).toEqual([]);
-		expect(checkStyle(makeStyle([layout('line')]), true)).toEqual([
-			'These layer properties are not supported and are ignored: symbol-placement: "line" ("line").',
+		expect(checkStyle(makeStyle([layout('none')]), true)).toEqual([]);
+		expect(checkStyle(makeStyle([layout('both')]), true)).toEqual([
+			'These layer properties are not supported and are ignored: icon-text-fit: "both" ("both").',
 		]);
+		// Labels along lines are supported.
+		const line: LayerSpecification = {
+			id: 'streets',
+			type: 'symbol',
+			source: 's',
+			layout: { 'symbol-placement': 'line', 'text-field': '{name}' },
+		};
+		expect(checkStyle(makeStyle([line]), true)).toEqual([]);
 	});
 
 	test('reports terrain', () => {

@@ -32,7 +32,7 @@ export interface RenderToSVGOptions
  *
  * @example Include labels and icons
  * ```ts
- * const svg = await renderToSVG({ style, lon: 13.4, lat: 52.52, zoom: 14, renderLabels: true });
+ * const svg = await renderToSVG({ style, lon: 13.4, lat: 52.52, zoom: 14, labels: 'glyphs-text' });
  * ```
  *
  * @param options - What to render and how large. Only `style` is required.

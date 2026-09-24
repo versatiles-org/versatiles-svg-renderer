@@ -340,7 +340,7 @@ export class SVGExportControl implements MapLibreControl {
 				zoom,
 				bearing: map.getBearing(),
 				padding: map.getPadding(),
-				renderLabels,
+				labels: renderLabels ? 'glyphs-text' : 'none',
 				globalState: map.getGlobalState?.(),
 				onWarning: (message) => warnings.push(message),
 			});

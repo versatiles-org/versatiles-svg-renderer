@@ -33,7 +33,7 @@ export interface RenderToPNGOptions extends RenderToSVGOptions {
 	 * installed on the machine, which is usually not the one the style asked for.
 	 *
 	 * Fonts are registered process-wide, so a name registered by one call stays available
-	 * to every later call. Only matters when {@link RenderToSVGOptions.renderLabels} is on.
+	 * to every later call. Only matters when {@link RenderToSVGOptions.labels} is `'text'`.
 	 */
 	fonts?: Record<string, string>;
 }
@@ -90,7 +90,7 @@ function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): v
  *   lon: 13.4,
  *   lat: 52.52,
  *   zoom: 14,
- *   renderLabels: true,
+ *   labels: 'text',
  *   fonts: { noto_sans_regular: 'fonts/NotoSans-Regular.ttf', noto_sans_bold: 'fonts/NotoSans-Bold.ttf' },
  * });
  * ```

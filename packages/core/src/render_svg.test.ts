@@ -30,7 +30,7 @@ describe('renderToSVG', () => {
 			expect.objectContaining({
 				style: minimalStyle,
 				view: { center: [0, 0], zoom: 2, bearing: 0, padding: {} },
-				renderLabels: false,
+				labels: 'none',
 				renderer: expect.objectContaining({ width: 1024, height: 1024 }) as unknown,
 			}),
 			expect.anything(),
@@ -45,12 +45,12 @@ describe('renderToSVG', () => {
 			lon: 13.4,
 			lat: 52.5,
 			zoom: 10,
-			renderLabels: true,
+			labels: 'text',
 		});
 		expect(drawMap).toHaveBeenCalledWith(
 			expect.objectContaining({
 				view: { center: [13.4, 52.5], zoom: 10, bearing: 0, padding: {} },
-				renderLabels: true,
+				labels: 'text',
 				renderer: expect.objectContaining({ width: 800, height: 600 }) as unknown,
 			}),
 			expect.anything(),

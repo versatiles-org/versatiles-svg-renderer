@@ -109,7 +109,7 @@ export async function prepare(ids: string[]): Promise<Scenario[]> {
 /** The four ways of rendering a scenario. Call `setup` before `run`. */
 export function cases(scenario: Scenario): Case[] {
 	const { region, style } = scenario;
-	const renderLabels = region.labels ?? false;
+	const labels = region.labels ? ('glyphs-text' as const) : ('none' as const);
 	const view = {
 		width: WIDTH,
 		height: HEIGHT,
@@ -121,13 +121,13 @@ export function cases(scenario: Scenario): Case[] {
 	// The cold runs create a renderer each time, which would report the same warnings again.
 	const onWarning = (): void => undefined;
 
-	const svgMap = new SVGMapRenderer({ style, renderLabels, onWarning });
-	const pngMap = new PNGMapRenderer({ style, renderLabels, fonts, onWarning });
+	const svgMap = new SVGMapRenderer({ style, labels, onWarning });
+	const pngMap = new PNGMapRenderer({ style, labels, fonts, onWarning });
 	return [
 		{
 			name: 'svg-cold',
 			setup: noSetup,
-			run: () => renderToSVG({ style, renderLabels, onWarning, ...view }),
+			run: () => renderToSVG({ style, labels, onWarning, ...view }),
 		},
 		{
 			name: 'svg-warm',
@@ -139,7 +139,7 @@ export function cases(scenario: Scenario): Case[] {
 		{
 			name: 'png-cold',
 			setup: noSetup,
-			run: () => renderToPNG({ style, renderLabels, fonts, onWarning, ...view }),
+			run: () => renderToPNG({ style, labels, fonts, onWarning, ...view }),
 		},
 		{
 			name: 'png-warm',

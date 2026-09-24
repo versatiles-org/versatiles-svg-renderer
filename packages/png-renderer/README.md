@@ -77,7 +77,9 @@ const map = new PNGMapRenderer({ style, fetch: cachedFetch });
 
 ### Labels in the style's own fonts
 
-A style only _names_ its fonts (`"text-font": ["noto_sans_regular"]`). Map each name to a font file (TTF, OTF, WOFF or WOFF2) with `fonts`; a name left unmapped falls back to a font installed on the machine.
+With `labels: 'glyphs'` (or `'glyphs-text'`), labels are drawn as the style's own glyphs, the letter shapes MapLibre GL JS draws, and need no font files.
+
+With `labels: 'text'`, labels are drawn in fonts: a style only _names_ its fonts (`"text-font": ["noto_sans_regular"]`). Map each name to a font file (TTF, OTF, WOFF or WOFF2) with `fonts`; a name left unmapped falls back to a font installed on the machine.
 
 ```typescript
 const png = await renderToPNG({
@@ -85,7 +87,7 @@ const png = await renderToPNG({
 	lon: 13.4,
 	lat: 52.5,
 	zoom: 14,
-	renderLabels: true,
+	labels: 'text',
 	fonts: {
 		noto_sans_regular: 'fonts/NotoSans-Regular.ttf',
 		noto_sans_bold: 'fonts/NotoSans-Bold.ttf',
@@ -99,16 +101,16 @@ The VersaTiles styles use Noto Sans. One source is `npm install @fontsource/noto
 
 ### `renderToPNG(options): Promise<Uint8Array>`
 
-Takes every option of [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api) (`style`, `width`, `height`, `lon`, `lat`, `zoom`, `renderLabels`, `fetch`), plus:
+Takes every option of [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api) (`style`, `width`, `height`, `lon`, `lat`, `zoom`, `labels`, `fetch` and more), plus:
 
-| Option  | Type                     | Default | Description                                                                                          |
-| ------- | ------------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
-| `scale` | `number`                 | `1`     | Pixel density: the image is `width × scale` by `height × scale` pixels. Use `2` for sharp output.    |
-| `fonts` | `Record<string, string>` | —       | Font files for labels, by the `text-font` name the style uses: `{ noto_sans_regular: 'path.woff2' }` |
+| Option  | Type                     | Default | Description                                                                                                                |
+| ------- | ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `scale` | `number`                 | `1`     | Pixel density: the image is `width × scale` by `height × scale` pixels. Use `2` for sharp output.                          |
+| `fonts` | `Record<string, string>` | —       | Font files for labels with `labels: 'text'`, by the `text-font` name the style uses: `{ noto_sans_regular: 'path.woff2' }` |
 
 The result is typed as a `Uint8Array` so the package does not require Node's type definitions; at runtime it is a `Buffer` and can be written with `fs.writeFile` as is.
 
-Label rendering has the same limitations as in SVG output: [see `renderLabels`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-renderlabels).
+Label rendering has the same limitations as in SVG output: [see "About labels"](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-labels). With `'glyphs'`, PNG and SVG show the same letter shapes; `'glyphs-text'` draws as `'glyphs'`, since a PNG has no text.
 
 Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL JS Coverage](https://github.com/versatiles-org/versatiles-svg-renderer#maplibre-gl-js-coverage).
 

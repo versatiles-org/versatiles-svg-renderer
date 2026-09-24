@@ -9,6 +9,7 @@ import type {
 	FillStyle,
 	GlyphPlacement,
 	IconStyle,
+	PlacedGlyph,
 	LineStyle,
 	RasterStyle,
 	RasterTriangle,
@@ -17,6 +18,7 @@ import type {
 	SymbolStyle as LabelStyle,
 } from './types.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
+import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 import type { ClipCircle } from '../projection.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape, type CircleGradientStop } from './circle.js';
@@ -84,6 +86,8 @@ export class SVGRenderer {
 
 	readonly #sdfFilterDefs = new Map<string, { filterId: string; content: string }>();
 	readonly #patternDefs = new Map<string, { id: string; content: string }>();
+	/** Glyph outlines of labels drawn as glyphs, by their keys. */
+	readonly #glyphDefs = new Map<string, { id: string; d: string }>();
 	/** Radial gradients of blurred circles: their ids, by their stops. */
 	readonly #circleGradientDefs = new Map<string, string>();
 	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
@@ -428,8 +432,16 @@ export class SVGRenderer {
 			const color = new Color(style.color);
 			if (color.alpha <= 0) continue;
 
+			// Drawn as glyphs: their outlines, and maybe the text, invisible, over them.
+			let invisible = false;
+			if (style.glyphs) {
+				this.#svg.push(this.#glyphLabel(style, style.glyphs, color));
+				if (!style.textOverlay) continue;
+				invisible = true;
+			}
+
 			if (style.path) {
-				this.#svg.push(this.#labelAlongLine(style, style.path, color));
+				this.#svg.push(this.#labelAlongLine(style, style.path, color, invisible));
 				continue;
 			}
 
@@ -451,7 +463,12 @@ export class SVGRenderer {
 				content = style.lines
 					.map((line) => {
 						const [x, y] = roundXY(line.x + shift, line.y);
-						return `<tspan x="${formatNum(x)}" y="${formatNum(y)}">${escapeXml(line.text)}</tspan>`;
+						// Invisible over glyphs: as wide as they are, whatever font it is set in.
+						const length =
+							invisible && line.width
+								? ` textLength="${formatScaled(line.width)}" lengthAdjust="spacingAndGlyphs"`
+								: '';
+						return `<tspan x="${formatNum(x)}" y="${formatNum(y)}"${length}>${escapeXml(line.text)}</tspan>`;
 					})
 					.join('');
 				attrs = [
@@ -482,6 +499,11 @@ export class SVGRenderer {
 				attrs.push(`transform="rotate(${String(style.rotate)},${formatNum(px)},${formatNum(py)})"`);
 			}
 
+			if (invisible) {
+				if (style.opacity < 1) attrs.push(`opacity="${style.opacity.toFixed(3)}"`);
+				this.#svg.push(`<text ${attrs.join(' ')} fill-opacity="0">${content}</text>`);
+				continue;
+			}
 			const haloColor = new Color(style.haloColor);
 			if (style.haloWidth > 0 && haloColor.alpha > 0) {
 				const haloWidth = formatScaled(style.haloWidth);
@@ -571,7 +593,12 @@ export class SVGRenderer {
 	 * halos come first, then all glyphs, as MapLibre draws them, so a glyph's halo does not
 	 * cover its neighbour.
 	 */
-	#labelAlongLine(style: LabelStyle, path: GlyphPlacement[], color: Color): string {
+	#labelAlongLine(
+		style: LabelStyle,
+		path: GlyphPlacement[],
+		color: Color,
+		invisible = false,
+	): string {
 		const fontFamily = style.font.join(', ') + ', Helvetica, Arial, sans-serif';
 		const glyphs = path
 			.map((glyph) => {
@@ -585,6 +612,10 @@ export class SVGRenderer {
 		const parts = [
 			`<g font-family="${escapeXml(fontFamily)}" font-size="${formatScaled(style.size)}" text-anchor="middle" dominant-baseline="central"${opacity}>`,
 		];
+		if (invisible) {
+			parts.push(`<g fill-opacity="0">${glyphs}</g>`, '</g>');
+			return parts.join('');
+		}
 		const haloColor = new Color(style.haloColor);
 		if (style.haloWidth > 0 && haloColor.alpha > 0) {
 			parts.push(
@@ -593,6 +624,46 @@ export class SVGRenderer {
 		}
 		parts.push(`<g ${fillAttr(color)}>${glyphs}</g>`, '</g>');
 		return parts.join('');
+	}
+
+	/**
+	 * A label drawn as its glyphs' outlines: each glyph defined once, in the defs, and placed
+	 * with `<use>`. All halos come first, then all glyphs, as MapLibre draws them.
+	 */
+	#glyphLabel(style: LabelStyle, glyphs: PlacedGlyph[], color: Color): string {
+		const scale = glyphs[0]?.scale ?? 1;
+		const uses = glyphs
+			.map((glyph) => {
+				const [x, y] = roundXY(glyph.x, glyph.y);
+				const angle = Math.round(glyph.angle * 10) / 10;
+				const rotate = angle === 0 ? '' : ` rotate(${String(angle)})`;
+				return `<use xlink:href="#${this.#glyphId(glyph.outline)}" transform="translate(${formatNum(x)},${formatNum(y)})${rotate} scale(${formatScale(glyph.scale)})" />`;
+			})
+			.join('');
+		const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
+		const parts = [`<g${opacity}>`];
+		const haloColor = new Color(style.haloColor);
+		if (style.haloWidth > 0 && haloColor.alpha > 0) {
+			// The outlines are scaled; the halo's width is on screen.
+			parts.push(
+				`<g fill="none" stroke="${haloColor.rgb}" stroke-width="${formatScale(style.haloWidth / scale)}"${opacityAttr('stroke-opacity', haloColor.opacity)} stroke-linejoin="round">${uses}</g>`,
+			);
+		}
+		parts.push(`<g ${fillAttr(color)}>${uses}</g>`, '</g>');
+		return parts.join('');
+	}
+
+	/** The id of a glyph's outline in the defs, defined once. */
+	#glyphId(outline: GlyphOutline): string {
+		let id = this.#glyphDefs.get(outline.key)?.id;
+		if (!id) {
+			id = `glyph-${String(this.#glyphDefs.size)}`;
+			const d = outline.rings
+				.map((ring) => 'M' + ring.map(([x, y]) => `${String(x)},${String(y)}`).join('L') + 'Z')
+				.join('');
+			this.#glyphDefs.set(outline.key, { id, d });
+		}
+		return id;
 	}
 
 	public drawIcons(id: string, features: [Feature, IconStyle][], spriteAtlas: SpriteAtlas): void {
@@ -810,6 +881,9 @@ export class SVGRenderer {
 		}
 		for (const { content } of this.#patternDefs.values()) {
 			defsContent.push(content);
+		}
+		for (const { id, d } of this.#glyphDefs.values()) {
+			defsContent.push(`<path id="${id}" fill-rule="evenodd" d="${d}" />`);
 		}
 		for (const [stops, id] of this.#circleGradientDefs) {
 			defsContent.push(`<radialGradient id="${id}">${stops}</radialGradient>`);

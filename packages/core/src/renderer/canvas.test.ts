@@ -879,6 +879,28 @@ describe('CanvasRenderer', () => {
 			return count;
 		};
 
+		test('fills the outlines of a label drawn as glyphs', () => {
+			const r = makeRenderer();
+			const outline = {
+				key: 'square',
+				rings: [
+					[
+						[-12, -12],
+						[12, -12],
+						[12, 12],
+						[-12, 12],
+					] as [number, number][],
+				],
+				advance: 1,
+			};
+			// A 24-unit square at scale 0.5: 12 px around (100, 100).
+			const glyphs = [{ outline, x: 100, y: 100, angle: 0, scale: 0.5 }];
+			r.drawLabels('l', [[makePointFeature([[0, 0]]), symbolStyle({ glyphs, textOverlay: true })]]);
+			expect(at(r, 100, 100).slice(0, 4)).toEqual([255, 0, 0, 255]);
+			expect(at(r, 104, 104)[3]).toBe(255);
+			expect(at(r, 110, 100)[3]).toBe(0);
+		});
+
 		test('draws a label of several lines, each at its point', () => {
 			const r = makeRenderer();
 			const lines = [

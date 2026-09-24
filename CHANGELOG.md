@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Labels in the style's own glyphs, and the option `labels`.** Labels can now be drawn as the style's glyphs (`glyphs`), the letter shapes MapLibre GL JS draws: their signed distance fields are traced into outlines, each defined once in the SVG's `<defs>` and placed with `<use>`, and labels are laid out with MapLibre's own metrics. The new option `labels` chooses: `'none'` (the default), `'text'` (`<text>` naming the style's fonts, as before), `'glyphs'`, or `'glyphs-text'` (glyphs with the text laid invisibly over them, so labels stay selectable and searchable). In PNG output, the glyph modes draw the same outlines and need no font files. A style without `glyphs`, or a label whose glyphs cannot be loaded, falls back to `'text'`, reported through `onWarning`. The SVG export control draws its labels as `'glyphs-text'`. ([#43](https://github.com/versatiles-org/versatiles-svg-renderer/issues/43))
 - **Padding.** The new view option `padding` (a number, or `{ top, right, bottom, left }`), as MapLibre GL JS's: the map's center sits in the middle of the area inside it, e.g. to keep it clear of a panel laid over the image. It works with a bearing and on the globe, and `project()` and `unproject()` take it into account. The SVG export control passes the map's padding. ([#57](https://github.com/versatiles-org/versatiles-svg-renderer/issues/57))
 - **Bearing (rotated maps).** The new view option `bearing` turns the map, as in MapLibre GL JS: `90` puts east at the top. It defaults to the style's `bearing`. Vector and raster tiles, GeoJSON, the globe, patterns and `*-translate` with the anchor `map` turn with the map; point labels and icons stay upright unless aligned to the map, and labels along lines follow their lines. `project()` and `unproject()` take it into account. The SVG export control exports the map as rotated as it is shown. Also, features just outside the image are kept, so that circles, icons and labels around them are drawn where they reach into it. ([#35](https://github.com/versatiles-org/versatiles-svg-renderer/issues/35))
 - **`circle-blur`, `text-translate` and `icon-translate`.** Blurred circles fade out as MapLibre GL JS draws them: over the `circle-blur` share of the radius at their edge, with the fill turning into the stroke color over the same share inside the radius. Labels and icons move by `text-translate` and `icon-translate`, and so does the area they block for other symbols. `text-halo-blur` is not supported: MapLibre's faint halos compare better with sharp ones. ([#54](https://github.com/versatiles-org/versatiles-svg-renderer/issues/54))
@@ -28,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Labels of polygons and lines sit where MapLibre GL JS puts them.** Labels and icons were drawn at the middle vertex of a feature's first ring, which could lie on a polygon's edge or far from a street's middle, and a multipolygon got only one. Now each polygon of a feature gets its label at its pole of inaccessibility, the point inside it farthest from its edges, as in MapLibre; a line with `symbol-placement: "point"` at its first vertex, as in MapLibre. ([#40](https://github.com/versatiles-org/versatiles-svg-renderer/issues/40))
+
+### Deprecated
+
+- **`renderLabels`**: use `labels`. `renderLabels: true` now draws the labels as `labels: 'glyphs-text'`, in the style's own glyphs; `false` is `'none'`.
 
 ### Fixed
 

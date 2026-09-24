@@ -31,7 +31,8 @@ function makeJob(style: StyleSpecification, zoom = 10, options?: { renderLabels?
 		renderer: new SVGRenderer({ width: 256, height: 256 }),
 		style,
 		view: { center: [0, 0] as [number, number], zoom },
-		renderLabels: options?.renderLabels,
+		// The test styles have no glyphs: labels as text.
+		labels: options?.renderLabels ? ('text' as const) : undefined,
 	};
 }
 

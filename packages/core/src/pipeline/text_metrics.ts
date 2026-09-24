@@ -14,6 +14,8 @@ const DEFAULT_WIDTH = 572; // Noto Sans' digits, a typical Latin width
 
 const lookups = new Map<GlyphWidthRuns, Map<number, number>>();
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
 function lookup(runs: GlyphWidthRuns): Map<number, number> {
 	let widths = lookups.get(runs);
 	if (!widths) {
@@ -46,34 +48,65 @@ export function isBold(fonts: readonly string[] | undefined): boolean {
 	return /bold|black|heavy/i.test(name);
 }
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
 /**
  * The glyphs of `text` (its graphemes: a letter with its accents stays one), and the
- * advance of each in pixels, set in `fonts` at `size`.
+ * advance of each in pixels at `size`, by `metrics`.
  */
 export function glyphAdvances(
 	text: string,
-	fonts: readonly string[] | undefined,
+	metrics: FontMetrics,
 	size: number,
 ): { chars: string[]; advances: number[] } {
 	const chars = Array.from(graphemes.segment(text), ({ segment }) => segment);
-	return { chars, advances: chars.map((char) => textWidth(char, fonts, size)) };
+	return { chars, advances: chars.map((char) => metrics.advance(char) * size) };
 }
 
-/** The width of `text` in pixels, set in `fonts` at `size` pixels. */
-export function textWidth(
-	text: string,
-	fonts: readonly string[] | undefined,
-	size: number,
-): number {
+/** How wide characters are: the advance of a grapheme, in ems. */
+export interface FontMetrics {
+	advance(grapheme: string): number;
+}
+
+/** Metrics from the widths of Noto Sans built into the package, in the weight `fonts` asks for. */
+export function tableMetrics(fonts: readonly string[] | undefined): FontMetrics {
 	const widths = lookup(isBold(fonts) ? BOLD : REGULAR);
+	return {
+		advance(grapheme) {
+			let total = 0;
+			for (const char of grapheme) {
+				const c = char.codePointAt(0)!;
+				total += widths.get(c) ?? (isWide(c) ? UNITS : DEFAULT_WIDTH);
+			}
+			return total / UNITS;
+		},
+	};
+}
+
+/**
+ * Metrics from a style's glyphs (MapLibre's own): `glyphAt` gives the glyph of a code point,
+ * with its advance in pixels at 24 px per em. Characters without a glyph are measured by
+ * `fallback`.
+ */
+export function glyphMetrics(
+	glyphAt: (codePoint: number) => { advance: number } | undefined,
+	fallback: FontMetrics,
+): FontMetrics {
+	return {
+		advance(grapheme) {
+			let total = 0;
+			for (const char of grapheme) {
+				const glyph = glyphAt(char.codePointAt(0)!);
+				total += glyph ? glyph.advance / 24 : fallback.advance(char);
+			}
+			return total;
+		},
+	};
+}
+
+/** The width of `text` in pixels, at `size` pixels, by `metrics`. */
+export function textWidth(text: string, metrics: FontMetrics, size: number): number {
 	let total = 0;
-	for (const char of text) {
-		const c = char.codePointAt(0)!;
-		total += widths.get(c) ?? (isWide(c) ? UNITS : DEFAULT_WIDTH);
-	}
-	return (total / UNITS) * size;
+	for (const { segment } of graphemes.segment(text)) total += metrics.advance(segment);
+	return total * size;
 }
 
 /** Characters after which a line may break (MapLibre's `breakable`). */
@@ -158,13 +191,13 @@ function evaluateBreak(
  */
 export function breakLines(
 	text: string,
-	fonts: readonly string[] | undefined,
+	metrics: FontMetrics,
 	maxWidth: number,
 	letterSpacing = 0,
 ): string[] {
 	const chars = Array.from(graphemes.segment(text), ({ segment }) => segment);
 	const codes = chars.map((char) => char.codePointAt(0)!);
-	const advances = chars.map((char) => textWidth(char, fonts, 1) + letterSpacing);
+	const advances = chars.map((char) => metrics.advance(char) + letterSpacing);
 	const lines = (indices: number[]): string[] => {
 		const result: string[] = [];
 		let start = 0;

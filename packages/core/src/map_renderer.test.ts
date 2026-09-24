@@ -3,6 +3,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from 'geojson';
 import { SVGMapRenderer, viewSize } from './map_renderer.js';
 import { renderToSVG } from './render_svg.js';
+import { glyphFile } from './sources/__fixtures__/glyphs.js';
 
 const SPRITE_URL = 'https://example.com/sprite';
 const TILE_URL = 'https://example.com/tiles/{z}/{x}/{y}.png';
@@ -221,6 +222,109 @@ describe('SVGMapRenderer', () => {
 		expect(await render({ globalState: { color: '#0000ff' } })).toBe(
 			await new SVGMapRenderer({ style: withColor('#0000ff') }).renderSVG(),
 		);
+	});
+
+	describe('labels', () => {
+		const GLYPHS_URL = 'https://example.com/glyphs/{fontstack}/{range}.pbf';
+		/** makeStyle, with a label "AB" at the icons' point; with `glyphs`, the style has glyphs. */
+		const labelStyle = (glyphs = true): StyleSpecification => {
+			const style = makeStyle();
+			style.layers = [
+				style.layers[0]!,
+				{
+					id: 'label',
+					type: 'symbol',
+					source: 'points',
+					layout: { 'text-field': 'AB', 'text-font': ['Test Regular'] },
+				},
+			];
+			if (glyphs) style.glyphs = GLYPHS_URL;
+			return style;
+		};
+		const glyphFetch = (letters = 'AB') =>
+			vi.fn((url: string) => {
+				if (url.startsWith('https://example.com/glyphs/Test Regular/0-255.pbf')) {
+					const file = glyphFile(
+						Array.from(letters, (char) => ({
+							id: char.codePointAt(0)!,
+							width: 10,
+							height: 14,
+							top: -3,
+							advance: 14,
+						})),
+					);
+					return Promise.resolve(new Response(file));
+				}
+				return Promise.resolve(new Response(null, { status: 404 }));
+			});
+
+		test('draws labels as glyphs, as text, or not at all', async () => {
+			const render = (labels: 'none' | 'text' | 'glyphs' | 'glyphs-text') =>
+				new SVGMapRenderer({
+					style: labelStyle(),
+					labels,
+					fetch: glyphFetch(),
+					onWarning: vi.fn(),
+				}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			expect(await render('none')).not.toMatch(/<text|<use xlink:href="#glyph/);
+			const text = await render('text');
+			expect(text).toMatch(/<text[^>]*>AB<\/text>/);
+			expect(text).not.toContain('#glyph');
+			const glyphs = await render('glyphs');
+			expect(glyphs.match(/<path id="glyph-\d"/g)).toHaveLength(2);
+			expect(glyphs).not.toContain('<text');
+			const overlaid = await render('glyphs-text');
+			expect(overlaid).toContain('#glyph-0');
+			expect(overlaid).toMatch(/fill-opacity="0"><tspan[^>]*textLength[^>]*>AB</);
+		});
+
+		test('draws them as glyphs with text for the deprecated renderLabels', async () => {
+			const svg = await new SVGMapRenderer({
+				style: labelStyle(),
+				renderLabels: true,
+				fetch: glyphFetch(),
+			}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			expect(svg).toContain('#glyph-0');
+			expect(svg).toContain('fill-opacity="0"');
+		});
+
+		test('falls back to text without glyphs, and says so', async () => {
+			const onWarning = vi.fn();
+			const svg = await new SVGMapRenderer({
+				style: labelStyle(false),
+				labels: 'glyphs',
+				fetch: glyphFetch(),
+				onWarning,
+			}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			expect(svg).toMatch(/<text[^>]*>AB<\/text>/);
+			expect(onWarning).toHaveBeenCalledWith(
+				'The style has no "glyphs": labels are drawn as text.',
+			);
+		});
+
+		test('draws a label as text if one of its glyphs is missing', async () => {
+			const svg = await new SVGMapRenderer({
+				style: labelStyle(),
+				labels: 'glyphs',
+				fetch: glyphFetch('A'),
+				onWarning: vi.fn(),
+			}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			expect(svg).toMatch(/<text[^>]*>AB<\/text>/);
+			expect(svg).not.toContain('#glyph');
+		});
+
+		test('loads each glyph range once, and again after clearCache', async () => {
+			const fetchFn = glyphFetch();
+			const map = new SVGMapRenderer({ style: labelStyle(), labels: 'glyphs', fetch: fetchFn });
+			const view = { width: 200, height: 200, zoom: 3 };
+			await Promise.all([map.renderSVG(view), map.renderSVG(view)]);
+			const glyphRequests = () =>
+				fetchFn.mock.calls.filter(([url]) => url.includes('/glyphs/')).length;
+			expect(glyphRequests()).toBe(1);
+			map.clearCache();
+			await map.renderSVG(view);
+			expect(glyphRequests()).toBe(2);
+		});
 	});
 
 	test('fetches the sprite only once for several renders', async () => {
