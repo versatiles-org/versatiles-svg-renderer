@@ -1,15 +1,15 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { drawMap, type RenderContext } from './pipeline/render.js';
+import type { RenderContext } from './pipeline/context.js';
+import { drawMap } from './pipeline/render.js';
 import { getGlobalState, getLayerStyles, type GlobalState } from './pipeline/style_layer.js';
 import { SVGRenderer } from './renderer/svg/index.js';
-import type { LabelMode, Renderer } from './types.js';
+import type { LabelMode, Renderer, SpriteAtlas } from './types.js';
 import {
 	type FetchFunction,
 	type GlyphRange,
 	loadGlyphRange,
 	loadSprite,
 	resolveSources,
-	type SpriteAtlas,
 	TileCache,
 	toFetchFunction,
 } from './sources/index.js';

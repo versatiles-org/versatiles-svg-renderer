@@ -31,14 +31,14 @@ import type {
 	GlyphPlacement,
 	IconStyle,
 	LinePattern,
-	PlacedGlyph,
 	LineStyle,
+	PlacedGlyph,
 	RasterStyle,
 	RasterTile,
 	RendererOptions,
+	SpriteAtlas,
 	SymbolStyle as LabelStyle,
 } from '../../types.js';
-import type { SpriteAtlas } from '../../sources/index.js';
 import { circleGradient, circleShape } from '../circle.js';
 import {
 	affineFromTriangles,

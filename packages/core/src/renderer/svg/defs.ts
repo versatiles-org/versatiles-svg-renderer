@@ -4,8 +4,7 @@
  * Ids are numbered in the order things are first asked for, so the same drawing always gets
  * the same ids.
  */
-import type { GlyphOutline, FillPattern, LinePattern } from '../../types.js';
-import type { SpriteEntry } from '../../sources/index.js';
+import type { FillPattern, GlyphOutline, LinePattern, SpriteEntry } from '../../types.js';
 import type { ClipCircle } from '../../geo/index.js';
 import type { Color } from '../color.js';
 import type { CircleGradientStop } from '../circle.js';

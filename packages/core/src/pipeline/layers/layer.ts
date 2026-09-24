@@ -6,9 +6,8 @@ import {
 	Point2D,
 	type SourceFeatures,
 } from '../../geo/index.js';
-import type { FillPattern, RenderJob } from '../../types.js';
-import type { SpriteAtlas } from '../../sources/index.js';
-import type { RenderContext } from '../render.js';
+import type { FillPattern, RenderJob, SpriteAtlas } from '../../types.js';
+import type { RenderContext } from '../context.js';
 import type {
 	EvaluatedProperties,
 	PossiblyEvaluatedPropertyValue,

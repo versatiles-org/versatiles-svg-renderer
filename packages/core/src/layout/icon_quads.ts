@@ -4,9 +4,8 @@
  * the sprite image between its stretch zones (`stretchX`, `stretchY`): the parts between
  * the zones keep their size, and the zones take up the rest.
  */
-import type { SpriteEntry } from '../sources/index.js';
 import { mapIconAnchor } from './anchors.js';
-import type { IconStyle } from '../types.js';
+import type { IconStyle, SpriteEntry } from '../types.js';
 
 /** A rectangle of the sprite image, and where it is drawn, relative to the icon's point. */
 export interface IconQuad {

@@ -5,8 +5,7 @@
  * box placed before, and then blocks its own area. The renderers draw what is kept.
  */
 import { iconQuads, mapTextAnchor, quadsBox } from '../../layout/index.js';
-import type { GlyphPlacement, IconStyle, SymbolStyle } from '../../types.js';
-import type { SpriteEntry } from '../../sources/index.js';
+import type { GlyphPlacement, IconStyle, SpriteEntry, SymbolStyle } from '../../types.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
 import { VIEW_MARGIN } from '../../geo/index.js';
 

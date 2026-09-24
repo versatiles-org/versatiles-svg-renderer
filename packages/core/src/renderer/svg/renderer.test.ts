@@ -9,9 +9,9 @@ import type {
 	LineStyle,
 	RasterStyle,
 	RasterTile,
+	SpriteAtlas,
 	SymbolStyle,
 } from '../../types.js';
-import type { SpriteAtlas } from '../../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {
 	const r = (parseInt(hex.slice(1, 3), 16) / 255) * alpha;

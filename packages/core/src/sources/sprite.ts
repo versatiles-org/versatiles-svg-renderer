@@ -1,32 +1,7 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { defaultFetch, type FetchFunction, type FetchResponse } from './fetch.js';
 import { arrayBufferToBase64 } from './base64.js';
-
-export interface SpriteEntry {
-	width: number;
-	height: number;
-	x: number;
-	y: number;
-	pixelRatio: number;
-	sdf: boolean;
-	sheetDataUri: string;
-	sheetWidth: number;
-	sheetHeight: number;
-	/** The columns of the image that stretch with `icon-text-fit`, as `[from, to]` pixels. */
-	stretchX?: [number, number][];
-	/** The rows of the image that stretch with `icon-text-fit`, as `[from, to]` pixels. */
-	stretchY?: [number, number][];
-	/** The part of the image `icon-text-fit` fits to the label: `[left, top, right, bottom]` pixels. */
-	content?: [number, number, number, number];
-	/** Whether a fitted image keeps the content's aspect ratio, horizontally. */
-	textFitWidth?: TextFit;
-	/** Whether a fitted image keeps the content's aspect ratio, vertically. */
-	textFitHeight?: TextFit;
-}
-
-export type TextFit = 'stretchOrShrink' | 'stretchOnly' | 'proportional';
-
-export type SpriteAtlas = Map<string, SpriteEntry>;
+import type { SpriteAtlas, TextFit } from '../types.js';
 
 interface SpriteJsonEntry {
 	width: number;

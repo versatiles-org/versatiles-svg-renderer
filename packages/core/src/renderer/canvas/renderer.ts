@@ -20,15 +20,15 @@ import type {
 	GlyphPlacement,
 	IconStyle,
 	LinePattern,
-	PlacedGlyph,
 	LineStyle,
+	PlacedGlyph,
 	RasterStyle,
 	RasterTile,
 	Renderer,
 	RendererOptions,
+	SpriteAtlas,
 	SymbolStyle,
 } from '../../types.js';
-import type { SpriteAtlas } from '../../sources/index.js';
 import { circleGradient, circleShape } from '../circle.js';
 import { dilate, Offscreen, type Region } from './offscreen.js';
 import { CanvasPatterns } from './patterns.js';

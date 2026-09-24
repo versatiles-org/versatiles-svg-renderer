@@ -1,6 +1,5 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { ClipCircle, Feature, Padding, Projection, RasterTriangle } from './geo/index.js';
-import type { SpriteAtlas, SpriteEntry } from './sources/index.js';
 
 export interface View {
 	center: [number, number];
@@ -282,3 +281,30 @@ export interface RasterTile {
 	 */
 	standalone?: boolean;
 }
+
+/** An image of the style's sprite: where it is on its sprite sheet, and how it stretches. */
+export interface SpriteEntry {
+	width: number;
+	height: number;
+	x: number;
+	y: number;
+	pixelRatio: number;
+	sdf: boolean;
+	sheetDataUri: string;
+	sheetWidth: number;
+	sheetHeight: number;
+	/** The columns of the image that stretch with `icon-text-fit`, as `[from, to]` pixels. */
+	stretchX?: [number, number][];
+	/** The rows of the image that stretch with `icon-text-fit`, as `[from, to]` pixels. */
+	stretchY?: [number, number][];
+	/** The part of the image `icon-text-fit` fits to the label: `[left, top, right, bottom]` pixels. */
+	content?: [number, number, number, number];
+	/** Whether a fitted image keeps the content's aspect ratio, horizontally. */
+	textFitWidth?: TextFit;
+	/** Whether a fitted image keeps the content's aspect ratio, vertically. */
+	textFitHeight?: TextFit;
+}
+
+export type TextFit = 'stretchOrShrink' | 'stretchOnly' | 'proportional';
+
+export type SpriteAtlas = Map<string, SpriteEntry>;

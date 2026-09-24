@@ -15,6 +15,6 @@ export {
 } from './glyphs.js';
 export { getRasterTiles } from './raster.js';
 export { resolveSources } from './resolve.js';
-export { loadSprite, loadSpriteAtlas, type SpriteAtlas, type SpriteEntry } from './sprite.js';
+export { loadSprite, loadSpriteAtlas } from './sprite.js';
 export { TileCache } from './tile_cache.js';
 export { getTile, type TileLoader } from './tiles.js';
