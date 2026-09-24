@@ -10,11 +10,11 @@ import { PNG } from 'pngjs';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { renderToSVG } from '../../packages/svg-renderer/src/index.js';
 import { renderToPNG } from '../../packages/png-renderer/src/index.js';
-import { readCache, writeCache } from '../fetch-cache.js';
-import { readFixture } from '../fixtures.js';
-import { installMapLibrePage } from '../maplibre-page.js';
-import type { Region } from '../regions.js';
-import { fonts } from '../styles.js';
+import { readCache, writeCache } from '../shared/fetch-cache.js';
+import { readFixture } from '../shared/fixtures.js';
+import { installMapLibrePage } from '../shared/maplibre-page.js';
+import type { Region } from './regions.js';
+import { fonts } from './styles.js';
 import { folders, HEIGHT, SCALE, WIDTH } from './output.js';
 
 /** The three renders of a region, and the sizes of the renderers' files. */

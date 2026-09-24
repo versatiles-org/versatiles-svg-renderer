@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { readFixture } from './fixtures.js';
 
-const CACHE_DIR = resolve(import.meta.dirname, '.cache');
+const CACHE_DIR = resolve(import.meta.dirname, '..', '.cache');
 
 export interface CachedResponse {
 	status: number;

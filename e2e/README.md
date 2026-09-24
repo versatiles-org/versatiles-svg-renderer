@@ -3,26 +3,36 @@
 Automated checks that render real maps and compare the SVG renderer against
 MapLibre GL. Run the whole suite with `npm run test:e2e`.
 
-## Entry points
+## Layout
 
-| File                  | What it does                                                                                                                                                                                                                                                                                    | Run                            |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `render.test.ts`      | Renders sample styles and asserts on the SVG output.                                                                                                                                                                                                                                            | `npm run test:e2e` (vitest)    |
-| `screenshots.ts`      | Renders each region three ways — SVG renderer, PNG (canvas) renderer, and MapLibre (all at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff) — pixel-diffs them, and writes an HTML report to `output/report.html`.                                                    | `npm run test:e2e:screenshots` |
-| `maplibre-control.ts` | Drives the `SVGExportControl` plugin in a headless browser and checks the export flow, including that the map stops responding while the panel is open. Runs twice: MapLibre GL JS 5 with the plugin's ES module build, and MapLibre GL JS 6 (from `node_modules`) with its minified UMD build. | `npm run test:e2e:maplibre`    |
+Three kinds of test, one folder each, and what they share:
 
-## Shared helpers
+| Folder         | What it checks                                                                                                                                                                                                                                                                                   | Run                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| `visual/`      | Renders each region three ways — MapLibre, the SVG renderer and the PNG renderer, all at 2× device pixel ratio, so anti-aliasing is a smaller fraction of the diff — pixel-diffs them against their baseline, and writes an HTML report to `output/report.html`. See below.                      | `npm run test:e2e:screenshots` |
+| `plugin/`      | Drives the `SVGExportControl` plugin in a headless browser and checks the export flow, including that the map stops responding while the panel is open. Runs twice: MapLibre GL JS 5 with the plugin's ES module build, and MapLibre GL JS 6 (from `node_modules`) with its minified UMD build.  | `npm run test:e2e:maplibre`    |
+| `integration/` | Renders sample styles through the pipeline and asserts on the SVG output.                                                                                                                                                                                                                        | `npm run test:e2e` (vitest)    |
+| `shared/`      | `fetch-cache.ts`, an on-disk cache for upstream requests (tiles, sprites, glyphs, maplibre-gl), so runs are deterministic and offline after one warm run; `fixtures.ts`, files the tests make themselves; `maplibre-page.ts`, the page MapLibre runs in. Also used by `../bench/` and `../dev/`. |                                |
 
-| File             | What it provides                                                                                                                                                                                                                                                                                                |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `regions.ts`     | The `regions` under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                                                                                                    |
-| `styles.ts`      | `getStyle()`, the style of a region, and the fonts the styles name (used by `screenshots.ts` and `../bench/`).                                                                                                                                                                                                  |
-| `scenes/`        | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts` and `symbols.ts`, built with `grid.ts`; `test-sprite.ts` is the symbols' sprite.                                                                                                                                           |
-| `fetch-cache.ts` | An on-disk cache/proxy for upstream requests (tiles, sprite, glyphs, maplibre-gl) so runs are deterministic and offline after one warm run. Cached under `.cache/` (gitignored).                                                                                                                                |
-| `fixtures.ts`    | Files the tests make themselves (the symbols' sprite), served under `https://e2e.invalid/` to the renderers (through `fetch-cache.ts`) and to MapLibre (through the pages' route in `visual/capture.ts`).                                                                                                       |
-| `visual/`        | The parts of `screenshots.ts`: `capture.ts` renders a region three ways, `compare.ts` measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests), `report.ts` writes the HTML report, `output.ts` holds the image size and output folders. |
+`npm run test:e2e` runs all of it: the vitest files (`integration/` and the unit tests of the
+helpers), then `plugin/`, then `visual/`.
 
-Generated screenshots, diffs, and the report land in `output/` (gitignored).
+In `visual/`:
+
+| File                 | What it does                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                              |
+| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                  |
+| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                         |
+| `scenes/`            | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts` and `symbols.ts`, built with `grid.ts`; `test-sprite.ts` is a fixture. |
+| `capture.ts`         | Renders a region three ways.                                                                                                                                |
+| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                            |
+| `report.ts`          | Writes the HTML report.                                                                                                                                     |
+| `output.ts`          | The image size and the output folders.                                                                                                                      |
+| `diff-baseline.json` | The blessed metrics per region.                                                                                                                             |
+
+The request cache (`.cache/`) and the generated screenshots, diffs and report (`output/`)
+stay in this folder, gitignored.
 
 A manual, open-in-a-browser demo of the export control lives in `../demo/`.
 
@@ -43,8 +53,8 @@ would report every unpainted pixel as a mismatch.
 
 The `parity-*` regions draw scenes that check single MapLibre features, one per cell of a
 3 × 3 grid, so a mismatch in the diff image points straight at its cell:
-`scenes/features.ts` (sort keys, circle opacities and blur, `line-gap-width`,
-`global-state`, fill patterns) and `scenes/symbols.ts` (`icon-text-fit` with
+`visual/scenes/features.ts` (sort keys, circle opacities and blur, `line-gap-width`,
+`global-state`, fill patterns) and `visual/scenes/symbols.ts` (`icon-text-fit` with
 stretchable icons, a turned icon). Each cell is one object: a title, and a function that
 builds its sources and layers around the cell's center. When a renderer gains a feature
 MapLibre has, give it a cell in a scene (or start a new scene, with a region of its
@@ -56,8 +66,8 @@ cell that changed beyond the gate's tolerance below its region's line, so a chan
 straight at the feature. The cells' numbers are stored with the region's in
 `diff-baseline.json`, but only the region's own numbers can fail the run.
 
-The symbols' sprite (`scenes/test-sprite.ts`) has what the VersaTiles sprites lack,
-stretchable images. It is a fixture (`fixtures.ts`): drawn when first asked for, and
+The symbols' sprite (`visual/scenes/test-sprite.ts`) has what the VersaTiles sprites lack,
+stretchable images. It is a fixture (`shared/fixtures.ts`): drawn when first asked for, and
 served under an address that does not exist, where MapLibre and the renderers find it.
 
 To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector npm run
@@ -78,7 +88,7 @@ without letting it dominate every other diff.
 
 ## Regression gate (`visual/compare.ts`)
 
-Each of the three metrics is compared to `diff-baseline.json` (the last-blessed
+Each of the three metrics is compared to `visual/diff-baseline.json` (the last-blessed
 value per region and metric), and the run **exits non-zero** (failing CI) on:
 
 - **degradation** — the diff rose beyond both 10% relative and a 0.1 percentage-
@@ -113,7 +123,7 @@ re-bless the baseline:
 UPDATE_BASELINE=1 npm run test:e2e:screenshots
 ```
 
-then commit the updated `diff-baseline.json`.
+then commit the updated `visual/diff-baseline.json`.
 
 A baseline entry may be a bare number, which is read as the `svg` metric alone —
 the form the file used before the PNG renderer existed. Re-blessing rewrites it as

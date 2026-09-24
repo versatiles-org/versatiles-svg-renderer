@@ -18,7 +18,7 @@ import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
  * renderers fall back to whatever the machine has installed and every label is measured
  * against the wrong typeface.
  */
-const fontDir = resolve(import.meta.dirname, '../node_modules/@fontsource/noto-sans/files');
+const fontDir = resolve(import.meta.dirname, '../../node_modules/@fontsource/noto-sans/files');
 export const fonts: Record<string, string> = {
 	noto_sans_regular: resolve(fontDir, 'noto-sans-latin-400-normal.woff2'),
 	noto_sans_bold: resolve(fontDir, 'noto-sans-latin-700-normal.woff2'),

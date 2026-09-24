@@ -1,7 +1,7 @@
 /**
  * Files the e2e tests make themselves (such as the symbols scene's sprite), served under an
  * origin that does not exist. Both paths that load a style's files ask here first: `fetch`
- * in Node (`fetch-cache.ts`), for the renderers, and the browser pages (`visual/capture.ts`),
+ * in Node (`fetch-cache.ts`), for the renderers, and the browser pages (`../visual/capture.ts`),
  * for MapLibre.
  */
 

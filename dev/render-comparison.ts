@@ -4,8 +4,8 @@ import { execSync } from 'node:child_process';
 import { chromium, firefox, webkit } from 'playwright';
 import { inlineSources, osm } from '@versatiles/style';
 import { renderToSVG } from '../packages/svg-renderer/src/index.js';
-import { ensureCacheDir, readCache, writeCache } from '../e2e/fetch-cache.js';
-import { installMapLibrePage } from '../e2e/maplibre-page.js';
+import { ensureCacheDir, readCache, writeCache } from '../e2e/shared/fetch-cache.js';
+import { installMapLibrePage } from '../e2e/shared/maplibre-page.js';
 import type { BrowserType, Page } from 'playwright';
 
 const WIDTH = 1024;

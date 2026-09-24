@@ -1,7 +1,7 @@
 /**
  * Compares the renderers with MapLibre GL JS, region by region (see `regions.ts`): renders
- * each three ways (`visual/capture.ts`), measures the differences (`visual/compare.ts`),
- * prints one line per region and writes `output/report.html` (`visual/report.ts`).
+ * each three ways (`capture.ts`), measures the differences (`compare.ts`), prints one line
+ * per region and writes `e2e/output/report.html` (`report.ts`).
  *
  * The run fails if a region got worse than its baseline. Environment variables:
  * - `E2E_REGIONS=parity-features,berlin-vector` runs only these regions (by their id);
@@ -9,10 +9,10 @@
  *   `E2E_REGIONS` only those of the regions run;
  * - `NO_COLOR` prints without colors.
  */
-import { installFetchCache } from './fetch-cache.js';
+import { installFetchCache } from '../shared/fetch-cache.js';
 import { regions } from './regions.js';
 import { getStyle } from './styles.js';
-import { Capture } from './visual/capture.js';
+import { Capture } from './capture.js';
 import {
 	fails,
 	gate,
@@ -22,9 +22,9 @@ import {
 	writeBaseline,
 	type Baseline,
 	type Verdict,
-} from './visual/compare.js';
-import { createOutputFolders } from './visual/output.js';
-import { writeReport, type Result } from './visual/report.js';
+} from './compare.js';
+import { createOutputFolders } from './output.js';
+import { writeReport, type Result } from './report.js';
 
 const useColor = !process.env.NO_COLOR;
 const paint = (code: number, s: string): string => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);

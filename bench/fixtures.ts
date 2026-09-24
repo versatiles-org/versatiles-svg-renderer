@@ -6,9 +6,9 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { renderToSVG, SVGMapRenderer } from '../packages/svg-renderer/src/index.js';
 import { PNGMapRenderer, renderToPNG } from '../packages/png-renderer/src/index.js';
-import { installFetchCache, uninstallFetchCache } from '../e2e/fetch-cache.js';
-import { regions, type Region } from '../e2e/regions.js';
-import { fonts, getStyle } from '../e2e/styles.js';
+import { installFetchCache, uninstallFetchCache } from '../e2e/shared/fetch-cache.js';
+import { regions, type Region } from '../e2e/visual/regions.js';
+import { fonts, getStyle } from '../e2e/visual/styles.js';
 
 /** The size of the rendered image, in pixels. */
 export const WIDTH = 1024;

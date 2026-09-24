@@ -114,7 +114,7 @@ export const regions: Region[] = [
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.
 	// High zoom levels magnify any imprecision of the globe (radius ~10^5 px); the reference
-	// runs with a precise sin/cos in MapLibre's globe shader (see e2e/maplibre-page.ts).
+	// runs with a precise sin/cos in MapLibre's globe shader (see `shared/maplibre-page.ts`).
 	{ id: 'world-vector-globe', style: 'vector', view: world, projection: 'globe' },
 	{ id: 'europe-vector-globe', style: 'vector', view: europe, projection: 'globe' },
 	{

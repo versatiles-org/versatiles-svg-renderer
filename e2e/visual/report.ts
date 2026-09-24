@@ -4,7 +4,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Region } from '../regions.js';
+import type { Region } from './regions.js';
 import { fails, gate, type Baseline, type Metrics } from './compare.js';
 import { HEIGHT, outputDir, WIDTH } from './output.js';
 

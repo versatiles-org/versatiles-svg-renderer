@@ -6,7 +6,14 @@ import type { Page } from 'playwright';
 // always run against the version this repo depends on. Since v6 the published package
 // is ESM-only — there is no `dist/maplibre-gl.js` UMD bundle to drop in via a plain
 // <script> tag anymore.
-const maplibreDistDir = resolve(import.meta.dirname, '..', 'node_modules', 'maplibre-gl', 'dist');
+const maplibreDistDir = resolve(
+	import.meta.dirname,
+	'..',
+	'..',
+	'node_modules',
+	'maplibre-gl',
+	'dist',
+);
 
 const CONTENT_TYPES: Record<string, string> = {
 	'.mjs': 'text/javascript',

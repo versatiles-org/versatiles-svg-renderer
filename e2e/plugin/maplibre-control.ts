@@ -12,17 +12,20 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium, type Browser, type Locator, type Page } from 'playwright';
-import { ensureCacheDir, readCache, writeCache } from './fetch-cache.js';
-import { installMapLibrePage } from './maplibre-page.js';
+import { ensureCacheDir, readCache, writeCache } from '../shared/fetch-cache.js';
+import { installMapLibrePage } from '../shared/maplibre-page.js';
 
 const MAPLIBRE_5_VERSION = '5.5.0';
 const MAPLIBRE_6_VERSION = (
 	JSON.parse(
-		readFileSync(resolve(import.meta.dirname, '../node_modules/maplibre-gl/package.json'), 'utf8'),
+		readFileSync(
+			resolve(import.meta.dirname, '../../node_modules/maplibre-gl/package.json'),
+			'utf8',
+		),
 	) as { version: string }
 ).version;
 
-const distDir = resolve(import.meta.dirname, '..', 'packages', 'maplibre-svg-export', 'dist');
+const distDir = resolve(import.meta.dirname, '..', '..', 'packages', 'maplibre-svg-export', 'dist');
 const pluginEsm = readFileSync(resolve(distDir, 'maplibre-svg-export.js'), 'utf8');
 const pluginUmd = readFileSync(resolve(distDir, 'maplibre-svg-export.umd.min.js'), 'utf8');
 

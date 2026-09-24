@@ -5,8 +5,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import type { Region, StyleName } from '../regions.js';
-import { sceneCells } from '../styles.js';
+import type { Region, StyleName } from './regions.js';
+import { sceneCells } from './styles.js';
 import type { Shots } from './capture.js';
 import { cellMap, cellShares } from './cells.js';
 import { folders } from './output.js';
@@ -96,7 +96,7 @@ export type Baseline = Record<
 	}
 >;
 
-const baselinePath = resolve(import.meta.dirname, '..', 'diff-baseline.json');
+const baselinePath = resolve(import.meta.dirname, 'diff-baseline.json');
 
 /**
  * Reads `diff-baseline.json`. An entry used to be a single number, the SVG-vs-MapLibre

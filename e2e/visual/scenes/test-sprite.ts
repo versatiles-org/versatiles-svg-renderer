@@ -6,7 +6,7 @@
  * browser) and the renderers (in Node) both load it from there.
  */
 import { createCanvas } from '@napi-rs/canvas';
-import { addFixture, FIXTURES_URL } from '../fixtures.js';
+import { addFixture, FIXTURES_URL } from '../../shared/fixtures.js';
 
 /**
  * The sprite's images, at a pixel ratio of 1 (drawn large, for the diffs to show), 4

@@ -2,8 +2,8 @@
  * The cells of a grid scene on a region's image (see `scenes/grid.ts`), to measure each
  * cell's diff on its own: a change then points straight at the feature its cell checks.
  */
-import type { Region } from '../regions.js';
-import { cellCenter } from '../scenes/grid.js';
+import type { Region } from './regions.js';
+import { cellCenter } from './scenes/grid.js';
 import { HEIGHT, SCALE, WIDTH } from './output.js';
 
 /**
