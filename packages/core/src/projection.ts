@@ -41,6 +41,9 @@ const MAX_RASTER_ERROR_PX = 1;
 /** Upper bound for the number of cells per raster tile side. */
 const MAX_RASTER_CELLS = 16;
 
+/** The same for an image source, which may span much more of the globe than a tile. */
+const MAX_IMAGE_CELLS = 64;
+
 type Vec3 = [number, number, number];
 
 /** A mercator point together with its position on the unit sphere (view frame). */
@@ -664,15 +667,38 @@ export class Projection {
 	 */
 	public rasterTriangles(tile: TileID): RasterTriangle[] {
 		const tileSize = 1 / 2 ** tile.z;
-		const maxLength = this.maxSegmentLength * Math.sqrt(MAX_RASTER_ERROR_PX / MAX_CURVE_ERROR_PX);
-		const n = Math.max(1, Math.min(MAX_RASTER_CELLS, Math.ceil(tileSize / maxLength)));
+		const n = Math.max(1, Math.min(MAX_RASTER_CELLS, Math.ceil(tileSize / this.#maxCellLength)));
+		return this.#meshTriangles(n, (u, v) => [(tile.x + u) * tileSize, (tile.y + v) * tileSize]);
+	}
 
+	/**
+	 * Like {@link rasterTriangles}, for an image placed by `at`, which maps a position in the
+	 * image (0..1 each way) to mercator world coordinates: an `image` source. The mesh has at
+	 * least `minCells` cells per side, and more where the globe curves across `size` (the
+	 * image's extent in mercator units).
+	 */
+	public imageTriangles(
+		at: (u: number, v: number) => [number, number],
+		size: number,
+		minCells: number,
+	): RasterTriangle[] {
+		const curved = this.isGlobe ? Math.ceil(size / this.#maxCellLength) : 1;
+		const n = Math.max(1, minCells, Math.min(MAX_IMAGE_CELLS, curved));
+		return this.#meshTriangles(n, at);
+	}
+
+	/** The longest a mesh cell may be, in mercator units, to follow the globe closely enough. */
+	get #maxCellLength(): number {
+		return this.maxSegmentLength * Math.sqrt(MAX_RASTER_ERROR_PX / MAX_CURVE_ERROR_PX);
+	}
+
+	/** A mesh of n × n cells, two triangles each, over the image `at` maps onto the map. */
+	#meshTriangles(n: number, at: (u: number, v: number) => [number, number]): RasterTriangle[] {
 		// Project the (n+1)² grid corners once.
 		const corners: (Point2D | undefined)[] = [];
 		for (let j = 0; j <= n; j++) {
 			for (let i = 0; i <= n; i++) {
-				const mx = (tile.x + i / n) * tileSize;
-				const my = (tile.y + j / n) * tileSize;
+				const [mx, my] = at(i / n, j / n);
 				let v = this.toSphere(mx, my);
 				if (this.isVisible(v)) {
 					corners.push(this.project(mx, my, v));
@@ -702,7 +728,7 @@ export class Projection {
 				const minY = Math.min(p00.y, p10.y, p01.y, p11.y);
 				const maxY = Math.max(p00.y, p10.y, p01.y, p11.y);
 				if (maxX < 0 || minX > this.width || maxY < 0 || minY > this.height) continue;
-				if (!this.#isCellVisible(tile, n, i, j)) continue;
+				if (!this.#isCellVisible(at, n, i, j)) continue;
 
 				const u0 = i / n;
 				const v0 = j / n;
@@ -739,14 +765,17 @@ export class Projection {
 		return triangles;
 	}
 
-	/** Whether any part of a raster cell is on the visible side of the globe. */
-	#isCellVisible(tile: TileID, n: number, i: number, j: number): boolean {
+	/** Whether any part of a mesh cell is on the visible side of the globe. */
+	#isCellVisible(
+		at: (u: number, v: number) => [number, number],
+		n: number,
+		i: number,
+		j: number,
+	): boolean {
 		if (!this.clipsHorizon) return true;
-		const tileSize = 1 / 2 ** tile.z;
 		for (let dj = 0; dj <= 2; dj++) {
 			for (let di = 0; di <= 2; di++) {
-				const mx = (tile.x + (i + di / 2) / n) * tileSize;
-				const my = (tile.y + (j + dj / 2) / n) * tileSize;
+				const [mx, my] = at((i + di / 2) / n, (j + dj / 2) / n);
 				if (this.isVisible(this.toSphere(mx, my))) return true;
 			}
 		}

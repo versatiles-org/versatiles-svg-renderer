@@ -8,6 +8,7 @@ import {
 	type TiledSource,
 	type TileLoader,
 } from './tiles.js';
+import { getImageSourceTiles } from './image.js';
 
 export async function getRasterTiles(
 	job: RenderJob,
@@ -18,6 +19,8 @@ export async function getRasterTiles(
 	const { zoom, center } = job.view;
 	const source = job.style.sources[sourceName] as
 		(Partial<TiledSource> & { type: string; url?: string; maxzoom?: number }) | undefined;
+
+	if (source?.type === 'image') return getImageSourceTiles(job, sourceName, loadTile);
 
 	// A TileJSON source whose document could not be loaded: drawn empty, like a vector source.
 	if (source?.type === 'raster' && !source.tiles && typeof source.url === 'string') return [];

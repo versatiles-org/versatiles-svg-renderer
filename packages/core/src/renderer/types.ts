@@ -246,6 +246,11 @@ export interface RasterTile {
 	 * triangles, each drawn with its own affine transform.
 	 */
 	triangles?: RasterTriangle[];
+	/**
+	 * An image on its own (an `image` source), with no neighbouring tiles to close seams
+	 * with: its triangles are drawn without the underlay that reaches beyond its border.
+	 */
+	standalone?: boolean;
 }
 
 type Triangle = [[number, number], [number, number], [number, number]];

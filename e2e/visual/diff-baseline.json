@@ -274,5 +274,79 @@
 		"svg": 0.55,
 		"png": 0.55,
 		"drift": 0
+	},
+	"parity-rotated-sources": {
+		"svg": 0.06,
+		"png": 0.06,
+		"drift": 0,
+		"cells": {
+			"image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"skewed image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"image in perspective": {
+				"svg": 0.43,
+				"png": 0.47,
+				"drift": 0
+			},
+			"translucent image": {
+				"svg": 0.11,
+				"png": 0.11,
+				"drift": 0.01
+			},
+			"strongly foreshortened image": {
+				"svg": 0.07,
+				"png": 0.07,
+				"drift": 0.01
+			},
+			"mirrored image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			}
+		}
+	},
+	"parity-sources": {
+		"svg": 0.12,
+		"png": 0.1,
+		"drift": 0.03,
+		"cells": {
+			"image": {
+				"svg": 0.2,
+				"png": 0,
+				"drift": 0.22
+			},
+			"skewed image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"image in perspective": {
+				"svg": 0.31,
+				"png": 0.35,
+				"drift": 0
+			},
+			"translucent image": {
+				"svg": 0.13,
+				"png": 0.13,
+				"drift": 0
+			},
+			"strongly foreshortened image": {
+				"svg": 0.17,
+				"png": 0.14,
+				"drift": 0.03
+			},
+			"mirrored image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			}
+		}
 	}
 }

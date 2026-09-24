@@ -603,10 +603,13 @@ export class CanvasRenderer implements Renderer {
 	#drawRasterMeshes(ctx: SKRSContext2D, tiles: RasterTile[], images: Map<string, Image>): void {
 		const meshes = tiles.flatMap((tile) => {
 			const image = tile.triangles ? images.get(tile.dataUri) : undefined;
-			return image && tile.triangles ? [{ image, triangles: tile.triangles }] : [];
+			return image && tile.triangles
+				? [{ image, triangles: tile.triangles, standalone: tile.standalone === true }]
+				: [];
 		});
 
-		for (const { image, triangles } of meshes) {
+		for (const { image, triangles, standalone } of meshes) {
+			if (standalone) continue;
 			for (const { source, target } of triangles) {
 				if (!isOnTileBorder(source)) continue;
 				this.#drawRasterTriangle(ctx, image, bleedAtTileBorder(source, target), target);

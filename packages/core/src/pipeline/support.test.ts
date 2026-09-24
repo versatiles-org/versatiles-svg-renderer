@@ -138,6 +138,16 @@ describe('checkSources', () => {
 				v: { type: 'vector', tiles: ['https://a/{z}/{x}/{y}'] },
 				r: { type: 'raster', tiles: ['https://a/{z}/{x}/{y}'], scheme: 'tms' },
 				g: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+				i: {
+					type: 'image',
+					url: 'https://a/b.png',
+					coordinates: [
+						[0, 1],
+						[1, 1],
+						[1, 0],
+						[0, 0],
+					],
+				},
 			}),
 		).toEqual([]);
 	});
@@ -146,9 +156,9 @@ describe('checkSources', () => {
 		expect(
 			checkSources({
 				dem: { type: 'raster-dem', tiles: ['https://a/{z}/{x}/{y}'] },
-				img: {
-					type: 'image',
-					url: 'https://a/b.png',
+				vid: {
+					type: 'video',
+					urls: ['https://a/b.mp4'],
 					coordinates: [
 						[0, 0],
 						[1, 0],
@@ -159,7 +169,7 @@ describe('checkSources', () => {
 			}),
 		).toEqual([
 			'Source "dem": the type "raster-dem" is not supported; its layers are not drawn.',
-			'Source "img": the type "image" is not supported; its layers are not drawn.',
+			'Source "vid": the type "video" is not supported; its layers are not drawn.',
 		]);
 	});
 

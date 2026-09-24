@@ -121,7 +121,7 @@ const WITHOUT_EFFECT = new Set([
 	'icon-keep-upright',
 ]);
 
-const SUPPORTED_SOURCE_TYPES = new Set(['vector', 'raster', 'geojson']);
+const SUPPORTED_SOURCE_TYPES = new Set(['vector', 'raster', 'geojson', 'image']);
 
 /** How many layer ids a warning lists before it cuts the list short. */
 const MAX_LISTED = 3;
@@ -202,6 +202,8 @@ export function checkSources(sources: StyleSpecification['sources']): string[] {
 			}
 			continue;
 		}
+		// An image source's `url` is its image, not a TileJSON document.
+		if (spec.type === 'image') continue;
 		if (!Array.isArray(spec.tiles)) {
 			warnings.push(
 				typeof spec.url === 'string'

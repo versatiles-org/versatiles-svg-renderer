@@ -16,9 +16,9 @@ export interface View {
 /**
  * The styles regions draw (see `getStyle`):
  * - `vector`, `satellite`: the VersaTiles styles;
- * - `geojson`, `features`, `symbols`: hand-made scenes, in `scenes/`.
+ * - `geojson`, `features`, `symbols`, `sources`: hand-made scenes, in `scenes/`.
  */
-export type StyleName = 'vector' | 'satellite' | 'geojson' | 'features' | 'symbols';
+export type StyleName = 'vector' | 'satellite' | 'geojson' | 'features' | 'symbols' | 'sources';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -79,6 +79,7 @@ export const regions: Region[] = [
 		view: { ...berlinSatellite, bearing: -45 },
 	},
 	{ id: 'parity-rotated-features', style: 'features', view: { ...scene, bearing: 30 } },
+	{ id: 'parity-rotated-sources', style: 'sources', view: { ...scene, bearing: 30 } },
 
 	// Padding moves the map's center, also on a rotated map and on the globe.
 	{
@@ -110,6 +111,7 @@ export const regions: Region[] = [
 	{ id: 'berlin-geojson', style: 'geojson', view: { lon: 13.388, lat: 52.514, zoom: 14 } },
 	{ id: 'parity-features', style: 'features', view: scene },
 	{ id: 'parity-symbols', style: 'symbols', view: scene, labels: true },
+	{ id: 'parity-sources', style: 'sources', view: scene },
 
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.

@@ -37,6 +37,7 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	geojson: 0.03,
 	features: 0.03,
 	symbols: 0.03,
+	sources: 0.03,
 	satellite: 0.1,
 };
 

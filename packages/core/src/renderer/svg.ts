@@ -842,7 +842,7 @@ export class SVGRenderer {
 	 * slightly shifted underlay only shows through the seam.
 	 */
 	#drawRasterMeshes(tiles: RasterTile[], pixelated: boolean): void {
-		const meshes: { imageId: string; triangles: RasterTriangle[] }[] = [];
+		const meshes: { imageId: string; triangles: RasterTriangle[]; standalone: boolean }[] = [];
 		for (const tile of tiles) {
 			if (!tile.triangles) continue;
 			const imageId = `raster-${String(this.#rasterDefs.length)}`;
@@ -850,10 +850,11 @@ export class SVGRenderer {
 			let imageAttrs = `id="${imageId}" width="${size}" height="${size}" preserveAspectRatio="none" xlink:href="${tile.dataUri}"`;
 			if (pixelated) imageAttrs += ' style="image-rendering:pixelated"';
 			this.#rasterDefs.push(`<image ${imageAttrs} />`);
-			meshes.push({ imageId, triangles: tile.triangles });
+			meshes.push({ imageId, triangles: tile.triangles, standalone: tile.standalone === true });
 		}
 
-		for (const { imageId, triangles } of meshes) {
+		for (const { imageId, triangles, standalone } of meshes) {
+			if (standalone) continue;
 			for (const { source, target } of triangles) {
 				if (!isOnTileBorder(source)) continue;
 				this.#drawRasterTriangle(imageId, bleedAtTileBorder(source, target), target);
