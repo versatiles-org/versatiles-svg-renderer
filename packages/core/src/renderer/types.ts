@@ -1,13 +1,15 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from '../geometry.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
-import type { ClipCircle, Projection } from '../projection.js';
+import type { ClipCircle, Padding, Projection } from '../projection.js';
 
 export interface View {
 	center: [number, number];
 	zoom: number;
 	/** The compass direction that is up, in degrees (see `Projection.bearing`). */
 	bearing?: number;
+	/** Space around the map's center, in pixels (see `Projection`). */
+	padding?: Padding;
 }
 
 /**

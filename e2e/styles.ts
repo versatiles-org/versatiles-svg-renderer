@@ -30,6 +30,8 @@ export interface Region {
 	outlines?: boolean;
 	/** The compass direction that is up, in degrees (MapLibre's `bearing`). */
 	bearing?: number;
+	/** Space around the map's center, in pixels (MapLibre's `padding`). */
+	padding?: { top?: number; right?: number; bottom?: number; left?: number };
 }
 
 export const regions: Region[] = [
@@ -57,6 +59,33 @@ export const regions: Region[] = [
 	},
 	{ name: 'berlin-rotated', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite', bearing: -45 },
 	{ name: 'parity-rotated', lon: 0, lat: 0, zoom: 12, type: 'features', bearing: 30 },
+	// Padding moves the map's center, also on a rotated map and on the globe.
+	{
+		name: 'berlin-padded',
+		lon: 13.357,
+		lat: 52.515,
+		zoom: 14.2,
+		type: 'vector',
+		padding: { left: 300, top: 150 },
+	},
+	{
+		name: 'berlin-padded',
+		lon: 13.376,
+		lat: 52.518,
+		zoom: 15,
+		type: 'satellite',
+		bearing: 30,
+		padding: { right: 200, bottom: 100 },
+	},
+	{
+		name: 'europe-padded',
+		lon: 12,
+		lat: 50,
+		zoom: 3.5,
+		type: 'vector',
+		projection: 'globe',
+		padding: { left: 300 },
+	},
 	{
 		name: 'europe-rotated',
 		lon: 12,

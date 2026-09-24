@@ -92,7 +92,7 @@ Both only set the starting values of the panel's size inputs; the user can chang
 
 ## How the SVG is made
 
-The preview and the export are rendered by [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md) from the map's current style, centre, zoom and bearing. Its notes on [labels](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-renderlabels) and [projections](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#projections) apply here too.
+The preview and the export are rendered by [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md) from the map's current style, centre, zoom, bearing and padding. Its notes on [labels](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-renderlabels) and [projections](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#projections) apply here too.
 
 Below the preview, the panel lists what the SVG leaves out: parts of the style the renderer does not draw, and the map's tilt, since the SVG is always flat.
 

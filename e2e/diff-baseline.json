@@ -113,5 +113,20 @@
 		"svg": 0.22,
 		"png": 0.2,
 		"drift": 0.05
+	},
+	"berlin-padded-vector": {
+		"svg": 0.36,
+		"png": 0.23,
+		"drift": 0.33
+	},
+	"berlin-padded-satellite": {
+		"svg": 0.41,
+		"png": 0.4,
+		"drift": 0
+	},
+	"europe-padded-vector-globe": {
+		"svg": 0.2,
+		"png": 0.17,
+		"drift": 0.04
 	}
 }

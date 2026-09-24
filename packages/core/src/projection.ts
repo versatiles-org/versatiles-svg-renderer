@@ -163,6 +163,14 @@ export function mercatorToLonLat(mx: number, my: number): [number, number] {
 	return [lon, lat];
 }
 
+/** Space around the map's center, as MapLibre's `padding`, in pixels. */
+export interface Padding {
+	top?: number;
+	right?: number;
+	bottom?: number;
+	left?: number;
+}
+
 export class Projection {
 	public readonly width: number;
 
@@ -195,6 +203,14 @@ export class Projection {
 
 	readonly #sinBearing: number;
 
+	/**
+	 * How far the map is moved by MapLibre's `padding`: its center to the middle of the area
+	 * inside the padding.
+	 */
+	readonly #offsetX: number;
+
+	readonly #offsetY: number;
+
 	readonly #centerX: number;
 
 	readonly #centerY: number;
@@ -221,8 +237,12 @@ export class Projection {
 		zoom: number;
 		globeness?: number;
 		bearing?: number;
+		padding?: Padding;
 	}) {
 		this.bearing = opt.bearing ?? 0;
+		const padding = opt.padding ?? {};
+		this.#offsetX = ((padding.left ?? 0) - (padding.right ?? 0)) / 2;
+		this.#offsetY = ((padding.top ?? 0) - (padding.bottom ?? 0)) / 2;
 		const angle = (this.bearing * Math.PI) / 180;
 		this.#cosBearing = Math.cos(angle);
 		this.#sinBearing = Math.sin(angle);
@@ -258,6 +278,7 @@ export class Projection {
 		zoom: number;
 		projection?: ProjectionSpecification;
 		bearing?: number;
+		padding?: Padding;
 	}): Projection {
 		return new Projection({ ...opt, globeness: getGlobeness(opt.projection, opt.zoom) });
 	}
@@ -276,7 +297,7 @@ export class Projection {
 		const r = this.#radius;
 		const d = this.#cameraDistance;
 		const radius = (d * r) / Math.sqrt((d + r) * (d + r) - r * r);
-		return { x: this.width / 2, y: this.height / 2, radius };
+		return { x: this.width / 2 + this.#offsetX, y: this.height / 2 + this.#offsetY, radius };
 	}
 
 	/** Mercator world coordinates → unit sphere in the view frame (x right, y up, z towards the camera). */
@@ -314,7 +335,7 @@ export class Projection {
 		const flatX = dx * this.worldSize;
 		const flatY = (my - this.#centerY) * this.worldSize;
 		const t = this.globeness;
-		if (t === 0) return this.rotate(flatX + this.width / 2, flatY + this.height / 2);
+		if (t === 0) return this.fromNorthUp(flatX + this.width / 2, flatY + this.height / 2);
 
 		v ??= this.toSphere(mx, my);
 		const d = this.#cameraDistance;
@@ -324,31 +345,36 @@ export class Projection {
 		const globeY = -d * r * v[1];
 		const globeW = d + r * (1 - v[2]);
 		const w = d + (globeW - d) * t;
-		return this.rotate(
+		return this.fromNorthUp(
 			(d * flatX + (globeX - d * flatX) * t) / w + this.width / 2,
 			(d * flatY + (globeY - d * flatY) * t) / w + this.height / 2,
 		);
 	}
 
+	/** Whether the map is turned (bearing) or moved (padding) on the image. */
+	public get isTransformed(): boolean {
+		return this.bearing !== 0 || this.#offsetX !== 0 || this.#offsetY !== 0;
+	}
+
 	/**
-	 * A point of the north-up image turned by the bearing around the image's center: where
-	 * it lies in the rotated image.
+	 * Where a point of the north-up map, centered on the image, lies on the image: turned by
+	 * the bearing around the map's center, and moved with it by the padding.
 	 */
-	public rotate(x: number, y: number): Point2D {
-		if (this.bearing === 0) return new Point2D(x, y);
+	public fromNorthUp(x: number, y: number): Point2D {
+		if (!this.isTransformed) return new Point2D(x, y);
 		const dx = x - this.width / 2;
 		const dy = y - this.height / 2;
 		return new Point2D(
-			dx * this.#cosBearing + dy * this.#sinBearing + this.width / 2,
-			-dx * this.#sinBearing + dy * this.#cosBearing + this.height / 2,
+			dx * this.#cosBearing + dy * this.#sinBearing + this.width / 2 + this.#offsetX,
+			-dx * this.#sinBearing + dy * this.#cosBearing + this.height / 2 + this.#offsetY,
 		);
 	}
 
-	/** The opposite of {@link Projection.rotate}. */
-	public unrotate(x: number, y: number): [number, number] {
-		if (this.bearing === 0) return [x, y];
-		const dx = x - this.width / 2;
-		const dy = y - this.height / 2;
+	/** The opposite of {@link Projection.fromNorthUp}. */
+	public toNorthUp(x: number, y: number): [number, number] {
+		if (!this.isTransformed) return [x, y];
+		const dx = x - this.width / 2 - this.#offsetX;
+		const dy = y - this.height / 2 - this.#offsetY;
 		return [
 			dx * this.#cosBearing - dy * this.#sinBearing + this.width / 2,
 			dx * this.#sinBearing + dy * this.#cosBearing + this.height / 2,
@@ -356,16 +382,28 @@ export class Projection {
 	}
 
 	/**
-	 * The size of the north-up area whose rotation covers the image: its bounding box. Tiles
-	 * covering it cover the rotated image.
+	 * The size of the north-up area, centered on the map's center, that covers the whole
+	 * image once turned and moved into place: tiles covering it cover the image.
 	 */
 	public get coveredSize(): { width: number; height: number } {
-		const cos = Math.abs(this.#cosBearing);
-		const sin = Math.abs(this.#sinBearing);
-		return {
-			width: this.width * cos + this.height * sin,
-			height: this.width * sin + this.height * cos,
-		};
+		let halfWidth = 0;
+		let halfHeight = 0;
+		for (const [x, y] of [
+			[0, 0],
+			[this.width, 0],
+			[this.width, this.height],
+			[0, this.height],
+		] as const) {
+			const [u, v] = this.toNorthUp(x, y);
+			halfWidth = Math.max(halfWidth, Math.abs(u - this.width / 2));
+			halfHeight = Math.max(halfHeight, Math.abs(v - this.height / 2));
+		}
+		return { width: 2 * halfWidth, height: 2 * halfHeight };
+	}
+
+	/** How far the padding moves the map on the image, in pixels. */
+	public get offset(): [number, number] {
+		return [this.#offsetX, this.#offsetY];
 	}
 
 	/**
@@ -375,7 +413,7 @@ export class Projection {
 	 */
 	public unproject(x: number, y: number): [number, number] | undefined {
 		const t = this.globeness;
-		const [ux, uy] = this.unrotate(x, y);
+		const [ux, uy] = this.toNorthUp(x, y);
 		const flat = this.#unprojectFlat(ux, uy);
 		if (t === 0) return inWorld(flat);
 		if (t === 1) return this.#unprojectGlobe(ux, uy);

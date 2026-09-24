@@ -160,7 +160,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Mercator, globe, vertical-perspective | ✅  | ✅  |       |
 | Bearing (rotation)                    | ✅  | ✅  |       |
 | Pitch (tilt)                          | ❌  | ❌  | [#37] |
-| Padding                               | ❌  | ❌  | [#57] |
+| Padding                               | ✅  | ✅  |       |
 | Default view from the style           | ✅  | ✅  |       |
 | 3D terrain                            | ❌  | ❌  | [#48] |
 | Sky, fog, light                       | ❌  | ❌  | [#49] |
@@ -222,5 +222,4 @@ Labels and icons are only drawn with `renderLabels: true`. Interaction, animatio
 [#52]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/52
 [#53]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/53
 [#54]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/54
-[#57]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/57
 [#61]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/61

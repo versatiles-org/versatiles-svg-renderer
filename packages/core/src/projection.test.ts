@@ -346,9 +346,9 @@ describe('Projection with a bearing', () => {
 
 	test('rotate and unrotate are opposites, and keep the center', () => {
 		const projection = at(-60);
-		const p = projection.rotate(170, 20);
-		expect(projection.unrotate(p.x, p.y).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([170, 20]);
-		expect(round(projection.rotate(100, 50))).toEqual([100, 50]);
+		const p = projection.fromNorthUp(170, 20);
+		expect(projection.toNorthUp(p.x, p.y).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([170, 20]);
+		expect(round(projection.fromNorthUp(100, 50))).toEqual([100, 50]);
 	});
 
 	test('covers the turned image with a larger north-up area', () => {
@@ -373,6 +373,57 @@ describe('Projection with a bearing', () => {
 		const ys = new Set(tiles.map((t) => t.y));
 		const xs = new Set(tiles.map((t) => t.x));
 		expect(ys.size).toBeGreaterThan(xs.size);
+	});
+});
+
+describe('Projection with padding', () => {
+	const padded = (bearing = 0, globeness = 0) =>
+		new Projection({
+			width: 200,
+			height: 100,
+			center: [0, 0],
+			zoom: 2,
+			bearing,
+			globeness,
+			padding: { left: 60, top: 20 },
+		});
+
+	test("moves the map's center to the middle of the area inside the padding", () => {
+		const center = padded().project(0.5, 0.5);
+		// (60 − 0) / 2 and (20 − 0) / 2 from the image's center.
+		expect([center.x, center.y]).toEqual([130, 60]);
+		expect(padded().offset).toEqual([30, 10]);
+	});
+
+	test('turns the map around its moved center', () => {
+		const projection = padded(90);
+		const center = projection.project(0.5, 0.5);
+		expect([Math.round(center.x), Math.round(center.y)]).toEqual([130, 60]);
+		const east = projection.project(0.51, 0.5);
+		expect(Math.round(east.x)).toBe(130);
+		expect(east.y).toBeLessThan(60);
+	});
+
+	test('unprojects what it projects, also on the globe', () => {
+		for (const [bearing, globeness] of [
+			[0, 0],
+			[40, 0],
+			[40, 1],
+		] as const) {
+			const projection = padded(bearing, globeness);
+			const p = projection.project(0.51, 0.49);
+			const [mx, my] = projection.unproject(p.x, p.y)!;
+			expect(mx).toBeCloseTo(0.51, 6);
+			expect(my).toBeCloseTo(0.49, 6);
+		}
+	});
+
+	test('moves the globe with it, and covers the moved image with tiles', () => {
+		const globe = padded(0, 1);
+		const circle = globe.clipCircle!;
+		expect([circle.x, circle.y]).toEqual([130, 60]);
+		// The image reaches 130 px left of the moved center and 70 px right: 260 × 120 around it.
+		expect(padded().coveredSize).toEqual({ width: 260, height: 120 });
 	});
 });
 

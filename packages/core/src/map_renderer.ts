@@ -5,7 +5,7 @@ import { SVGRenderer } from './renderer/svg.js';
 import type { Renderer } from './renderer/types.js';
 import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
 import { TileCache } from './sources/tile_cache.js';
-import { MAX_LATITUDE, mercatorToLonLat, Projection } from './projection.js';
+import { MAX_LATITUDE, mercatorToLonLat, Projection, type Padding } from './projection.js';
 import { Point2D } from './geometry.js';
 import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
 import { resolveSources } from './sources/resolve.js';
@@ -120,6 +120,13 @@ export interface ViewOptions {
 	 * @defaultValue the style's `bearing`, else `0`
 	 */
 	bearing?: number;
+	/**
+	 * Space around the map's center, in pixels, as MapLibre's `padding`: the center (`lon`,
+	 * `lat`) sits in the middle of the area inside it, e.g. to keep it clear of a panel laid
+	 * over the image. A number applies to all sides.
+	 * @defaultValue `0`
+	 */
+	padding?: number | Padding;
 }
 
 /**
@@ -129,12 +136,16 @@ export interface ViewOptions {
 function viewCenter(
 	style: StyleSpecification,
 	view: ViewOptions,
-): { center: [number, number]; zoom: number; bearing: number } {
+): { center: [number, number]; zoom: number; bearing: number; padding: Padding } {
 	const [styleLon, styleLat] = Array.isArray(style.center) ? style.center : [];
 	return {
 		center: [view.lon ?? finiteOr(styleLon, 0), view.lat ?? finiteOr(styleLat, 0)],
 		zoom: view.zoom ?? finiteOr(style.zoom, 2),
 		bearing: view.bearing ?? finiteOr(style.bearing, 0),
+		padding:
+			typeof view.padding === 'number'
+				? { top: view.padding, right: view.padding, bottom: view.padding, left: view.padding }
+				: (view.padding ?? {}),
 	};
 }
 

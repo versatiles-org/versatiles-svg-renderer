@@ -167,6 +167,16 @@ describe('SVGMapRenderer', () => {
 		expect(lat).toBeCloseTo(0, 6);
 	});
 
+	test('puts the center in the middle of the area inside the padding', () => {
+		const map = new SVGMapRenderer({ style: makeStyle() });
+		const view = { width: 100, height: 100, lon: 10, lat: 20, zoom: 5 };
+		expect(map.project({ ...view, padding: 20 }, [10, 20])).toEqual([50, 50]);
+		expect(map.project({ ...view, padding: { left: 40 } }, [10, 20])).toEqual([70, 50]);
+		const [lon, lat] = map.unproject({ ...view, padding: { left: 40 } }, [70, 50])!;
+		expect(lon).toBeCloseTo(10, 6);
+		expect(lat).toBeCloseTo(20, 6);
+	});
+
 	test("projects with the style's center and zoom as defaults", () => {
 		const map = new SVGMapRenderer({ style: { ...makeStyle(), center: [10, 20], zoom: 3 } });
 		expect(map.project({ width: 100, height: 100 }, [10, 20])).toEqual([50, 50]);

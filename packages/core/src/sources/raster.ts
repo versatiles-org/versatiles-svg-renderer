@@ -47,10 +47,12 @@ export async function getRasterTiles(
 		);
 		return globeTiles.filter((tile): tile is RasterTile => tile !== null);
 	}
-	// A rotated map (bearing) needs the tiles of the north-up area around the image, and
-	// draws each as two triangles turned into place.
-	const rotated = projection !== undefined && projection.bearing !== 0;
-	const covered = rotated ? projection.coveredSize : { width, height };
+	// A turned or moved map (bearing, padding) needs the tiles of the north-up area around
+	// the image. Turned, each is drawn as two triangles turned into place; moved only, it is
+	// simply moved.
+	const moved = projection?.isTransformed ? projection : undefined;
+	const rotated = moved !== undefined && moved.bearing !== 0;
+	const covered = moved ? moved.coveredSize : { width, height };
 	const shiftX = (width - covered.width) / 2;
 	const shiftY = (height - covered.height) / 2;
 	const { zoomLevel, tileSize, tiles } = calculateTileGrid(
@@ -70,7 +72,7 @@ export async function getRasterTiles(
 
 			if (rotated) {
 				const corner = (u: number, v: number): [number, number] => {
-					const p = projection.rotate(
+					const p = moved.fromNorthUp(
 						offsetX + shiftX + u * tileSize,
 						offsetY + shiftY + v * tileSize,
 					);
@@ -98,9 +100,10 @@ export async function getRasterTiles(
 				return { x: 0, y: 0, width: 1, height: 1, dataUri, triangles };
 			}
 
+			const [moveX, moveY] = moved ? moved.offset : [0, 0];
 			return {
-				x: offsetX,
-				y: offsetY,
+				x: offsetX + shiftX + moveX,
+				y: offsetY + shiftY + moveY,
 				width: tileSize,
 				height: tileSize,
 				dataUri,

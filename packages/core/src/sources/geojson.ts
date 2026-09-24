@@ -40,12 +40,12 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 			if (type === 'Polygon') rings = orientRings(rings);
 			return projection.projectGeometry(type, rings);
 		}
-		const rotated = projection !== undefined && projection.bearing !== 0;
+		const moved = projection?.isTransformed ? projection : undefined;
 		return rings.map((ring) =>
 			ring.map(([x, y]) => {
 				const px = (x - centerMercator.x) * worldSize + width / 2;
 				const py = (y - centerMercator.y) * worldSize + height / 2;
-				return rotated ? projection.rotate(px, py) : new Point2D(px, py);
+				return moved ? moved.fromNorthUp(px, py) : new Point2D(px, py);
 			}),
 		);
 	}

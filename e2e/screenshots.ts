@@ -127,6 +127,7 @@ async function renderSvgShot(
 		lat: region.lat,
 		zoom: region.zoom,
 		bearing: region.bearing ?? 0,
+		padding: region.padding,
 		renderLabels: region.labels ?? false,
 		onWarning: collectWarning,
 	});
@@ -172,6 +173,7 @@ async function renderPngShot(
 		lat: region.lat,
 		zoom: region.zoom,
 		bearing: region.bearing ?? 0,
+		padding: region.padding,
 		renderLabels: region.labels ?? false,
 		fonts,
 		onWarning: collectWarning,
@@ -214,12 +216,14 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 				center,
 				zoom,
 				bearing,
+				padding,
 				pixelRatio,
 			}: {
 				styleJson: any;
 				center: [number, number];
 				zoom: number;
 				bearing: number;
+				padding: Record<string, number> | undefined;
 				pixelRatio: number;
 			}) => {
 				return new Promise<void>((resolve, reject) => {
@@ -234,6 +238,7 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 						attributionControl: false,
 						pixelRatio,
 					});
+					if (padding) map.setPadding(padding);
 					map.once('idle', () => resolve());
 					setTimeout(() => reject(new Error('MapLibre idle timeout')), 30000);
 				});
@@ -243,6 +248,7 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 				center: [region.lon, region.lat] as [number, number],
 				zoom: region.zoom,
 				bearing: region.bearing ?? 0,
+				padding: region.padding,
 				pixelRatio: SCALE,
 			},
 		);

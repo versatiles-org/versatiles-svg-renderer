@@ -91,6 +91,7 @@ export async function drawMap<R extends Renderer>(
 		zoom: job.view.zoom,
 		projection: job.style.projection,
 		bearing: job.view.bearing,
+		padding: job.view.padding,
 	});
 	const clipCircle = job.projection.clipCircle;
 	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
@@ -331,7 +332,9 @@ function patternOrigin(job: RenderJob, width: number, height: number): [number, 
 	const y = h / 2 - center.y * worldSize;
 	const nearX = x + Math.round((w / 2 - x) / width) * width;
 	const nearY = y + Math.round((h / 2 - y) / height) * height;
-	const turned = job.projection ? job.projection.rotate(nearX, nearY) : new Point2D(nearX, nearY);
+	const turned = job.projection
+		? job.projection.fromNorthUp(nearX, nearY)
+		: new Point2D(nearX, nearY);
 	return [turned.x, turned.y];
 }
 

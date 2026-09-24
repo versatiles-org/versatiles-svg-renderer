@@ -21,6 +21,7 @@ function createMockMap(overrides?: Record<string, unknown>) {
 		getZoom: vi.fn(() => 10),
 		getBearing: vi.fn(() => 0),
 		getPitch: vi.fn(() => 0),
+		getPadding: vi.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
 		getStyle: vi.fn(() => ({
 			version: 8,
 			sources: {},

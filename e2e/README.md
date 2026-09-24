@@ -49,7 +49,8 @@ regions.
 `berlin-outlines-vector` adds line layers on polygons (building and translucent water
 outlines) to the VersaTiles style, which has none.
 
-The `*-rotated` regions are rendered with a `bearing`, compared with MapLibre at the same bearing.
+The `*-rotated` and `*-padded` regions are rendered with a `bearing` or `padding`,
+compared with MapLibre with the same.
 
 Labels and icons are switched off in every region but `berlin-labels-vector` (and its
 rotated twin).

@@ -23,6 +23,7 @@ export interface MapLibreMap {
 	getZoom(): number;
 	getBearing(): number;
 	getPitch(): number;
+	getPadding(): { top?: number; right?: number; bottom?: number; left?: number };
 	/** The current values of the style's global state; MapLibre GL JS 5.6 or later. */
 	getGlobalState?(): Record<string, unknown>;
 	getStyle(): StyleSpecification;

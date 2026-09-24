@@ -29,7 +29,7 @@ describe('renderToSVG', () => {
 		expect(drawMap).toHaveBeenCalledWith(
 			expect.objectContaining({
 				style: minimalStyle,
-				view: { center: [0, 0], zoom: 2, bearing: 0 },
+				view: { center: [0, 0], zoom: 2, bearing: 0, padding: {} },
 				renderLabels: false,
 				renderer: expect.objectContaining({ width: 1024, height: 1024 }) as unknown,
 			}),
@@ -49,7 +49,7 @@ describe('renderToSVG', () => {
 		});
 		expect(drawMap).toHaveBeenCalledWith(
 			expect.objectContaining({
-				view: { center: [13.4, 52.5], zoom: 10, bearing: 0 },
+				view: { center: [13.4, 52.5], zoom: 10, bearing: 0, padding: {} },
 				renderLabels: true,
 				renderer: expect.objectContaining({ width: 800, height: 600 }) as unknown,
 			}),

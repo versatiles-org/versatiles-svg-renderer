@@ -179,10 +179,10 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 		}));
 	}
 
-	// A rotated map (bearing) needs the tiles of the north-up area around the image, and
-	// turns their points into place.
-	const rotated = projection !== undefined && projection.bearing !== 0;
-	const covered = rotated ? projection.coveredSize : { width, height };
+	// A turned or moved map (bearing, padding) needs the tiles of the north-up area around
+	// the image, and turns and moves their points into place.
+	const moved = projection?.isTransformed ? projection : undefined;
+	const covered = moved ? moved.coveredSize : { width, height };
 	const { zoomLevel, tileSize, tiles } = calculateTileGrid(
 		covered.width,
 		covered.height,
@@ -205,7 +205,7 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 				rings.map((ring) =>
 					ring.map((point) => {
 						const p = new Point2D(point.x, point.y).scale(scale).translate(offset);
-						return rotated ? projection.rotate(p.x, p.y) : p;
+						return moved ? moved.fromNorthUp(p.x, p.y) : p;
 					}),
 				),
 		};
