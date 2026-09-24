@@ -19,6 +19,7 @@ MapLibre GL. Run the whole suite with `npm run test:e2e`.
 | `styles.ts`      | `getStyle()`, the style of a region, and the fonts the styles name (used by `screenshots.ts` and `../bench/`).                                                                                                                                                                                                  |
 | `scenes/`        | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts` and `symbols.ts`, built with `grid.ts`; `test-sprite.ts` is the symbols' sprite.                                                                                                                                           |
 | `fetch-cache.ts` | An on-disk cache/proxy for upstream requests (tiles, sprite, glyphs, maplibre-gl) so runs are deterministic and offline after one warm run. Cached under `.cache/` (gitignored).                                                                                                                                |
+| `fixtures.ts`    | Files the tests make themselves (the symbols' sprite), served under `https://e2e.invalid/` to the renderers (through `fetch-cache.ts`) and to MapLibre (through the pages' route in `visual/capture.ts`).                                                                                                       |
 | `visual/`        | The parts of `screenshots.ts`: `capture.ts` renders a region three ways, `compare.ts` measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests), `report.ts` writes the HTML report, `output.ts` holds the image size and output folders. |
 
 Generated screenshots, diffs, and the report land in `output/` (gitignored).
@@ -56,8 +57,8 @@ straight at the feature. The cells' numbers are stored with the region's in
 `diff-baseline.json`, but only the region's own numbers can fail the run.
 
 The symbols' sprite (`scenes/test-sprite.ts`) has what the VersaTiles sprites lack,
-stretchable images. It is drawn when the scene's style is built, and put into the fetch
-cache under an address that does not exist, where MapLibre and the renderers find it.
+stretchable images. It is a fixture (`fixtures.ts`): drawn when first asked for, and
+served under an address that does not exist, where MapLibre and the renderers find it.
 
 To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector npm run
 test:e2e:screenshots`. With `UPDATE_BASELINE=1`, such a run re-blesses only those

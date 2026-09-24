@@ -11,6 +11,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { renderToSVG } from '../../packages/svg-renderer/src/index.js';
 import { renderToPNG } from '../../packages/png-renderer/src/index.js';
 import { readCache, writeCache } from '../fetch-cache.js';
+import { readFixture } from '../fixtures.js';
 import { installMapLibrePage } from '../maplibre-page.js';
 import type { Region } from '../regions.js';
 import { fonts } from '../styles.js';
@@ -211,12 +212,17 @@ function renderView(region: Region) {
 }
 
 /**
- * Serves a page's requests (maplibre-gl, tiles, sprites, glyphs) from the disk cache, and
- * caches what it does not have yet.
+ * Serves a page's requests (maplibre-gl, tiles, sprites, glyphs) from the fixtures and the
+ * disk cache, and caches what it does not have yet.
  */
 async function installPageCache(page: Page): Promise<void> {
 	await page.route('**/*', async (route) => {
 		const url = route.request().url();
+		const fixture = readFixture(url);
+		if (fixture) {
+			await route.fulfill(fixture);
+			return;
+		}
 		const cached = readCache(url);
 		if (cached) {
 			await route.fulfill({

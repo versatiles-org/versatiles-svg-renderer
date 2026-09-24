@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
+import { readFixture } from './fixtures.js';
 
 const CACHE_DIR = resolve(import.meta.dirname, '.cache');
 
@@ -33,9 +34,20 @@ export function writeCache(url: string, entry: CachedResponse): void {
 
 const originalFetch = globalThis.fetch;
 
+/** `fetch` from the fixtures, then the disk cache, then the network (caching what it gets). */
 function cachedFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
 	const url =
 		typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+	const fixture = readFixture(url);
+	if (fixture) {
+		return Promise.resolve(
+			new Response(new Uint8Array(fixture.body), {
+				status: fixture.status,
+				headers: { 'content-type': fixture.contentType },
+			}),
+		);
+	}
 
 	const cached = readCache(url);
 	if (cached) {

@@ -9,7 +9,7 @@
  */
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { collection, feature, gridStyle, type Cell } from './grid.js';
-import { seedTestSprite, TEST_SPRITE_URL } from './test-sprite.js';
+import { TEST_SPRITE_URL } from './test-sprite.js';
 
 /**
  * A cell with one symbol: the test sprite's shield, and `text` if given, at the cell's
@@ -160,9 +160,8 @@ export const cells: Cell[] = [
 	}),
 ];
 
-/** The scene's style. Its sprite is served from the fetch cache, so this puts it there. */
+/** The scene's style. */
 export function symbolsStyle(): StyleSpecification {
-	seedTestSprite();
 	return gridStyle(cells, {
 		glyphs: 'https://tiles.versatiles.org/assets/glyphs/{fontstack}/{range}.pbf',
 		sprite: [{ id: 'test', url: TEST_SPRITE_URL }],

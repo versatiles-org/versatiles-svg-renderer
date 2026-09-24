@@ -2,17 +2,16 @@
  * A sprite made for the e2e tests, with what the VersaTiles sprites do not have: images
  * that stretch (`stretchX`, `stretchY`, `content`), for `icon-text-fit`.
  *
- * It is drawn here and put into the fetch cache under a URL that does not exist, so that
- * MapLibre (in the browser) and the renderers (in Node) both load it from there.
+ * It is a fixture (see `fixtures.ts`), drawn when first asked for: MapLibre (in the
+ * browser) and the renderers (in Node) both load it from there.
  */
 import { createCanvas } from '@napi-rs/canvas';
-import { writeCache } from '../fetch-cache.js';
-
-export const TEST_SPRITE_URL = 'https://e2e.invalid/sprites/test';
+import { addFixture, FIXTURES_URL } from '../fixtures.js';
 
 /**
- * The sprite's images, at a pixel ratio of 1 (drawn large, for the diffs to show), 4 pixels apart as sprite tools pad them:
- * scaled or turned, an image would otherwise show a trace of its neighbour at its edge.
+ * The sprite's images, at a pixel ratio of 1 (drawn large, for the diffs to show), 4
+ * pixels apart as sprite tools pad them: scaled or turned, an image would otherwise show a
+ * trace of its neighbour at its edge.
  */
 const images = {
 	// A shield: a frame with differently coloured sides and corners, so a stretched corner
@@ -71,20 +70,13 @@ function drawSheet(): Buffer {
 	return canvas.toBuffer('image/png');
 }
 
-/** Puts the sprite into the fetch cache, at both resolutions a renderer may ask for. */
-export function seedTestSprite(): void {
-	const json = Buffer.from(JSON.stringify(images)).toString('base64');
-	const png = drawSheet().toString('base64');
-	for (const suffix of ['@2x', '']) {
-		writeCache(`${TEST_SPRITE_URL}${suffix}.json`, {
-			status: 200,
-			contentType: 'application/json',
-			body: json,
-		});
-		writeCache(`${TEST_SPRITE_URL}${suffix}.png`, {
-			status: 200,
-			contentType: 'image/png',
-			body: png,
-		});
-	}
+/** The sprite's URL, as a style names it (a renderer adds `@2x`, `.json`, `.png`). */
+export const TEST_SPRITE_URL = new URL('sprites/test', FIXTURES_URL).href;
+
+let sheet: Buffer | undefined;
+for (const suffix of ['@2x', '']) {
+	addFixture(`sprites/test${suffix}.json`, 'application/json', () =>
+		Buffer.from(JSON.stringify(images)),
+	);
+	addFixture(`sprites/test${suffix}.png`, 'image/png', () => (sheet ??= drawSheet()));
 }
