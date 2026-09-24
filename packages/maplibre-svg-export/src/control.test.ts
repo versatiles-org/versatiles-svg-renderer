@@ -2,11 +2,12 @@
 
 import { describe, expect, test, vi, beforeEach, type Mock } from 'vitest';
 
-vi.mock('@versatiles/renderer-core/render_svg', () => ({
+vi.mock(import('@versatiles/renderer-core'), async (importOriginal) => ({
+	...(await importOriginal()),
 	renderToSVG: vi.fn().mockResolvedValue('<svg>mock</svg>'),
 }));
 
-const { renderToSVG } = await import('@versatiles/renderer-core/render_svg');
+const { renderToSVG } = await import('@versatiles/renderer-core');
 const { SVGExportControl } = await import('./control.js');
 
 function createMockHandler() {

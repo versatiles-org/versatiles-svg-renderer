@@ -25,7 +25,7 @@ import dts from 'rollup-plugin-dts';
 const realCorePaths = (): Plugin => ({
 	name: 'real-core-paths',
 	async resolveId(source, importer, options) {
-		if (!source.startsWith('@versatiles/renderer-core/')) return null;
+		if (source !== '@versatiles/renderer-core') return null;
 		const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
 		return resolved && { ...resolved, id: realpathSync(resolved.id) };
 	},

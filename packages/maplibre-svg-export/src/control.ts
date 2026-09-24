@@ -1,6 +1,6 @@
 import type { MapLibreControl, MapLibreMap } from './maplibre-types.js';
 import { PANEL_CSS } from './panel_css.js';
-import { renderToSVG } from '@versatiles/renderer-core/render_svg';
+import { renderToSVG } from '@versatiles/renderer-core';
 
 /** Options for {@link SVGExportControl}. */
 export interface SVGExportControlOptions {

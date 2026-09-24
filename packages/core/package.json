@@ -9,6 +9,7 @@
     "docs": "vrt deps-graph --svg docs/dependency-graph.svg | vrt doc-insert README.md '## Dependency Graph' && prettier --write --log-level warn README.md"
   },
   "exports": {
-    "./*": "./src/*.ts"
-  }
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false
 }

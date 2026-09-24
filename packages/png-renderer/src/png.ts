@@ -1,13 +1,13 @@
 import type { Canvas, Image } from '@napi-rs/canvas';
-import type { RenderToSVGOptions } from '@versatiles/renderer-core/render_svg';
-import { CanvasRenderer } from '@versatiles/renderer-core/renderer/canvas';
-import { LRUCache } from '@versatiles/renderer-core/lru_cache';
 import {
+	CanvasRenderer,
+	LRUCache,
 	SVGMapRenderer,
 	viewSize,
+	type RenderToSVGOptions,
 	type SVGMapRendererOptions,
 	type ViewOptions,
-} from '@versatiles/renderer-core/map_renderer';
+} from '@versatiles/renderer-core';
 import { type CanvasBackend, loadCanvasBackend } from './canvas_backend.js';
 
 /**
