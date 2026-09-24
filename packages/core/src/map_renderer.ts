@@ -114,6 +114,12 @@ export interface ViewOptions {
 	 * @defaultValue the style's `zoom`, else `2`
 	 */
 	zoom?: number;
+	/**
+	 * The compass direction that is up, in degrees, as in MapLibre: `90` puts east at the
+	 * top. The map turns around the image's center; labels stay upright.
+	 * @defaultValue the style's `bearing`, else `0`
+	 */
+	bearing?: number;
 }
 
 /**
@@ -123,11 +129,12 @@ export interface ViewOptions {
 function viewCenter(
 	style: StyleSpecification,
 	view: ViewOptions,
-): { center: [number, number]; zoom: number } {
+): { center: [number, number]; zoom: number; bearing: number } {
 	const [styleLon, styleLat] = Array.isArray(style.center) ? style.center : [];
 	return {
 		center: [view.lon ?? finiteOr(styleLon, 0), view.lat ?? finiteOr(styleLat, 0)],
 		zoom: view.zoom ?? finiteOr(style.zoom, 2),
+		bearing: view.bearing ?? finiteOr(style.bearing, 0),
 	};
 }
 

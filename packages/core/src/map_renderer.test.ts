@@ -151,6 +151,22 @@ describe('SVGMapRenderer', () => {
 		);
 	});
 
+	test('projects and unprojects with the bearing of the view, or of the style', () => {
+		const style: StyleSpecification = { ...makeStyle(), bearing: 90 };
+		const map = new SVGMapRenderer({ style });
+		const view = { width: 100, height: 100, lon: 0, lat: 0, zoom: 10 };
+		// East is up with the style's bearing of 90°, and right with a bearing of 0.
+		const [x, y] = map.project(view, [0.01, 0])!;
+		expect(x).toBeCloseTo(50);
+		expect(y).toBeLessThan(50);
+		const [x0, y0] = map.project({ ...view, bearing: 0 }, [0.01, 0])!;
+		expect(x0).toBeGreaterThan(50);
+		expect(y0).toBeCloseTo(50);
+		const [lon, lat] = map.unproject(view, [x, y])!;
+		expect(lon).toBeCloseTo(0.01, 6);
+		expect(lat).toBeCloseTo(0, 6);
+	});
+
 	test("projects with the style's center and zoom as defaults", () => {
 		const map = new SVGMapRenderer({ style: { ...makeStyle(), center: [10, 20], zoom: 3 } });
 		expect(map.project({ width: 100, height: 100 }, [10, 20])).toEqual([50, 50]);

@@ -317,6 +317,65 @@ describe('Projection.unproject', () => {
 	});
 });
 
+describe('Projection with a bearing', () => {
+	const at = (bearing: number, globeness = 0) =>
+		new Projection({ width: 200, height: 100, center: [0, 0], zoom: 2, bearing, globeness });
+	const round = (p: { x: number; y: number }) => [
+		Math.round(p.x * 100) / 100,
+		Math.round(p.y * 100) / 100,
+	];
+
+	test('turns the map around the center: at 90°, east is up', () => {
+		const north = at(0);
+		const east = north.project(0.5 + 0.01, 0.5); // a little east of the center
+		expect(round(east)).toEqual([round(east)[0], 50]);
+		const turned = at(90).project(0.5 + 0.01, 0.5);
+		const distance = east.x - 100;
+		expect(round(turned)).toEqual([100, Math.round((50 - distance) * 100) / 100]);
+	});
+
+	test('unprojects what it projects, on the flat map and on the globe', () => {
+		for (const globeness of [0, 1, 0.5]) {
+			const projection = at(33, globeness);
+			const p = projection.project(0.51, 0.49);
+			const [mx, my] = projection.unproject(p.x, p.y)!;
+			expect(mx).toBeCloseTo(0.51, 6);
+			expect(my).toBeCloseTo(0.49, 6);
+		}
+	});
+
+	test('rotate and unrotate are opposites, and keep the center', () => {
+		const projection = at(-60);
+		const p = projection.rotate(170, 20);
+		expect(projection.unrotate(p.x, p.y).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([170, 20]);
+		expect(round(projection.rotate(100, 50))).toEqual([100, 50]);
+	});
+
+	test('covers the turned image with a larger north-up area', () => {
+		expect(at(0).coveredSize).toEqual({ width: 200, height: 100 });
+		const { width, height } = at(90).coveredSize;
+		expect([Math.round(width), Math.round(height)]).toEqual([100, 200]);
+		const diagonal = at(45).coveredSize;
+		expect(Math.round(diagonal.width)).toBe(Math.round(300 / Math.SQRT2));
+	});
+
+	test('finds the tiles of a turned globe', () => {
+		const globe = new Projection({
+			width: 800,
+			height: 200,
+			center: [0, 0],
+			zoom: 3,
+			globeness: 1,
+			bearing: 90,
+		});
+		// A wide image turned by 90° shows a tall strip of the world: more tiles north–south.
+		const tiles = globe.coveringTiles(3);
+		const ys = new Set(tiles.map((t) => t.y));
+		const xs = new Set(tiles.map((t) => t.x));
+		expect(ys.size).toBeGreaterThan(xs.size);
+	});
+});
+
 describe('mercatorToLonLat', () => {
 	test.each([
 		[0, 0],

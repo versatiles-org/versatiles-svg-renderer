@@ -144,6 +144,26 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('<symbol id="sprite-base:hatch">');
 		});
 
+		test('turns a pattern around its origin with the map', () => {
+			const sprite = {
+				width: 16,
+				height: 8,
+				x: 0,
+				y: 0,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 16,
+				sheetHeight: 8,
+			};
+			const r = makeRenderer();
+			const pattern = { name: 'p', sprite, origin: [30, 40] as [number, number], angle: -45 };
+			r.drawBackgroundFill({ color: mc('#000'), opacity: 1, pattern });
+			expect(r.getString()).toContain(
+				'x="30" y="40" width="8" height="4" patternTransform="rotate(-45 30 40)"',
+			);
+		});
+
 		test('generates path elements', () => {
 			const r = makeRenderer();
 			const feature = makePolygonFeature([

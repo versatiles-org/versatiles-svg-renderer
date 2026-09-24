@@ -1,4 +1,4 @@
-import { Point2D, Feature } from '../geometry.js';
+import { Point2D, Feature, viewArea } from '../geometry.js';
 import type { RenderJob } from '../renderer/svg.js';
 import { calculateTileGrid, getTile, loadSourceTile, type TileLoader } from './tiles.js';
 import type { LayerFeatures } from '../geometry.js';
@@ -104,7 +104,7 @@ function addTileFeatures(
 						id: featureSrc.id,
 						properties: featureSrc.properties,
 					});
-					if (feature.doesOverlap([0, 0, width, height])) list.push(feature);
+					if (feature.doesOverlap(viewArea(width, height))) list.push(feature);
 				}
 			} else {
 				const feature = new Feature({
@@ -114,7 +114,7 @@ function addTileFeatures(
 					id: featureSrc.id,
 					properties: featureSrc.properties,
 				});
-				if (!feature.doesOverlap([0, 0, width, height])) continue;
+				if (!feature.doesOverlap(viewArea(width, height))) continue;
 				list.push(feature);
 				// What a `line` layer strokes of a polygon: its rings, or, where the polygon was
 				// clipped to the tile, the outline without the clipped edges (MapLibre draws the
@@ -179,15 +179,23 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 		}));
 	}
 
+	// A rotated map (bearing) needs the tiles of the north-up area around the image, and
+	// turns their points into place.
+	const rotated = projection !== undefined && projection.bearing !== 0;
+	const covered = rotated ? projection.coveredSize : { width, height };
 	const { zoomLevel, tileSize, tiles } = calculateTileGrid(
-		width,
-		height,
+		covered.width,
+		covered.height,
 		center,
 		zoom,
 		source.maxzoom,
 	);
 	return tiles.map(({ x, y, offsetX, offsetY }) => {
-		const offset = new Point2D(offsetX, offsetY);
+		const offset = new Point2D(
+			offsetX + (width - covered.width) / 2,
+			offsetY + (height - covered.height) / 2,
+		);
+		const scale = tileSize / TILE_EXTENT;
 		return {
 			x,
 			y,
@@ -195,9 +203,10 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 			clipToTile: true,
 			project: (_type, rings) =>
 				rings.map((ring) =>
-					ring.map((point) =>
-						new Point2D(point.x, point.y).scale(tileSize / TILE_EXTENT).translate(offset),
-					),
+					ring.map((point) => {
+						const p = new Point2D(point.x, point.y).scale(scale).translate(offset);
+						return rotated ? projection.rotate(p.x, p.y) : p;
+					}),
 				),
 		};
 	});

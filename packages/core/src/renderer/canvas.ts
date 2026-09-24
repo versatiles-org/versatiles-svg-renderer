@@ -37,6 +37,9 @@ import {
 // is not Chromium's. Tuning one backend must not silently move the other.
 const FILL_OUTLINE_WIDTH_PX = 0.5;
 const BLUR_STD_FACTOR = 0.15;
+
+/** The largest offscreen image a turned pattern is drawn from, in pixels (32 MB). */
+const MAX_PATTERN_IMAGE_PIXELS = 8_000_000;
 const BLUR_OPACITY_K = 1.5;
 // A Gaussian leaves soft, infinite tails; MapLibre's feather has a hard cutoff. The
 // blurred layer's alpha is steepened (slope > 1, intercept < 0) to clip those tails, the
@@ -148,6 +151,7 @@ export class CanvasRenderer implements Renderer {
 			if (style.opacity <= 0) return;
 			const { pattern } = style;
 			const sheet = await this.#decode(pattern.sprite.sheetDataUri);
+			if (pattern.angle) await this.#patternFill(pattern);
 			this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
 				this.#tilePattern(ctx, pattern, sheet, [0, 0, this.width, this.height]);
 			});
@@ -177,6 +181,73 @@ export class CanvasRenderer implements Renderer {
 		const { sprite } = pattern;
 		const width = sprite.width / sprite.pixelRatio;
 		const height = sprite.height / sprite.pixelRatio;
+		const angle = pattern.angle ?? 0;
+		if (angle !== 0) {
+			// Turned with the map: the copies are drawn crisply into an offscreen image of the
+			// area, in the pattern's own frame, which is then drawn turned, in one piece.
+			// (Turned copies drawn one by one would show seams, and a canvas pattern blurs, see
+			// #patternFill.)
+			const radians = (angle * Math.PI) / 180;
+			const cos = Math.cos(radians);
+			const sin = Math.sin(radians);
+			const corners = [
+				[box[0], box[1]],
+				[box[2], box[1]],
+				[box[2], box[3]],
+				[box[0], box[3]],
+			].map(([x, y]) => {
+				const dx = x! - pattern.origin[0];
+				const dy = y! - pattern.origin[1];
+				return [dx * cos + dy * sin, -dx * sin + dy * cos] as const;
+			});
+			const i0 = Math.floor(Math.min(...corners.map(([u]) => u)) / width);
+			const i1 = Math.ceil(Math.max(...corners.map(([u]) => u)) / width);
+			const j0 = Math.floor(Math.min(...corners.map(([, v]) => v)) / height);
+			const j1 = Math.ceil(Math.max(...corners.map(([, v]) => v)) / height);
+			const imageWidth = Math.ceil((i1 - i0) * width * this.scale);
+			const imageHeight = Math.ceil((j1 - j0) * height * this.scale);
+			ctx.save();
+			ctx.translate(pattern.origin[0], pattern.origin[1]);
+			ctx.rotate(radians);
+			if (imageWidth * imageHeight <= MAX_PATTERN_IMAGE_PIXELS) {
+				const image = this.#createCanvas(imageWidth, imageHeight);
+				const tiles = image.getContext('2d');
+				tiles.scale(this.scale, this.scale);
+				for (let j = 0; j < j1 - j0; j++) {
+					for (let i = 0; i < i1 - i0; i++) {
+						tiles.drawImage(
+							sheet,
+							sprite.x,
+							sprite.y,
+							sprite.width,
+							sprite.height,
+							i * width,
+							j * height,
+							width,
+							height,
+						);
+					}
+				}
+				ctx.drawImage(
+					image,
+					i0 * width,
+					j0 * height,
+					imageWidth / this.scale,
+					imageHeight / this.scale,
+				);
+			} else {
+				// A huge area: a canvas pattern, blurred a little, instead of a huge image.
+				const fill = this.#patterns.get(`${pattern.name}\0${sprite.sheetDataUri}`);
+				if (fill) {
+					const scale = 1 / sprite.pixelRatio;
+					fill.setTransform({ a: scale, b: 0, c: 0, d: scale, e: 0, f: 0 });
+					ctx.fillStyle = fill;
+					ctx.fillRect(i0 * width, j0 * height, (i1 - i0) * width, (j1 - j0) * height);
+				}
+			}
+			ctx.restore();
+			return;
+		}
 		// The copies' corners, on whole device pixels so that neighbours meet without a seam.
 		const snap = (value: number): number => Math.round(value * this.scale) / this.scale;
 		const x0 = snap(box[0] - mod(box[0] - pattern.origin[0], width));
@@ -235,6 +306,8 @@ export class CanvasRenderer implements Renderer {
 			if (!pattern) continue;
 			const uri = pattern.sprite.sheetDataUri;
 			if (!sheets.has(uri)) sheets.set(uri, await this.#decode(uri));
+			// A turned pattern is drawn as a canvas pattern (see #tilePattern).
+			if (pattern.angle) await this.#patternFill(pattern);
 			if (style.antialias && style.outlineColor === undefined && !outlineFills.has(pattern)) {
 				outlineFills.set(pattern, await this.#patternFill(pattern));
 			}

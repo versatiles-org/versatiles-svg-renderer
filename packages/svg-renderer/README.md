@@ -59,18 +59,19 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 
 ### `renderToSVG(options): Promise<string>`
 
-| Option         | Type                 | Default                    | Description                                                                            |
-| -------------- | -------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| `style`        | `StyleSpecification` | _(required)_               | MapLibre style specification                                                           |
-| `width`        | `number`             | `1024`                     | Output width in pixels                                                                 |
-| `height`       | `number`             | `1024`                     | Output height in pixels                                                                |
-| `lon`          | `number`             | style's `center`, else `0` | Center longitude                                                                       |
-| `lat`          | `number`             | style's `center`, else `0` | Center latitude                                                                        |
-| `zoom`         | `number`             | style's `zoom`, else `2`   | Zoom level                                                                             |
-| `renderLabels` | `boolean`            | `false`                    | Enable rendering of text labels and icons                                              |
-| `fetch`        | `FetchFunction`      | global `fetch`             | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
-| `onWarning`    | `(message) => void`  | `console.warn`             | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
-| `globalState`  | `GlobalState`        | style's `state`            | Values for `global-state` expressions, over the style's defaults                       |
+| Option         | Type                 | Default                     | Description                                                                            |
+| -------------- | -------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
+| `style`        | `StyleSpecification` | _(required)_                | MapLibre style specification                                                           |
+| `width`        | `number`             | `1024`                      | Output width in pixels                                                                 |
+| `height`       | `number`             | `1024`                      | Output height in pixels                                                                |
+| `lon`          | `number`             | style's `center`, else `0`  | Center longitude                                                                       |
+| `lat`          | `number`             | style's `center`, else `0`  | Center latitude                                                                        |
+| `zoom`         | `number`             | style's `zoom`, else `2`    | Zoom level                                                                             |
+| `bearing`      | `number`             | style's `bearing`, else `0` | Compass direction that is up, in degrees (`90`: east is up)                            |
+| `renderLabels` | `boolean`            | `false`                     | Enable rendering of text labels and icons                                              |
+| `fetch`        | `FetchFunction`      | global `fetch`              | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
+| `onWarning`    | `(message) => void`  | `console.warn`              | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
+| `globalState`  | `GlobalState`        | style's `state`             | Values for `global-state` expressions, over the style's defaults                       |
 
 ### `new SVGMapRenderer(options)`
 
@@ -85,7 +86,7 @@ Renders many views of one style. The options stay the same for every view:
 | `onWarning`     | `(message) => void`  | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                  |
 | `globalState`   | `GlobalState`        | style's `state`      | Values for `global-state` expressions, over the style's defaults                          |
 
-- **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat` and `zoom`, with the same defaults as `renderToSVG`. Renders may run concurrently.
+- **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `bearing`, with the same defaults as `renderToSVG`. Renders may run concurrently.
 - **`project(view, [lon, lat]): [x, y] | undefined`** tells where a coordinate lands in the image of `view`, in the units of `width` and `height`, to place your own drawing on the map. On the globe, a point on the far side gives `undefined`.
 - **`unproject(view, [x, y]): [lon, lat] | undefined`** is the opposite: the coordinate shown at a position in the image, e.g. where a user clicked. It gives `undefined` where the image shows no map: next to the globe, or beyond the poles of the mercator map (about ±85°).
 - **`clearCache()`** forgets the fetched tiles and sprite, e.g. after they were updated on the server.

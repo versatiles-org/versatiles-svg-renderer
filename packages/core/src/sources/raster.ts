@@ -1,4 +1,5 @@
 import type { RenderJob, RasterTile } from '../renderer/svg.js';
+import type { RasterTriangle } from '../renderer/types.js';
 import {
 	calculateTileGrid,
 	getTile,
@@ -46,9 +47,15 @@ export async function getRasterTiles(
 		);
 		return globeTiles.filter((tile): tile is RasterTile => tile !== null);
 	}
+	// A rotated map (bearing) needs the tiles of the north-up area around the image, and
+	// draws each as two triangles turned into place.
+	const rotated = projection !== undefined && projection.bearing !== 0;
+	const covered = rotated ? projection.coveredSize : { width, height };
+	const shiftX = (width - covered.width) / 2;
+	const shiftY = (height - covered.height) / 2;
 	const { zoomLevel, tileSize, tiles } = calculateTileGrid(
-		width,
-		height,
+		covered.width,
+		covered.height,
 		center,
 		zoom,
 		source.maxzoom,
@@ -60,6 +67,36 @@ export async function getRasterTiles(
 			if (!tile) return null;
 
 			const dataUri = tileDataUri(tile);
+
+			if (rotated) {
+				const corner = (u: number, v: number): [number, number] => {
+					const p = projection.rotate(
+						offsetX + shiftX + u * tileSize,
+						offsetY + shiftY + v * tileSize,
+					);
+					return [p.x, p.y];
+				};
+				const [p00, p10, p11, p01] = [corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1)];
+				const triangles: RasterTriangle[] = [
+					{
+						source: [
+							[0, 0],
+							[1, 0],
+							[1, 1],
+						],
+						target: [p00, p10, p11],
+					},
+					{
+						source: [
+							[0, 0],
+							[1, 1],
+							[0, 1],
+						],
+						target: [p00, p11, p01],
+					},
+				];
+				return { x: 0, y: 0, width: 1, height: 1, dataUri, triangles };
+			}
 
 			return {
 				x: offsetX,

@@ -395,7 +395,7 @@ describe('SVGExportControl', () => {
 			expect(list.querySelector('b')).toBeNull();
 		});
 
-		test('warns that a rotated or tilted map is exported north-up and flat', async () => {
+		test('exports a rotated map rotated, and warns that a tilted one is exported flat', async () => {
 			const control = new SVGExportControl();
 			const map = createMockMap({ getBearing: vi.fn(() => 30), getPitch: vi.fn(() => 45) });
 			control
@@ -408,8 +408,8 @@ describe('SVGExportControl', () => {
 				expect(el.hidden).toBe(false);
 				return el;
 			});
+			expect(vi.mocked(renderToSVG).mock.calls[0]![0].bearing).toBe(30);
 			expect([...list.children].map((li) => li.textContent)).toEqual([
-				'The map is rotated: the SVG is exported north-up.',
 				'The map is tilted: the SVG is exported as a flat, top-down view.',
 			]);
 		});
@@ -417,7 +417,7 @@ describe('SVGExportControl', () => {
 		test('keeps the warnings when rendering fails', async () => {
 			(renderToSVG as Mock).mockRejectedValueOnce(new Error('render failed'));
 			const control = new SVGExportControl();
-			const map = createMockMap({ getBearing: vi.fn(() => -90) });
+			const map = createMockMap({ getPitch: vi.fn(() => 30) });
 			control
 				.onAdd(map as never)
 				.querySelector('button')!
@@ -425,7 +425,9 @@ describe('SVGExportControl', () => {
 
 			await vi.waitFor(() => {
 				const el = map.getContainer().querySelector<HTMLUListElement>('.preview-warnings')!;
-				expect(el.textContent).toBe('The map is rotated: the SVG is exported north-up.');
+				expect(el.textContent).toBe(
+					'The map is tilted: the SVG is exported as a flat, top-down view.',
+				);
 			});
 		});
 

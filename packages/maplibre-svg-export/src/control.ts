@@ -321,10 +321,7 @@ export class SVGExportControl implements MapLibreControl {
 		}
 
 		const warnings: string[] = [];
-		// The renderer draws a flat, north-up map only (a fraction of a degree is not visible).
-		if (Math.abs(map.getBearing()) >= 0.1) {
-			warnings.push('The map is rotated: the SVG is exported north-up.');
-		}
+		// The renderer draws a flat map only (a fraction of a degree is not visible).
 		if (map.getPitch() >= 0.1) {
 			warnings.push('The map is tilted: the SVG is exported as a flat, top-down view.');
 		}
@@ -341,6 +338,7 @@ export class SVGExportControl implements MapLibreControl {
 				lon: center.lng,
 				lat: center.lat,
 				zoom,
+				bearing: map.getBearing(),
 				renderLabels,
 				globalState: map.getGlobalState?.(),
 				onWarning: (message) => warnings.push(message),

@@ -90,6 +90,7 @@ export async function drawMap<R extends Renderer>(
 		center: job.view.center,
 		zoom: job.view.zoom,
 		projection: job.style.projection,
+		bearing: job.view.bearing,
 	});
 	const clipCircle = job.projection.clipCircle;
 	if (clipCircle) job.renderer.setClipCircle?.(clipCircle);
@@ -215,6 +216,20 @@ export function sortByKey(
 		.map(({ feature }) => feature);
 }
 
+/**
+ * A `*-translate` in pixels on screen: with its anchor `"map"` (the default), it turns with
+ * the map's bearing; with `"viewport"`, it stays as it is.
+ */
+function screenTranslate(job: RenderJob, translate: unknown, anchor: unknown): [number, number] {
+	const [x, y] = translate as [number, number];
+	const bearing = job.projection?.bearing ?? 0;
+	if (anchor === 'viewport' || bearing === 0) return [x, y];
+	const angle = (bearing * Math.PI) / 180;
+	const cos = Math.cos(angle);
+	const sin = Math.sin(angle);
+	return [x * cos + y * sin, -x * sin + y * cos];
+}
+
 /** Applies `text-transform`, with the locale-aware case mapping MapLibre uses. */
 export function transformText(text: string, transform: unknown): string {
 	if (transform === 'uppercase') return text.toLocaleUpperCase();
@@ -290,15 +305,34 @@ function resolvePattern(layer: Layer, value: unknown): FillPattern | null | unde
 	if (!name) return undefined;
 	const sprite = layer.spriteAtlas.get(name);
 	if (!sprite) return null;
-	return { name, sprite, origin: worldOrigin(layer.job) };
+	const bearing = layer.job.projection?.bearing ?? 0;
+	return {
+		name,
+		sprite,
+		origin: patternOrigin(
+			layer.job,
+			sprite.width / sprite.pixelRatio,
+			sprite.height / sprite.pixelRatio,
+		),
+		angle: bearing === 0 ? undefined : -bearing,
+	};
 }
 
-/** Where the world's origin (mercator 0, 0) is on screen, in the flat map. */
-function worldOrigin(job: RenderJob): [number, number] {
-	const { width, height } = job.renderer;
+/**
+ * A corner of a copy of a pattern of `width` × `height` pixels anchored at the world's origin
+ * (mercator 0, 0), the one nearest to the image's center, turned into place with the map.
+ */
+function patternOrigin(job: RenderJob, width: number, height: number): [number, number] {
+	const { width: w, height: h } = job.renderer;
 	const worldSize = 512 * 2 ** job.view.zoom;
 	const center = new Point2D(job.view.center[0], job.view.center[1]).getProject2Pixel();
-	return [width / 2 - center.x * worldSize, height / 2 - center.y * worldSize];
+	// The world's origin on the north-up map, then the corner of its copies nearest the center.
+	const x = w / 2 - center.x * worldSize;
+	const y = h / 2 - center.y * worldSize;
+	const nearX = x + Math.round((w / 2 - x) / width) * width;
+	const nearY = y + Math.round((h / 2 - y) / height) * height;
+	const turned = job.projection ? job.projection.rotate(nearX, nearY) : new Point2D(nearX, nearY);
+	return [turned.x, turned.y];
 }
 
 async function renderFillLayer(layer: Layer): Promise<void> {
@@ -324,7 +358,11 @@ async function renderFillLayer(layer: Layer): Promise<void> {
 					color: getPaint('fill-color', feature) as MaplibreColor,
 					opacity: getPaint('fill-opacity', feature) as number,
 					pattern,
-					translate: getPaint('fill-translate', feature) as [number, number],
+					translate: screenTranslate(
+						layer.job,
+						getPaint('fill-translate', feature),
+						getPaint('fill-translate-anchor', feature),
+					),
 					// fill-outline-color has no default (stays undefined when unset); the renderer only
 					// draws an outline when a distinct color is given.
 					outlineColor: getPaint('fill-outline-color', feature) as MaplibreColor | undefined,
@@ -353,7 +391,11 @@ function renderLineLayer(layer: Layer): void {
 		const style: LineStyle = {
 			blur: getPaint('line-blur', feature) as number,
 			color: getPaint('line-color', feature) as MaplibreColor,
-			translate: getPaint('line-translate', feature) as [number, number],
+			translate: screenTranslate(
+				layer.job,
+				getPaint('line-translate', feature),
+				getPaint('line-translate-anchor', feature),
+			),
 			cap: getLayout('line-cap', feature) as 'butt' | 'round' | 'square',
 			dasharray: getPaint('line-dasharray', feature) as number[] | undefined,
 			join: getLayout('line-join', feature) as 'bevel' | 'miter' | 'round',
@@ -404,7 +446,11 @@ function renderCircleLayer(layer: Layer): void {
 			color: getPaint('circle-color', feature) as MaplibreColor,
 			opacity: getPaint('circle-opacity', feature) as number,
 			radius: getPaint('circle-radius', feature) as number,
-			translate: getPaint('circle-translate', feature) as [number, number],
+			translate: screenTranslate(
+				layer.job,
+				getPaint('circle-translate', feature),
+				getPaint('circle-translate-anchor', feature),
+			),
 			strokeWidth: getPaint('circle-stroke-width', feature) as number,
 			strokeColor: getPaint('circle-stroke-color', feature) as MaplibreColor,
 			strokeOpacity: getPaint('circle-stroke-opacity', feature) as number,
@@ -496,8 +542,16 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 		const iconPadding = (getLayout('icon-padding', feature) as { values: number[] }).values;
 
 		const placement = getLayout('symbol-placement', feature) as string;
-		const textTranslate = getPaint('text-translate', feature) as [number, number];
-		const iconTranslate = getPaint('icon-translate', feature) as [number, number];
+		const textTranslate = screenTranslate(
+			job,
+			getPaint('text-translate', feature),
+			getPaint('text-translate-anchor', feature),
+		);
+		const iconTranslate = screenTranslate(
+			job,
+			getPaint('icon-translate', feature),
+			getPaint('icon-translate-anchor', feature),
+		);
 		const pointAtAnchor = (x: number, y: number): LayerFeature =>
 			new LayerFeature({
 				type: 'Point',
@@ -518,7 +572,19 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 				: [];
 			const lineHeight = getLayout('text-line-height', feature) as number;
 			const justify = getLayout('text-justify', feature) as string;
-			const lineStyle = labelStyle && lines.length > 0 && { ...labelStyle, text: lines.join('\n') };
+			// Aligned to the map, a label or icon turns with it; to the viewport (the default for
+			// points), it stays upright.
+			const mapRotation = -(job.projection?.bearing ?? 0);
+			const turn = (alignment: unknown): number => (alignment === 'map' ? mapRotation : 0);
+			const textTurn = turn(getLayout('text-rotation-alignment', feature));
+			const iconTurn = turn(getLayout('icon-rotation-alignment', feature));
+			const lineStyle = labelStyle &&
+				lines.length > 0 && {
+					...labelStyle,
+					text: lines.join('\n'),
+					rotate: labelStyle.rotate + textTurn,
+				};
+			const pointIcon = iconStyle && { ...iconStyle, rotate: iconStyle.rotate + iconTurn };
 			for (const point of labelAnchors(feature)) {
 				// text-translate and icon-translate move the label and the icon, and what they block.
 				const tx = point.x + textTranslate[0];
@@ -538,9 +604,9 @@ function prepareSymbolLayer(layer: Layer): SymbolEntry[] {
 					textBoxes = [paddedBox(layout.box, lineStyle, tx, ty, textPadding)];
 				}
 				entries.push({
-					icon: iconStyle && [pointAtAnchor(ix, iy), iconStyle],
+					icon: pointIcon && [pointAtAnchor(ix, iy), pointIcon],
 					label,
-					iconBox: iconStyle && iconBox(ix, iy, iconStyle, sprite!, iconPadding),
+					iconBox: pointIcon && iconBox(ix, iy, pointIcon, sprite!, iconPadding),
 					textBoxes,
 					options,
 					showIcon: false,

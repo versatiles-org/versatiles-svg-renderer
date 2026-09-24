@@ -30,9 +30,9 @@
 		"drift": 0.63
 	},
 	"berlin-labels-vector": {
-		"svg": 4.84,
-		"png": 4.96,
-		"drift": 1.24
+		"svg": 4.61,
+		"png": 4.68,
+		"drift": 1.2
 	},
 	"berlin-satellite": {
 		"svg": 0.58,
@@ -88,5 +88,30 @@
 		"svg": 1.08,
 		"png": 0.89,
 		"drift": 0.39
+	},
+	"berlin-rotated-vector": {
+		"svg": 0.31,
+		"png": 0.18,
+		"drift": 0.26
+	},
+	"berlin-labels-rotated-vector": {
+		"svg": 4.56,
+		"png": 4.6,
+		"drift": 1.26
+	},
+	"berlin-rotated-satellite": {
+		"svg": 0.33,
+		"png": 0.33,
+		"drift": 0
+	},
+	"parity-rotated-features": {
+		"svg": 0.09,
+		"png": 0.08,
+		"drift": 0.01
+	},
+	"europe-rotated-vector-globe": {
+		"svg": 0.22,
+		"png": 0.2,
+		"drift": 0.05
 	}
 }

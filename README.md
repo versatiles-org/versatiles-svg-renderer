@@ -158,7 +158,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | ------------------------------------- | :-: | :-: | ----- |
 | **Camera**                            |     |     |       |
 | Mercator, globe, vertical-perspective | ✅  | ✅  |       |
-| Bearing (rotation)                    | ❌  | ❌  | [#35] |
+| Bearing (rotation)                    | ✅  | ✅  |       |
 | Pitch (tilt)                          | ❌  | ❌  | [#37] |
 | Padding                               | ❌  | ❌  | [#57] |
 | Default view from the style           | ✅  | ✅  |       |
@@ -208,7 +208,6 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 Labels and icons are only drawn with `renderLabels: true`. Interaction, animation and `feature-state` do not apply to a static image.
 
 [parity]: https://github.com/versatiles-org/versatiles-svg-renderer/issues?q=is%3Aopen+label%3Amaplibre-parity
-[#35]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/35
 [#37]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/37
 [#41]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/41
 [#42]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/42

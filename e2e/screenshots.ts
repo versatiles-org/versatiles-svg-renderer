@@ -126,6 +126,7 @@ async function renderSvgShot(
 		lon: region.lon,
 		lat: region.lat,
 		zoom: region.zoom,
+		bearing: region.bearing ?? 0,
 		renderLabels: region.labels ?? false,
 		onWarning: collectWarning,
 	});
@@ -170,6 +171,7 @@ async function renderPngShot(
 		lon: region.lon,
 		lat: region.lat,
 		zoom: region.zoom,
+		bearing: region.bearing ?? 0,
 		renderLabels: region.labels ?? false,
 		fonts,
 		onWarning: collectWarning,
@@ -211,11 +213,13 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 				styleJson,
 				center,
 				zoom,
+				bearing,
 				pixelRatio,
 			}: {
 				styleJson: any;
 				center: [number, number];
 				zoom: number;
+				bearing: number;
 				pixelRatio: number;
 			}) => {
 				return new Promise<void>((resolve, reject) => {
@@ -224,6 +228,7 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 						style: styleJson,
 						center,
 						zoom,
+						bearing,
 						interactive: false,
 						fadeDuration: 0,
 						attributionControl: false,
@@ -237,6 +242,7 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 				styleJson: style,
 				center: [region.lon, region.lat] as [number, number],
 				zoom: region.zoom,
+				bearing: region.bearing ?? 0,
 				pixelRatio: SCALE,
 			},
 		);
@@ -456,7 +462,7 @@ const rows = results
 		<strong>${r.id}</strong><br>
 		lon: ${r.region.lon}<br>
 		lat: ${r.region.lat}<br>
-		zoom: ${r.region.zoom}<br>
+		zoom: ${r.region.zoom}<br>${r.region.bearing ? `\n\t\tbearing: ${r.region.bearing}<br>` : ''}
 		type: ${r.region.type}${r.region.labels ? ' + labels' : ''}<br>
 		SVG: ${r.svgSizeKB.toFixed(0)} KB<br>
 		PNG: ${r.pngSizeKB.toFixed(0)} KB<br>

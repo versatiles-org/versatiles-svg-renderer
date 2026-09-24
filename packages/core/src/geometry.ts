@@ -29,6 +29,18 @@ export interface Features {
 	polygonOutlines?: Feature[];
 }
 
+/**
+ * How far beyond the image a feature is still kept, in pixels: a circle, icon, label or
+ * stroke around a point or line just outside can reach into the image. As far as symbols
+ * are placed beyond it (see `collision.ts`).
+ */
+export const VIEW_MARGIN = 100;
+
+/** The area features are kept in, for an image of `width` × `height` pixels. */
+export function viewArea(width: number, height: number): [number, number, number, number] {
+	return [-VIEW_MARGIN, -VIEW_MARGIN, width + VIEW_MARGIN, height + VIEW_MARGIN];
+}
+
 export type LayerFeatures = Map<string, Features>;
 
 /** The features of each source, by source name. Layer names only need to be unique per source. */

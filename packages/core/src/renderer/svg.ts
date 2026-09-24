@@ -543,9 +543,13 @@ export class SVGRenderer {
 		const width = sprite.width / sprite.pixelRatio;
 		const height = sprite.height / sprite.pixelRatio;
 		// Only the origin's position within one copy matters.
-		const x = mod(origin[0], width);
-		const y = mod(origin[1], height);
-		const key = [pattern.name, sprite.sheetDataUri, x.toFixed(2), y.toFixed(2)].join('\0');
+		// Only the origin's position within one copy matters, unless the pattern turns around it.
+		const angle = pattern.angle ?? 0;
+		const x = angle === 0 ? mod(origin[0], width) : origin[0];
+		const y = angle === 0 ? mod(origin[1], height) : origin[1];
+		const key = [pattern.name, sprite.sheetDataUri, x.toFixed(2), y.toFixed(2), String(angle)].join(
+			'\0',
+		);
 		let def = this.#patternDefs.get(key);
 		if (!def) {
 			const id = `pattern-${String(this.#patternDefs.size)}`;
@@ -553,7 +557,7 @@ export class SVGRenderer {
 			def = {
 				id,
 				content:
-					`<pattern id="${id}" patternUnits="userSpaceOnUse" x="${formatScaled(x)}" y="${formatScaled(y)}" width="${formatScaled(width)}" height="${formatScaled(height)}">` +
+					`<pattern id="${id}" patternUnits="userSpaceOnUse" x="${formatScaled(x)}" y="${formatScaled(y)}" width="${formatScaled(width)}" height="${formatScaled(height)}"${angle === 0 ? '' : ` patternTransform="rotate(${formatScale(angle)} ${formatScaled(x)} ${formatScaled(y)})"`}>` +
 					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${formatScale(1 / sprite.pixelRatio)})" />` +
 					`</pattern>`,
 			};

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { getRasterTiles } from './raster.js';
+import { Projection } from '../projection.js';
 import type { RenderJob, Renderer } from '../renderer/svg.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
@@ -38,6 +39,36 @@ describe('getRasterTiles', () => {
 	test('throws on raster source without tiles', async () => {
 		const job = makeJob({ src: { type: 'raster' } });
 		await expect(getRasterTiles(job, 'src')).rejects.toThrow('Invalid raster source "src"');
+	});
+
+	test('draws the tiles of a turned map as two triangles each, turned into place', async () => {
+		const job = makeJob({ src: { type: 'raster', tiles: ['https://a/{z}/{x}/{y}.png'] } });
+		job.projection = new Projection({
+			width: 512,
+			height: 512,
+			center: [0, 0],
+			zoom: 0,
+			bearing: 90,
+		});
+		const loadTile = vi.fn(() =>
+			Promise.resolve({ buffer: new ArrayBuffer(1), contentType: 'image/png' }),
+		);
+		const tiles = await getRasterTiles(job, 'src', loadTile);
+		// At zoom 0, the world's one tile, also wrapped around once.
+		expect(tiles.length).toBeGreaterThanOrEqual(1);
+		const [first, second] = tiles[0]!.triangles!;
+		expect(first!.source).toEqual([
+			[0, 0],
+			[1, 0],
+			[1, 1],
+		]);
+		expect(second!.source).toEqual([
+			[0, 0],
+			[1, 1],
+			[0, 1],
+		]);
+		// Turned by 90°: the tile's top-left corner is now at the bottom left.
+		expect(first!.target[0].map((v) => Math.round(v))).toEqual([0, 512]);
 	});
 
 	test('returns no tiles for a TileJSON source whose document was not loaded', async () => {

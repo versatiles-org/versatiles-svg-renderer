@@ -8,6 +8,7 @@ import { mapIconAnchor, mapTextAnchor } from '../renderer/anchors.js';
 import type { GlyphPlacement, IconStyle, SymbolStyle } from '../renderer/types.js';
 import type { SpriteEntry } from '../sources/sprite.js';
 import { textWidth } from './text_metrics.js';
+import { VIEW_MARGIN } from '../geometry.js';
 
 /** An axis-aligned box on screen: `[left, top, right, bottom]`. */
 export type Box = [number, number, number, number];
@@ -16,7 +17,7 @@ export type Box = [number, number, number, number];
 const LINE_HEIGHT = 1.2;
 
 /** How far beyond the image symbols are placed, as MapLibre's viewport padding. */
-const VIEWPORT_PADDING = 100;
+const VIEWPORT_PADDING = VIEW_MARGIN;
 
 /** Side length of the cells of the grid index, in pixels. */
 const CELL_SIZE = 32;

@@ -185,6 +185,16 @@ export class Projection {
 	/** Whether geometry on the far side of the globe has to be removed. */
 	public readonly clipsHorizon: boolean;
 
+	/**
+	 * The compass direction that is up, in degrees, as MapLibre's `bearing`: the map is turned
+	 * around the image's center by as much, counterclockwise.
+	 */
+	public readonly bearing: number;
+
+	readonly #cosBearing: number;
+
+	readonly #sinBearing: number;
+
 	readonly #centerX: number;
 
 	readonly #centerY: number;
@@ -210,7 +220,12 @@ export class Projection {
 		center: [number, number];
 		zoom: number;
 		globeness?: number;
+		bearing?: number;
 	}) {
+		this.bearing = opt.bearing ?? 0;
+		const angle = (this.bearing * Math.PI) / 180;
+		this.#cosBearing = Math.cos(angle);
+		this.#sinBearing = Math.sin(angle);
 		this.width = opt.width;
 		this.height = opt.height;
 		this.zoom = opt.zoom;
@@ -242,6 +257,7 @@ export class Projection {
 		center: [number, number];
 		zoom: number;
 		projection?: ProjectionSpecification;
+		bearing?: number;
 	}): Projection {
 		return new Projection({ ...opt, globeness: getGlobeness(opt.projection, opt.zoom) });
 	}
@@ -298,7 +314,7 @@ export class Projection {
 		const flatX = dx * this.worldSize;
 		const flatY = (my - this.#centerY) * this.worldSize;
 		const t = this.globeness;
-		if (t === 0) return new Point2D(flatX + this.width / 2, flatY + this.height / 2);
+		if (t === 0) return this.rotate(flatX + this.width / 2, flatY + this.height / 2);
 
 		v ??= this.toSphere(mx, my);
 		const d = this.#cameraDistance;
@@ -308,10 +324,48 @@ export class Projection {
 		const globeY = -d * r * v[1];
 		const globeW = d + r * (1 - v[2]);
 		const w = d + (globeW - d) * t;
-		return new Point2D(
+		return this.rotate(
 			(d * flatX + (globeX - d * flatX) * t) / w + this.width / 2,
 			(d * flatY + (globeY - d * flatY) * t) / w + this.height / 2,
 		);
+	}
+
+	/**
+	 * A point of the north-up image turned by the bearing around the image's center: where
+	 * it lies in the rotated image.
+	 */
+	public rotate(x: number, y: number): Point2D {
+		if (this.bearing === 0) return new Point2D(x, y);
+		const dx = x - this.width / 2;
+		const dy = y - this.height / 2;
+		return new Point2D(
+			dx * this.#cosBearing + dy * this.#sinBearing + this.width / 2,
+			-dx * this.#sinBearing + dy * this.#cosBearing + this.height / 2,
+		);
+	}
+
+	/** The opposite of {@link Projection.rotate}. */
+	public unrotate(x: number, y: number): [number, number] {
+		if (this.bearing === 0) return [x, y];
+		const dx = x - this.width / 2;
+		const dy = y - this.height / 2;
+		return [
+			dx * this.#cosBearing - dy * this.#sinBearing + this.width / 2,
+			dx * this.#sinBearing + dy * this.#cosBearing + this.height / 2,
+		];
+	}
+
+	/**
+	 * The size of the north-up area whose rotation covers the image: its bounding box. Tiles
+	 * covering it cover the rotated image.
+	 */
+	public get coveredSize(): { width: number; height: number } {
+		const cos = Math.abs(this.#cosBearing);
+		const sin = Math.abs(this.#sinBearing);
+		return {
+			width: this.width * cos + this.height * sin,
+			height: this.width * sin + this.height * cos,
+		};
 	}
 
 	/**
@@ -321,9 +375,10 @@ export class Projection {
 	 */
 	public unproject(x: number, y: number): [number, number] | undefined {
 		const t = this.globeness;
-		const flat = this.#unprojectFlat(x, y);
+		const [ux, uy] = this.unrotate(x, y);
+		const flat = this.#unprojectFlat(ux, uy);
 		if (t === 0) return inWorld(flat);
-		if (t === 1) return this.#unprojectGlobe(x, y);
+		if (t === 1) return this.#unprojectGlobe(ux, uy);
 
 		// The transition has no closed form: find the point by Newton's method, starting
 		// from the flat solution, which is close at these zoom levels.

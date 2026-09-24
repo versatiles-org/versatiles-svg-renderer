@@ -18,6 +18,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'fill-pattern',
 		'fill-sort-key',
 		'fill-translate',
+		'fill-translate-anchor',
 	],
 	line: [
 		'line-blur',
@@ -31,6 +32,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'line-opacity',
 		'line-sort-key',
 		'line-translate',
+		'line-translate-anchor',
 		'line-width',
 	],
 	raster: [
@@ -52,6 +54,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'circle-stroke-opacity',
 		'circle-stroke-width',
 		'circle-translate',
+		'circle-translate-anchor',
 	],
 	symbol: [
 		'icon-allow-overlap',
@@ -69,6 +72,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'icon-rotation-alignment',
 		'icon-size',
 		'icon-translate',
+		'icon-translate-anchor',
 		'symbol-placement',
 		'symbol-sort-key',
 		'symbol-spacing',
@@ -95,6 +99,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-size',
 		'text-transform',
 		'text-translate',
+		'text-translate-anchor',
 	],
 };
 
@@ -104,11 +109,6 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 const WITHOUT_EFFECT = new Set([
 	'visibility',
 	'raster-fade-duration',
-	'fill-translate-anchor',
-	'line-translate-anchor',
-	'circle-translate-anchor',
-	'text-translate-anchor',
-	'icon-translate-anchor',
 	'circle-pitch-alignment',
 	'circle-pitch-scale',
 	'text-pitch-alignment',

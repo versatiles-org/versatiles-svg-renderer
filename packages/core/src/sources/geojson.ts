@@ -1,5 +1,5 @@
 import type { GeoJSON, Geometry } from 'geojson';
-import { Point2D, Feature, GEOJSON_LAYER } from '../geometry.js';
+import { Point2D, Feature, GEOJSON_LAYER, viewArea } from '../geometry.js';
 import type { Features, LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
 
@@ -40,14 +40,13 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 			if (type === 'Polygon') rings = orientRings(rings);
 			return projection.projectGeometry(type, rings);
 		}
+		const rotated = projection !== undefined && projection.bearing !== 0;
 		return rings.map((ring) =>
-			ring.map(
-				([x, y]) =>
-					new Point2D(
-						(x - centerMercator.x) * worldSize + width / 2,
-						(y - centerMercator.y) * worldSize + height / 2,
-					),
-			),
+			ring.map(([x, y]) => {
+				const px = (x - centerMercator.x) * worldSize + width / 2;
+				const py = (y - centerMercator.y) * worldSize + height / 2;
+				return rotated ? projection.rotate(px, py) : new Point2D(px, py);
+			}),
 		);
 	}
 
@@ -58,7 +57,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 		properties: Record<string, unknown>,
 	): Feature | null {
 		const feature = new Feature({ type, geometry, id, properties });
-		if (!feature.doesOverlap([0, 0, width, height])) return null;
+		if (!feature.doesOverlap(viewArea(width, height))) return null;
 		return feature;
 	}
 

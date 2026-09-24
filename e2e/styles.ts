@@ -28,6 +28,8 @@ export interface Region {
 	 * clipped edges.
 	 */
 	outlines?: boolean;
+	/** The compass direction that is up, in degrees (MapLibre's `bearing`). */
+	bearing?: number;
 }
 
 export const regions: Region[] = [
@@ -40,6 +42,30 @@ export const regions: Region[] = [
 
 	{ name: 'berlin-labels', lon: 13.357, lat: 52.515, zoom: 14.2, type: 'vector', labels: true },
 	{ name: 'berlin-outlines', lon: 13.399, lat: 52.519, zoom: 15.5, type: 'vector', outlines: true },
+
+	// Rotated maps: the map, satellite tiles, labels (upright at points, along their lines),
+	// patterns and the globe all turn with the bearing.
+	{ name: 'berlin-rotated', lon: 13.357, lat: 52.515, zoom: 14.2, type: 'vector', bearing: 30 },
+	{
+		name: 'berlin-labels-rotated',
+		lon: 13.357,
+		lat: 52.515,
+		zoom: 14.2,
+		type: 'vector',
+		labels: true,
+		bearing: -60,
+	},
+	{ name: 'berlin-rotated', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite', bearing: -45 },
+	{ name: 'parity-rotated', lon: 0, lat: 0, zoom: 12, type: 'features', bearing: 30 },
+	{
+		name: 'europe-rotated',
+		lon: 12,
+		lat: 50,
+		zoom: 3.5,
+		type: 'vector',
+		projection: 'globe',
+		bearing: 20,
+	},
 
 	{ name: 'berlin', lon: 13.376, lat: 52.518, zoom: 15, type: 'satellite' },
 

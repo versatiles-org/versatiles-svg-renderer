@@ -257,9 +257,14 @@ describe('renderMap', () => {
 			const pattern = drawn[0]![1].pattern!;
 			expect(pattern.name).toBe('base:hatch');
 			expect(pattern.sprite).toBe(sprite);
-			// The world's origin, for the view at 0/0, zoom 10 on a 256 px image.
+			// A corner aligned with the world's origin (for the view at 0/0, zoom 10 on a
+			// 256 px image, at 128 − worldSize / 2), whole copies of 8 px away, near the center.
 			const worldSize = 512 * 2 ** 10;
-			expect(pattern.origin).toEqual([128 - worldSize / 2, 128 - worldSize / 2]);
+			for (const coordinate of pattern.origin) {
+				expect((coordinate - (128 - worldSize / 2)) % 8).toBe(0);
+				expect(Math.abs(coordinate - 128)).toBeLessThanOrEqual(4);
+			}
+			expect(pattern.angle).toBeUndefined();
 		});
 
 		test('does not load the sprite without labels and patterns', async () => {
@@ -736,6 +741,71 @@ describe('renderMap', () => {
 	});
 
 	describe('symbol layers', () => {
+		test('turns map-aligned translations, labels and patterns with the bearing', async () => {
+			const sprite = {
+				width: 16,
+				height: 16,
+				x: 0,
+				y: 0,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 16,
+				sheetHeight: 16,
+			};
+			(loadSpriteAtlas as Mock).mockResolvedValue(new Map([['hatch', sprite]]));
+			const place = makePointFeature([[[128, 128]]], { name: 'X' });
+			const square = makePolygonFeature([
+				[
+					[0, 0],
+					[50, 0],
+					[50, 50],
+					[0, 0],
+				],
+			]);
+			setLayerFeatures(new Map([['l', makeFeatures({ points: [place], polygons: [square] })]]));
+			const job = {
+				...makeJob(
+					makeStyle([
+						{
+							id: 'fill',
+							type: 'fill',
+							source: 'src',
+							'source-layer': 'l',
+							paint: { 'fill-pattern': 'hatch', 'fill-translate': [10, 0] },
+						},
+						{
+							id: 'viewport',
+							type: 'fill',
+							source: 'src',
+							'source-layer': 'l',
+							paint: { 'fill-translate': [10, 0], 'fill-translate-anchor': 'viewport' },
+						},
+						{
+							id: 'labels',
+							type: 'symbol',
+							source: 'src',
+							'source-layer': 'l',
+							layout: { 'text-field': '{name}', 'text-rotation-alignment': 'map' },
+						},
+					]),
+					10,
+					{ renderLabels: true },
+				),
+				view: { center: [0, 0] as [number, number], zoom: 10, bearing: 90 },
+			};
+			const drawPolygons = vi.spyOn(job.renderer, 'drawPolygons');
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+
+			const [patterned, viewport] = drawPolygons.mock.calls.map(([, f]) => f[0]![1]);
+			// East (10, 0) on a map turned by 90° is up: (0, -10). On the viewport, it stays.
+			expect(patterned!.translate.map((v) => Math.round(v))).toEqual([0, -10]);
+			expect(viewport!.translate).toEqual([10, 0]);
+			expect(patterned!.pattern!.angle).toBe(-90);
+			expect(drawLabels.mock.calls[0]![1][0]![1].rotate).toBe(-90);
+		});
+
 		test('moves labels by text-translate, together with the area they block', async () => {
 			const points = [
 				makePointFeature([[[100, 100]]], { name: 'moved' }),

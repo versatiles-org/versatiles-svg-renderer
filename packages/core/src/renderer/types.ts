@@ -6,6 +6,8 @@ import type { ClipCircle, Projection } from '../projection.js';
 export interface View {
 	center: [number, number];
 	zoom: number;
+	/** The compass direction that is up, in degrees (see `Projection.bearing`). */
+	bearing?: number;
 }
 
 /**
@@ -86,10 +88,12 @@ export interface FillPattern {
 	name: string;
 	sprite: SpriteEntry;
 	/**
-	 * A screen point where one copy of the image has its top-left corner: the world's
-	 * origin, so the pattern moves with the map.
+	 * A screen point where one copy of the image has its top-left corner: one aligned with
+	 * the world's origin, so the pattern moves with the map.
 	 */
 	origin: [number, number];
+	/** How far the pattern turns around `origin`, clockwise in degrees: with the map's bearing. */
+	angle?: number;
 }
 
 export interface FillStyle {
