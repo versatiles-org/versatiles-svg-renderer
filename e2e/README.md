@@ -13,13 +13,13 @@ MapLibre GL. Run the whole suite with `npm run test:e2e`.
 
 ## Shared helpers
 
-| File             | What it provides                                                                                                                                                                                                                                         |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `regions.ts`     | The `regions` under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                                             |
-| `styles.ts`      | `getStyle()`, the style of a region, and the fonts the styles name (used by `screenshots.ts` and `../bench/`).                                                                                                                                           |
-| `scenes/`        | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts` and `symbols.ts`, built with `grid.ts`; `test-sprite.ts` is the symbols' sprite.                                                                                    |
-| `fetch-cache.ts` | An on-disk cache/proxy for upstream requests (tiles, sprite, glyphs, maplibre-gl) so runs are deterministic and offline after one warm run. Cached under `.cache/` (gitignored).                                                                         |
-| `visual/`        | The parts of `screenshots.ts`: `capture.ts` renders a region three ways, `compare.ts` measures the diffs and grades them against the baseline (with its tests), `report.ts` writes the HTML report, `output.ts` holds the image size and output folders. |
+| File             | What it provides                                                                                                                                                                                                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `regions.ts`     | The `regions` under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                                                                                                    |
+| `styles.ts`      | `getStyle()`, the style of a region, and the fonts the styles name (used by `screenshots.ts` and `../bench/`).                                                                                                                                                                                                  |
+| `scenes/`        | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts` and `symbols.ts`, built with `grid.ts`; `test-sprite.ts` is the symbols' sprite.                                                                                                                                           |
+| `fetch-cache.ts` | An on-disk cache/proxy for upstream requests (tiles, sprite, glyphs, maplibre-gl) so runs are deterministic and offline after one warm run. Cached under `.cache/` (gitignored).                                                                                                                                |
+| `visual/`        | The parts of `screenshots.ts`: `capture.ts` renders a region three ways, `compare.ts` measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests), `report.ts` writes the HTML report, `output.ts` holds the image size and output folders. |
 
 Generated screenshots, diffs, and the report land in `output/` (gitignored).
 
@@ -48,6 +48,12 @@ stretchable icons, a turned icon). Each cell is one object: a title, and a funct
 builds its sources and layers around the cell's center. When a renderer gains a feature
 MapLibre has, give it a cell in a scene (or start a new scene, with a region of its
 own), so its diff is measured without the noise of a real map.
+
+For these regions, each cell is also measured on its own: the part of the image nearest
+to the cell's center. The report lists every cell's three numbers, and the console prints a
+cell that changed beyond the gate's tolerance below its region's line, so a change points
+straight at the feature. The cells' numbers are stored with the region's in
+`diff-baseline.json`, but only the region's own numbers can fail the run.
 
 The symbols' sprite (`scenes/test-sprite.ts`) has what the VersaTiles sprites lack,
 stretchable images. It is drawn when the scene's style is built, and put into the fetch

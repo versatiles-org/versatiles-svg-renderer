@@ -11,12 +11,17 @@ import type {
 import type { Feature, Geometry } from 'geojson';
 
 /** The centers of the grid's columns (longitudes) and rows (latitudes), in degrees. */
-const COLUMNS = [-0.045, 0, 0.045];
-const ROWS = [0.033, 0, -0.033];
+export const COLUMNS = [-0.045, 0, 0.045];
+export const ROWS = [0.033, 0, -0.033];
+
+/** The center of the `i`-th cell, row by row: `[lon, lat]`. */
+export function cellCenter(i: number): [number, number] {
+	return [COLUMNS[i % 3]!, ROWS[Math.floor(i / 3)]!];
+}
 
 /** One check: sources and layers drawn around the cell's center, and nowhere else. */
 export interface Cell {
-	/** What the cell checks, in a few words. */
+	/** What the cell checks, in a few words; unique within the scene, as its baseline's key. */
 	title: string;
 	/** The cell's sources and layers; their ids must be unique within the scene. */
 	build(
@@ -37,6 +42,8 @@ export function gridStyle(
 	style: Partial<Omit<StyleSpecification, 'sources' | 'layers'>> = {},
 ): StyleSpecification {
 	if (cells.length > COLUMNS.length * ROWS.length) throw new Error('too many cells for the grid');
+	const titles = cells.map(({ title }) => title);
+	if (new Set(titles).size < titles.length) throw new Error('two cells have the same title');
 	const scene: StyleSpecification = {
 		version: 8,
 		...style,
@@ -44,7 +51,7 @@ export function gridStyle(
 		layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#ffffff' } }],
 	};
 	cells.forEach((cell, i) => {
-		const { sources = {}, layers } = cell.build(COLUMNS[i % 3]!, ROWS[Math.floor(i / 3)]!);
+		const { sources = {}, layers } = cell.build(...cellCenter(i));
 		for (const [id, source] of Object.entries(sources)) {
 			if (id in scene.sources) throw new Error(`source "${id}" is in two cells`);
 			scene.sources[id] = source;

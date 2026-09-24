@@ -4,10 +4,11 @@
 import { resolve } from 'node:path';
 import { inlineSources, osm, satellite } from '@versatiles/style';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import type { Region } from './regions.js';
-import { featuresStyle } from './scenes/features.js';
+import type { Region, StyleName } from './regions.js';
+import { cells as featureCells, featuresStyle } from './scenes/features.js';
 import { geojsonStyle } from './scenes/geojson.js';
-import { symbolsStyle } from './scenes/symbols.js';
+import type { Cell } from './scenes/grid.js';
+import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
 
 /**
  * The fonts the styles name in `text-font`, mapped to real files.
@@ -62,6 +63,13 @@ async function buildStyle(
 		case 'symbols':
 			return symbolsStyle();
 	}
+}
+
+/** The cells of a style that is a grid of single-feature checks (see `scenes/grid.ts`). */
+export function sceneCells(name: StyleName): Cell[] | undefined {
+	if (name === 'features') return featureCells;
+	if (name === 'symbols') return symbolCells;
+	return undefined;
 }
 
 /** Line layers on polygons, which the VersaTiles styles do not have. */

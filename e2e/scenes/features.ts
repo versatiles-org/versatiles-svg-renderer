@@ -18,7 +18,8 @@ function sortKeyed(make: (i: number) => Geometry) {
 	return collection(colors.map((color, i) => feature(make(i), { color, key: 3 - i })));
 }
 
-const cells: Cell[] = [
+/** The scene's cells, row by row. */
+export const cells: Cell[] = [
 	{
 		title: 'fill-sort-key',
 		build: (x, y) => ({

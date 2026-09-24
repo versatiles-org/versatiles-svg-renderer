@@ -75,7 +75,8 @@ function symbol(options: {
 	};
 }
 
-const cells: Cell[] = [
+/** The scene's cells, row by row. */
+export const cells: Cell[] = [
 	symbol({
 		id: 'fit-both',
 		title: 'fit both, padding',

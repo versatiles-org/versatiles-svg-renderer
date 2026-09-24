@@ -77,7 +77,7 @@ for (const region of selectedRegions) {
 			console.log(dim(`  ${id}: ${message} — retrying`));
 		});
 		const { svgSizeKB, pngSizeKB } = shots;
-		result = { region, metrics: measure(region, shots), svgSizeKB, pngSizeKB };
+		result = { region, ...measure(region, shots), svgSizeKB, pngSizeKB };
 	} catch (error) {
 		console.log(red(`  ${id}: render failed — ${String(error)}`));
 		failed = true;
@@ -91,11 +91,21 @@ for (const region of selectedRegions) {
 		return formatMetric(name, metrics[name], verdict);
 	});
 	console.log(`  ${id}: ${parts.join('  ')}`);
+	// A grid scene's cells that changed, to point at the feature: informational only.
+	for (const [title, cell] of Object.entries(result.cells ?? {})) {
+		const changed = METRICS.flatMap((name) => {
+			const verdict = gate(cell[name], baseline[id]?.cells?.[title]?.[name]);
+			return verdict.kind === 'same' || verdict.kind === 'new'
+				? []
+				: [formatMetric(name, cell[name], verdict)];
+		});
+		if (changed.length > 0) console.log(`    cell "${title}": ${changed.join('  ')}`);
+	}
 	for (const warning of warnings) console.log(dim(`    not drawn: ${warning}`));
 	warnings.clear();
 
 	results.push(result);
-	measured[id] = metrics;
+	measured[id] = result.cells ? { ...metrics, cells: result.cells } : metrics;
 }
 
 await capture.close();

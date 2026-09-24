@@ -47,7 +47,54 @@
 	"parity-features": {
 		"svg": 0.07,
 		"png": 0.06,
-		"drift": 0
+		"drift": 0,
+		"cells": {
+			"fill-sort-key": {
+				"svg": 0.21,
+				"png": 0.21,
+				"drift": 0
+			},
+			"line-sort-key": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"circle-sort-key": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"circle opacities, circle-blur": {
+				"svg": 0,
+				"png": 0.01,
+				"drift": 0
+			},
+			"line-gap-width": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"global-state": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"fill-pattern": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"translucent pattern, outline": {
+				"svg": 0.41,
+				"png": 0.28,
+				"drift": 0
+			},
+			"data-driven pattern, missing image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			}
+		}
 	},
 	"world-vector-globe": {
 		"svg": 0.35,
@@ -107,7 +154,54 @@
 	"parity-rotated-features": {
 		"svg": 0.03,
 		"png": 0.03,
-		"drift": 0.01
+		"drift": 0.01,
+		"cells": {
+			"fill-sort-key": {
+				"svg": 0.07,
+				"png": 0.07,
+				"drift": 0
+			},
+			"line-sort-key": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"circle-sort-key": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"circle opacities, circle-blur": {
+				"svg": 0,
+				"png": 0.01,
+				"drift": 0
+			},
+			"line-gap-width": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"global-state": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"fill-pattern": {
+				"svg": 0.02,
+				"png": 0.01,
+				"drift": 0
+			},
+			"translucent pattern, outline": {
+				"svg": 0.14,
+				"png": 0.14,
+				"drift": 0.07
+			},
+			"data-driven pattern, missing image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			}
+		}
 	},
 	"europe-rotated-vector-globe": {
 		"svg": 0.22,
@@ -132,6 +226,53 @@
 	"parity-symbols": {
 		"svg": 0.09,
 		"png": 0.09,
-		"drift": 0
+		"drift": 0,
+		"cells": {
+			"fit both, padding": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"fit width": {
+				"svg": 0.09,
+				"png": 0.09,
+				"drift": 0
+			},
+			"fit height, two lines": {
+				"svg": 0.07,
+				"png": 0.07,
+				"drift": 0
+			},
+			"plain image, fit both": {
+				"svg": 0.4,
+				"png": 0.4,
+				"drift": 0
+			},
+			"fit both, icon-size": {
+				"svg": 0.01,
+				"png": 0.01,
+				"drift": 0
+			},
+			"plain image, turned": {
+				"svg": 0.13,
+				"png": 0.13,
+				"drift": 0
+			},
+			"fit both, on a line": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"turned icon, offset": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"fit both, anchor + offset": {
+				"svg": 0.04,
+				"png": 0.04,
+				"drift": 0
+			}
+		}
 	}
 }

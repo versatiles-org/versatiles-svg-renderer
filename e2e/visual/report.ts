@@ -12,6 +12,8 @@ import { HEIGHT, outputDir, WIDTH } from './output.js';
 export interface Result {
 	region: Region;
 	metrics: Metrics;
+	/** A grid scene's cells, by title. */
+	cells?: Record<string, Metrics>;
 	svgSizeKB: number;
 	pngSizeKB: number;
 }
@@ -42,7 +44,25 @@ function metricCell(label: string, value: number, base: number | undefined): str
 	return `<div><strong>${label}:</strong> <span style="color:${color}">${value.toFixed(2)}%${mark}</span>${was}</div>`;
 }
 
-function row({ region, metrics, svgSizeKB, pngSizeKB }: Result, base?: Partial<Metrics>): string {
+/** A grid scene's cells and their metrics, graded against their baselines. */
+function cellTable(cells: Record<string, Metrics>, base: Baseline[string] | undefined): string {
+	const grade = (value: number, baseValue: number | undefined): string => {
+		const verdict = gate(value, baseValue);
+		const color = fails(verdict) ? 'red' : verdict.kind === 'better' ? 'green' : '#333';
+		const mark = fails(verdict) ? ' ▲' : verdict.kind === 'better' ? ' ▼' : '';
+		return `<td style="color:${color}">${value.toFixed(2)}%${mark}</td>`;
+	};
+	const rows = Object.entries(cells).map(([title, cell]) => {
+		const cellBase = base?.cells?.[title];
+		return `<tr><td>${title}</td>${grade(cell.svg, cellBase?.svg)}${grade(cell.png, cellBase?.png)}${grade(cell.drift, cellBase?.drift)}</tr>`;
+	});
+	return `<table class="cells"><tr><th>cell</th><th>SVG</th><th>PNG</th><th>drift</th></tr>${rows.join('')}</table>`;
+}
+
+function row(
+	{ region, metrics, cells, svgSizeKB, pngSizeKB }: Result,
+	base?: Baseline[string],
+): string {
 	const { id, view } = region;
 	const thumb = (dir: string, link: string): string =>
 		`<td><a href="${link}"><img src="${dir}/${id}.png" width="${THUMB}" height="${Math.round((THUMB * HEIGHT) / WIDTH)}"></a></td>`;
@@ -58,6 +78,7 @@ function row({ region, metrics, svgSizeKB, pngSizeKB }: Result, base?: Partial<M
 		${metricCell('SVG vs ML', metrics.svg, base?.svg)}
 		${metricCell('PNG vs ML', metrics.png, base?.png)}
 		${metricCell('drift', metrics.drift, base?.drift)}
+		${cells ? cellTable(cells, base) : ''}
 	</td>
 	${thumb('maplibre', `maplibre/${id}.png`)}
 	${thumb('svg', `svg/${id}.svg`)}
@@ -84,6 +105,8 @@ function page(rows: string): string {
 	th:first-child { z-index: 3; }
 	img { display: block; }
 	td div { margin-top: 4px; white-space: nowrap; }
+	table.cells { margin-top: 8px; font-size: 12px; }
+	table.cells th, table.cells td { position: static; padding: 2px 6px; white-space: nowrap; }
 </style>
 </head><body>
 <h1>E2E Visual Comparison Report</h1>

@@ -6,7 +6,9 @@ import { resolve } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import type { Region, StyleName } from '../regions.js';
+import { sceneCells } from '../styles.js';
 import type { Shots } from './capture.js';
+import { cellMap, cellShares } from './cells.js';
 import { folders } from './output.js';
 
 /**
@@ -38,20 +40,44 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	satellite: 0.1,
 };
 
+/** A region's metrics, and for a grid scene each cell's, by the cell's title. */
+export interface Measurement {
+	metrics: Metrics;
+	cells?: Record<string, Metrics>;
+}
+
 /** Measures the three renders of `region`, and writes the diff images. */
-export function measure(region: Region, shots: Shots): Metrics {
+export function measure(region: Region, shots: Shots): Measurement {
 	const threshold = PIXELMATCH_THRESHOLD[region.style];
-	const compare = (a: PNG, b: PNG, folder: string): number => {
+	const diffs = {} as Record<MetricName, PNG>;
+	const compare = (name: MetricName, a: PNG, b: PNG, folder: string): number => {
 		const { width, height } = a;
 		const diff = new PNG({ width, height });
 		const mismatch = pixelmatch(a.data, b.data, diff.data, width, height, { threshold });
 		writeFileSync(resolve(folder, `${region.id}.png`), PNG.sync.write(diff));
+		diffs[name] = diff;
 		return (mismatch / (width * height)) * 100;
 	};
+	const metrics: Metrics = {
+		svg: compare('svg', shots.maplibre, shots.svg, folders.diff),
+		png: compare('png', shots.maplibre, shots.png, folders.diffPng),
+		drift: compare('drift', shots.svg, shots.png, folders.drift),
+	};
+
+	const cells = sceneCells(region.style);
+	if (!cells) return { metrics };
+	const map = cellMap(region, cells.length);
+	const shares = Object.fromEntries(
+		METRICS.map((name) => [name, cellShares(diffs[name].data, map, cells.length)]),
+	) as Record<MetricName, number[]>;
 	return {
-		svg: compare(shots.maplibre, shots.svg, folders.diff),
-		png: compare(shots.maplibre, shots.png, folders.diffPng),
-		drift: compare(shots.svg, shots.png, folders.drift),
+		metrics,
+		cells: Object.fromEntries(
+			cells.map(({ title }, i) => [
+				title,
+				{ svg: shares.svg[i]!, png: shares.png[i]!, drift: shares.drift[i]! },
+			]),
+		),
 	};
 }
 
@@ -62,7 +88,13 @@ export function measure(region: Region, shots: Shots): Metrics {
  * environments that run this suite, so the gate passes in all of them; a lower number
  * elsewhere reads as an improvement rather than a failure.
  */
-export type Baseline = Record<string, Partial<Metrics>>;
+export type Baseline = Record<
+	string,
+	Partial<Metrics> & {
+		/** A grid scene's cells, by title: informational, they do not fail the run. */
+		cells?: Record<string, Partial<Metrics>>;
+	}
+>;
 
 const baselinePath = resolve(import.meta.dirname, '..', 'diff-baseline.json');
 
@@ -86,15 +118,24 @@ export function readBaseline(): Baseline {
 
 /** Writes `diff-baseline.json`, each metric rounded to 0.01. Returns the file's path. */
 export function writeBaseline(baseline: Baseline): string {
+	const round = (metrics: Partial<Metrics>) =>
+		Object.fromEntries(
+			METRICS.filter((name) => metrics[name] !== undefined).map((name) => [
+				name,
+				Math.round(metrics[name]! * 100) / 100,
+			]),
+		);
 	const rounded = Object.fromEntries(
-		Object.entries(baseline).map(([id, metrics]) => [
+		Object.entries(baseline).map(([id, { cells, ...metrics }]) => [
 			id,
-			Object.fromEntries(
-				METRICS.filter((name) => metrics[name] !== undefined).map((name) => [
-					name,
-					Math.round(metrics[name]! * 100) / 100,
-				]),
-			),
+			cells
+				? {
+						...round(metrics),
+						cells: Object.fromEntries(
+							Object.entries(cells).map(([title, cell]) => [title, round(cell)]),
+						),
+					}
+				: round(metrics),
 		]),
 	);
 	writeFileSync(baselinePath, JSON.stringify(rounded, null, '\t') + '\n');
