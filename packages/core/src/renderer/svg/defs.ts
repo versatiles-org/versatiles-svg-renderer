@@ -91,7 +91,6 @@ export class SvgDefs {
 		const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
 		const width = sprite.width * scale;
 		const height = sprite.height * scale;
-		// Only the origin's position within one copy matters.
 		// Only the origin's position within one copy matters, unless the pattern turns around it.
 		const angle = pattern.angle ?? 0;
 		const x = angle === 0 ? mod(origin[0], width) : origin[0];

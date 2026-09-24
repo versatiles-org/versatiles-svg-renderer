@@ -1,5 +1,5 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import type { ClipCircle, Feature, Padding, Projection } from './geo/index.js';
+import type { ClipCircle, Feature, Padding, Projection, RasterTriangle } from './geo/index.js';
 import type { SpriteAtlas, SpriteEntry } from './sources/index.js';
 
 export interface View {
@@ -281,13 +281,4 @@ export interface RasterTile {
 	 * with: its triangles are drawn without the underlay that reaches beyond its border.
 	 */
 	standalone?: boolean;
-}
-
-type Triangle = [[number, number], [number, number], [number, number]];
-
-export interface RasterTriangle {
-	/** Corners of the triangle within the tile image, in tile units (0..1). */
-	source: Triangle;
-	/** The same corners on screen, in pixels. */
-	target: Triangle;
 }

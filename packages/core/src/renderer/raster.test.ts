@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { bleedAtTileBorder, meshTriangles, rasterFilter, tileOverlap } from './raster.js';
-import type { RasterStyle, RasterTriangle } from '../types.js';
+import type { RasterTriangle } from '../geo/index.js';
+import type { RasterStyle } from '../types.js';
 
 function style(overrides: Partial<RasterStyle> = {}): RasterStyle {
 	return {

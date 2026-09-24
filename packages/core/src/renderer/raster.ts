@@ -1,4 +1,5 @@
-import type { RasterStyle, RasterTriangle } from '../types.js';
+import type { RasterTriangle } from '../geo/index.js';
+import type { RasterStyle } from '../types.js';
 
 /**
  * How every backend draws raster tiles: their colour adjustments, the slight overlap of

@@ -15,5 +15,6 @@ export {
 	Projection,
 	type ClipCircle,
 	type Padding,
+	type RasterTriangle,
 	type TileID,
 } from './projection.js';

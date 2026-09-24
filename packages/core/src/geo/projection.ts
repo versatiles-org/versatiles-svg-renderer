@@ -1,7 +1,6 @@
 import type { ProjectionSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Point2D } from './geometry.js';
 import { getGlobeness } from './globeness.js';
-import type { RasterTriangle } from '../types.js';
 
 /**
  * Map projection: web mercator, MapLibre's globe ("vertical-perspective") or a blend of both.
@@ -68,6 +67,16 @@ export interface TileID {
 	x: number;
 	y: number;
 	z: number;
+}
+
+type Triangle = [[number, number], [number, number], [number, number]];
+
+/** A triangle of a raster tile's mesh on the globe, drawn with its own affine transform. */
+export interface RasterTriangle {
+	/** Corners of the triangle within the tile image, in tile units (0..1). */
+	source: Triangle;
+	/** The same corners on screen, in pixels. */
+	target: Triangle;
 }
 
 /** A mercator point wrapped east-west, or `undefined` if it lies beyond the poles. */

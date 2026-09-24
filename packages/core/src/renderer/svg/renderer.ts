@@ -1,4 +1,4 @@
-import type { ClipCircle, Feature } from '../../geo/index.js';
+import type { ClipCircle, Feature, RasterTriangle } from '../../geo/index.js';
 import { Color } from '../color.js';
 import {
 	chainSegments,
@@ -34,7 +34,6 @@ import type {
 	PlacedGlyph,
 	LineStyle,
 	RasterStyle,
-	RasterTriangle,
 	RasterTile,
 	RendererOptions,
 	SymbolStyle as LabelStyle,

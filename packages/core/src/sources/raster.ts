@@ -1,4 +1,5 @@
-import type { RasterTile, RasterTriangle, RenderJob } from '../types.js';
+import type { RasterTriangle } from '../geo/index.js';
+import type { RasterTile, RenderJob } from '../types.js';
 import {
 	calculateTileGrid,
 	getTile,
