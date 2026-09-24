@@ -15,7 +15,9 @@ MapLibre GL. Run the whole suite with `npm run test:e2e`.
 
 | File             | What it provides                                                                                                                                                                 |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `styles.ts`      | The `regions` under test and `getStyle()` (used by both `screenshots.ts` and other harnesses).                                                                                   |
+| `regions.ts`     | The `regions` under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                     |
+| `styles.ts`      | `getStyle()`, the style of a region, and the fonts the styles name (used by `screenshots.ts` and `../bench/`).                                                                   |
+| `scenes/`        | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts` and `symbols.ts`, built with `grid.ts`; `test-sprite.ts` is the symbols' sprite.            |
 | `fetch-cache.ts` | An on-disk cache/proxy for upstream requests (tiles, sprite, glyphs, maplibre-gl) so runs are deterministic and offline after one warm run. Cached under `.cache/` (gitignored). |
 
 Generated screenshots, diffs, and the report land in `output/` (gitignored).
@@ -37,10 +39,18 @@ white before diffing: it leaves unpainted areas transparent — most visibly aro
 the globe — while both screenshots come off a white page, so an unflattened diff
 would report every unpainted pixel as a mismatch.
 
-The `parity-features` region is a hand-made style that checks single MapLibre
-features, one per cell of a grid: sort keys, circle opacities and blur,
-`line-gap-width`, `global-state` and fill patterns. When a renderer gains a feature MapLibre has, give it a cell there, so
-its diff is measured without the noise of a real map.
+The `parity-*` regions draw scenes that check single MapLibre features, one per cell of a
+3 × 3 grid, so a mismatch in the diff image points straight at its cell:
+`scenes/features.ts` (sort keys, circle opacities and blur, `line-gap-width`,
+`global-state`, fill patterns) and `scenes/symbols.ts` (`icon-text-fit` with
+stretchable icons, a turned icon). Each cell is one object: a title, and a function that
+builds its sources and layers around the cell's center. When a renderer gains a feature
+MapLibre has, give it a cell in a scene (or start a new scene, with a region of its
+own), so its diff is measured without the noise of a real map.
+
+The symbols' sprite (`scenes/test-sprite.ts`) has what the VersaTiles sprites lack,
+stretchable images. It is drawn when the scene's style is built, and put into the fetch
+cache under an address that does not exist, where MapLibre and the renderers find it.
 
 To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector npm run
 test:e2e:screenshots`. With `UPDATE_BASELINE=1`, such a run re-blesses only those
@@ -53,7 +63,7 @@ The `*-rotated` and `*-padded` regions are rendered with a `bearing` or `padding
 compared with MapLibre with the same.
 
 Labels and icons are switched off in every region but `berlin-labels-vector` (and its
-rotated twin).
+rotated twin) and `parity-symbols`.
 MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
 difference is large and inherent; confining it to one region keeps it measured
 without letting it dominate every other diff.

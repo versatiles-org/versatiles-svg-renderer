@@ -6,7 +6,7 @@
  * MapLibre (in the browser) and the renderers (in Node) both load it from there.
  */
 import { createCanvas } from '@napi-rs/canvas';
-import { writeCache } from './fetch-cache.js';
+import { writeCache } from '../fetch-cache.js';
 
 export const TEST_SPRITE_URL = 'https://e2e.invalid/sprites/test';
 

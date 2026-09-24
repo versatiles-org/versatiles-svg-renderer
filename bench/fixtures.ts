@@ -7,7 +7,8 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { renderToSVG, SVGMapRenderer } from '../packages/svg-renderer/src/index.js';
 import { PNGMapRenderer, renderToPNG } from '../packages/png-renderer/src/index.js';
 import { installFetchCache, uninstallFetchCache } from '../e2e/fetch-cache.js';
-import { fonts, getStyle, regionId, regions, type Region } from '../e2e/styles.js';
+import { regions, type Region } from '../e2e/regions.js';
+import { fonts, getStyle } from '../e2e/styles.js';
 
 /** The size of the rendered image, in pixels. */
 export const WIDTH = 1024;
@@ -18,7 +19,9 @@ export const HEIGHT = 768;
  * GeoJSON one draws only a handful of test shapes, which says little about speed.
  */
 export function defaultScenarioIds(): string[] {
-	return regions.filter((region) => region.type !== 'geojson').map(regionId);
+	return regions
+		.filter((region) => region.style === 'vector' || region.style === 'satellite')
+		.map((region) => region.id);
 }
 
 export const CASES = ['svg-cold', 'svg-warm', 'png-cold', 'png-warm'] as const;
@@ -47,7 +50,7 @@ interface Case {
 }
 
 export function scenarioIds(): string[] {
-	return regions.map(regionId);
+	return regions.map((region) => region.id);
 }
 
 /**
@@ -78,7 +81,7 @@ export async function prepare(ids: string[]): Promise<Scenario[]> {
 	const scenarios: Scenario[] = [];
 	try {
 		for (const id of ids) {
-			const region = regions.find((r) => regionId(r) === id)!;
+			const region = regions.find((r) => r.id === id)!;
 			const scenario = { id, region, style: await getStyle(region) };
 			for (const c of cases(scenario)) {
 				await c.setup();
@@ -113,9 +116,9 @@ export function cases(scenario: Scenario): Case[] {
 	const view = {
 		width: WIDTH,
 		height: HEIGHT,
-		lon: region.lon,
-		lat: region.lat,
-		zoom: region.zoom,
+		lon: region.view.lon,
+		lat: region.view.lat,
+		zoom: region.view.zoom,
 	};
 	const noSetup = (): Promise<void> => Promise.resolve();
 	// The cold runs create a renderer each time, which would report the same warnings again.

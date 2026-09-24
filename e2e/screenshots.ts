@@ -9,8 +9,8 @@ import { renderToPNG } from '../packages/png-renderer/src/index.js';
 import type { Page } from 'playwright';
 import { ensureCacheDir, installFetchCache, readCache, writeCache } from './fetch-cache.js';
 import { installMapLibrePage } from './maplibre-page.js';
-import { fonts, getStyle, regionId, regions, type Region } from './styles.js';
-import { seedTestSprite } from './test-sprite.js';
+import { regions, type Region, type StyleName } from './regions.js';
+import { fonts, getStyle } from './styles.js';
 
 installFetchCache();
 
@@ -30,10 +30,11 @@ const SH = HEIGHT * SCALE;
 // vs. white) as identical, since that distance corresponds to a threshold of ~0.04.
 // Raster imagery keeps the default: the browser and MapLibre resample images slightly
 // differently, so a stricter threshold there only measures resampling noise.
-const PIXELMATCH_THRESHOLD: Record<Region['type'], number> = {
+const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	vector: 0.03,
 	geojson: 0.03,
 	features: 0.03,
+	symbols: 0.03,
 	satellite: 0.1,
 };
 
@@ -56,7 +57,6 @@ const browser = await chromium.launch({
 
 // Cache browser network requests (unpkg.com, tile servers) to disk.
 ensureCacheDir();
-seedTestSprite();
 async function installPageCache(page: Page): Promise<void> {
 	await page.route('**/*', async (route) => {
 		const url = route.request().url();
@@ -120,16 +120,16 @@ async function renderSvgShot(
 	region: Region,
 	style: StyleSpecification,
 ): Promise<{ png: PNG; sizeKB: number }> {
-	const id = regionId(region);
+	const id = region.id;
 	const svg = await renderToSVG({
 		width: WIDTH,
 		height: HEIGHT,
 		style,
-		lon: region.lon,
-		lat: region.lat,
-		zoom: region.zoom,
-		bearing: region.bearing ?? 0,
-		padding: region.padding,
+		lon: region.view.lon,
+		lat: region.view.lat,
+		zoom: region.view.zoom,
+		bearing: region.view.bearing ?? 0,
+		padding: region.view.padding,
 		labels: region.labels ? 'glyphs-text' : 'none',
 		onWarning: collectWarning,
 	});
@@ -165,17 +165,17 @@ async function renderPngShot(
 	region: Region,
 	style: StyleSpecification,
 ): Promise<{ png: PNG; sizeKB: number }> {
-	const id = regionId(region);
+	const id = region.id;
 	const buffer = await renderToPNG({
 		width: WIDTH,
 		height: HEIGHT,
 		scale: SCALE,
 		style,
-		lon: region.lon,
-		lat: region.lat,
-		zoom: region.zoom,
-		bearing: region.bearing ?? 0,
-		padding: region.padding,
+		lon: region.view.lon,
+		lat: region.view.lat,
+		zoom: region.view.zoom,
+		bearing: region.view.bearing ?? 0,
+		padding: region.view.padding,
 		labels: region.labels ? 'glyphs-text' : 'none',
 		fonts,
 		onWarning: collectWarning,
@@ -201,7 +201,7 @@ function flattenOnWhite(png: PNG): PNG {
 
 // Render the same region with MapLibre GL in a headless page.
 async function renderMapLibreShot(region: Region, style: StyleSpecification): Promise<PNG> {
-	const id = regionId(region);
+	const id = region.id;
 	const page = await browser.newPage({
 		viewport: { width: WIDTH, height: HEIGHT },
 		deviceScaleFactor: SCALE,
@@ -247,10 +247,10 @@ async function renderMapLibreShot(region: Region, style: StyleSpecification): Pr
 			},
 			{
 				styleJson: style,
-				center: [region.lon, region.lat] as [number, number],
-				zoom: region.zoom,
-				bearing: region.bearing ?? 0,
-				padding: region.padding,
+				center: [region.view.lon, region.view.lat] as [number, number],
+				zoom: region.view.zoom,
+				bearing: region.view.bearing ?? 0,
+				padding: region.view.padding,
 				pixelRatio: SCALE,
 			},
 		);
@@ -379,11 +379,11 @@ let failed = false;
 // `E2E_REGIONS=parity-features,berlin-vector` runs only these regions (by their id).
 const selectedIds = process.env.E2E_REGIONS?.split(',').map((id) => id.trim());
 const selectedRegions = selectedIds
-	? regions.filter((region) => selectedIds.includes(regionId(region)))
+	? regions.filter((region) => selectedIds.includes(region.id))
 	: regions;
 
 for (const region of selectedRegions) {
-	const id = regionId(region);
+	const id = region.id;
 	const style = await getStyle(region);
 
 	let svgPng: PNG;
@@ -410,7 +410,7 @@ for (const region of selectedRegions) {
 		continue;
 	}
 
-	const threshold = PIXELMATCH_THRESHOLD[region.type];
+	const threshold = PIXELMATCH_THRESHOLD[region.style];
 	const compare = (a: PNG, b: PNG, file: string): number => {
 		const diff = new PNG({ width: SW, height: SH });
 		const mismatch = pixelmatch(a.data, b.data, diff.data, SW, SH, { threshold });
@@ -468,10 +468,10 @@ const rows = results
 		return `<tr>
 	<td>
 		<strong>${r.id}</strong><br>
-		lon: ${r.region.lon}<br>
-		lat: ${r.region.lat}<br>
-		zoom: ${r.region.zoom}<br>${r.region.bearing ? `\n\t\tbearing: ${r.region.bearing}<br>` : ''}
-		type: ${r.region.type}${r.region.labels ? ' + labels' : ''}<br>
+		lon: ${r.region.view.lon}<br>
+		lat: ${r.region.view.lat}<br>
+		zoom: ${r.region.view.zoom}<br>${r.region.view.bearing ? `\n\t\tbearing: ${r.region.view.bearing}<br>` : ''}
+		style: ${r.region.style}${r.region.projection ? `, ${r.region.projection}` : ''}${r.region.labels ? ' + labels' : ''}<br>
 		SVG: ${r.svgSizeKB.toFixed(0)} KB<br>
 		PNG: ${r.pngSizeKB.toFixed(0)} KB<br>
 		${metricCell('SVG vs ML', r.metrics.svg, base?.svg)}
