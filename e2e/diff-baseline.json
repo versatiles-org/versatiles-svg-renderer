@@ -130,8 +130,8 @@
 		"drift": 0.04
 	},
 	"parity-symbols-features": {
-		"svg": 0.14,
-		"png": 0.13,
-		"drift": 0.01
+		"svg": 0.09,
+		"png": 0.09,
+		"drift": 0
 	}
 }

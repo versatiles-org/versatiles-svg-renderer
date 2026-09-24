@@ -11,7 +11,7 @@ import { writeCache } from './fetch-cache.js';
 export const TEST_SPRITE_URL = 'https://e2e.invalid/sprites/test';
 
 /**
- * The sprite's images, at a pixel ratio of 2, 4 pixels apart as sprite tools pad them:
+ * The sprite's images, at a pixel ratio of 1 (drawn large, for the diffs to show), 4 pixels apart as sprite tools pad them:
  * scaled or turned, an image would otherwise show a trace of its neighbour at its edge.
  */
 const images = {
@@ -22,15 +22,15 @@ const images = {
 		y: 0,
 		width: 48,
 		height: 40,
-		pixelRatio: 2,
+		pixelRatio: 1,
 		stretchX: [[12, 36]],
 		stretchY: [[12, 28]],
 		content: [8, 8, 40, 32],
 	},
 	// A plain image, stretched as a whole: a checkerboard of 4 × 4 squares.
-	plain: { x: 52, y: 0, width: 32, height: 32, pixelRatio: 2 },
+	plain: { x: 52, y: 0, width: 32, height: 32, pixelRatio: 1 },
 	// An arrow pointing right, to see which way an icon is turned.
-	arrow: { x: 88, y: 0, width: 32, height: 20, pixelRatio: 2 },
+	arrow: { x: 88, y: 0, width: 32, height: 20, pixelRatio: 1 },
 };
 
 function drawSheet(): Buffer {

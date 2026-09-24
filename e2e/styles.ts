@@ -603,7 +603,8 @@ function featuresStyle(labels: boolean): StyleSpecification {
 /**
  * Symbol cells, one per cell of a 3 × 3 grid south of the features (around 0°/-0.1°), for a
  * region with labels: icons fitted to their labels (`icon-text-fit`), stretched by the
- * stretch zones of the test sprite (see `test-sprite.ts`), and a turned icon.
+ * stretch zones of the test sprite (see `test-sprite.ts`), and a turned icon. Twice the usual
+ * size, so that differences show.
  *
  * | fit both, padding      | fit width              | fit height, two lines     |
  * | plain image, fit both  | fit both, icon-size    | plain image, turned       |
@@ -619,19 +620,19 @@ function withSymbolCells(style: StyleSpecification): StyleSpecification {
 			id: 'fit-both',
 			geometry: { type: 'Point', coordinates: at(0, 0) },
 			text: 'A 100',
-			layout: { 'icon-text-fit': 'both', 'icon-text-fit-padding': [2, 4, 2, 4] },
+			layout: { 'icon-text-fit': 'both', 'icon-text-fit-padding': [4, 8, 4, 8] },
 		},
 		{
 			id: 'fit-width',
 			geometry: { type: 'Point', coordinates: at(1, 0) },
 			text: 'Hauptstraße',
-			layout: { 'icon-text-fit': 'width', 'icon-text-fit-padding': [0, 3, 0, 3] },
+			layout: { 'icon-text-fit': 'width', 'icon-text-fit-padding': [0, 6, 0, 6] },
 		},
 		{
 			id: 'fit-height',
 			geometry: { type: 'Point', coordinates: at(2, 0) },
 			text: 'E 55\nNord',
-			layout: { 'icon-text-fit': 'height', 'icon-text-fit-padding': [3, 0, 3, 0] },
+			layout: { 'icon-text-fit': 'height', 'icon-text-fit-padding': [6, 0, 6, 0] },
 		},
 		{
 			id: 'fit-plain',
@@ -640,7 +641,7 @@ function withSymbolCells(style: StyleSpecification): StyleSpecification {
 			layout: {
 				'icon-image': 'test:plain',
 				'icon-text-fit': 'both',
-				'icon-text-fit-padding': [4, 4, 4, 4],
+				'icon-text-fit-padding': [8, 8, 8, 8],
 			},
 		},
 		{
@@ -657,7 +658,7 @@ function withSymbolCells(style: StyleSpecification): StyleSpecification {
 			layout: {
 				'icon-image': 'test:plain',
 				'icon-text-fit': 'both',
-				'icon-text-fit-padding': [2, 4, 2, 4],
+				'icon-text-fit-padding': [4, 8, 4, 8],
 				'icon-rotate': 20,
 				'text-rotate': 20,
 			},
@@ -677,7 +678,7 @@ function withSymbolCells(style: StyleSpecification): StyleSpecification {
 				'text-rotation-alignment': 'viewport',
 				'icon-rotation-alignment': 'viewport',
 				'icon-text-fit': 'both',
-				'icon-text-fit-padding': [2, 4, 2, 4],
+				'icon-text-fit-padding': [4, 8, 4, 8],
 			},
 		},
 		{
@@ -696,7 +697,7 @@ function withSymbolCells(style: StyleSpecification): StyleSpecification {
 			text: 'Left',
 			layout: {
 				'icon-text-fit': 'both',
-				'icon-text-fit-padding': [2, 8, 2, 2],
+				'icon-text-fit-padding': [4, 16, 4, 4],
 				'text-anchor': 'left',
 				'text-offset': [1, 0.5],
 			},
@@ -740,7 +741,7 @@ function withSymbolCells(style: StyleSpecification): StyleSpecification {
 				...(text && {
 					'text-field': ['get', 'text'],
 					'text-font': ['noto_sans_regular'],
-					'text-size': 14,
+					'text-size': 28,
 				}),
 				...layout,
 			},
