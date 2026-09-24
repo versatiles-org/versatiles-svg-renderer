@@ -7,7 +7,7 @@
 import { mapTextAnchor } from '../renderer/anchors.js';
 import { iconQuads, quadsBox } from '../renderer/icon_quads.js';
 import type { GlyphPlacement, IconStyle, SymbolStyle } from '../renderer/types.js';
-import type { SpriteEntry } from '../sources/sprite.js';
+import type { SpriteEntry } from '../sources/index.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
 import { VIEW_MARGIN } from '../geometry.js';
 

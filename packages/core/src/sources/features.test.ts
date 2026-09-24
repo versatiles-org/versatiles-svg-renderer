@@ -11,7 +11,7 @@ vi.mock('./geojson.js', () => ({
 }));
 
 // Import after mocking
-const { getLayerFeatures } = await import('./index.js');
+const { getLayerFeatures } = await import('./features.js');
 const { loadVectorSource } = await import('./vector.js');
 const { loadGeoJSONSource } = await import('./geojson.js');
 

@@ -20,7 +20,7 @@ import type {
 	RendererOptions,
 	SymbolStyle as LabelStyle,
 } from './types.js';
-import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
+import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
 import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 import type { ClipCircle } from '../projection.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';

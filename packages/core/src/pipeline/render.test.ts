@@ -10,17 +10,14 @@ import {
 	type SourceFeatures,
 } from '../geometry.js';
 
-vi.mock('../sources/index.js', () => ({
+vi.mock(import('../sources/index.js'), async (importOriginal) => ({
+	...(await importOriginal()),
 	getLayerFeatures: vi.fn().mockResolvedValue(new Map()),
 	getRasterTiles: vi.fn().mockResolvedValue([]),
-}));
-
-vi.mock('../sources/sprite.js', () => ({
 	loadSpriteAtlas: vi.fn().mockResolvedValue(new Map()),
 }));
 
-const { getLayerFeatures, getRasterTiles } = await import('../sources/index.js');
-const { loadSpriteAtlas } = await import('../sources/sprite.js');
+const { getLayerFeatures, getRasterTiles, loadSpriteAtlas } = await import('../sources/index.js');
 const { renderMap } = await import('./render.js');
 const { sortByKey } = await import('./layers/layer.js');
 const { transformText } = await import('./layers/symbol.js');

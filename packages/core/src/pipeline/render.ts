@@ -1,24 +1,33 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Projection } from '../projection.js';
 import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
-import { getLayerFeatures } from '../sources/index.js';
-import { loadSpriteAtlas } from '../sources/sprite.js';
-import type { SpriteAtlas } from '../sources/sprite.js';
-import { getTile, type TileLoader } from '../sources/tiles.js';
-import { defaultFetch, type FetchFunction } from '../sources/fetch.js';
-import { resolveSources } from '../sources/resolve.js';
-import { loadGlyphRange, type GlyphRange } from '../sources/glyphs.js';
+import {
+	defaultFetch,
+	type FetchFunction,
+	getLayerFeatures,
+	getTile,
+	type GlyphRange,
+	loadGlyphRange,
+	loadSpriteAtlas,
+	resolveSources,
+	type SpriteAtlas,
+	type TileLoader,
+} from '../sources/index.js';
 import { placeSymbols, CollisionIndex } from './collision.js';
 import type { GlyphOutline } from './glyph_outline.js';
 import { getGlobalState, getLayerStyles } from './style_layer.js';
 import type { StyleLayer } from './style_layer.js';
-import { renderBackgroundLayer } from './layers/background.js';
-import { renderCircleLayer } from './layers/circle.js';
-import { renderFillLayer } from './layers/fill.js';
-import type { Layer } from './layers/layer.js';
-import { renderLineLayer } from './layers/line.js';
-import { renderRasterLayer } from './layers/raster.js';
-import { prepareSymbolLayer, renderSymbolLayer, type SymbolEntry } from './layers/symbol.js';
+import {
+	prepareSymbolLayer,
+	renderBackgroundLayer,
+	renderCircleLayer,
+	renderFillLayer,
+	renderLineLayer,
+	renderRasterLayer,
+	renderSymbolLayer,
+	type Layer,
+	type SymbolEntry,
+} from './layers/index.js';
 
 /**
  * What rendering needs from a style besides the view: prepared once per style, so that

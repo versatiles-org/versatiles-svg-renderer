@@ -2,7 +2,7 @@ import type { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
 import { Feature as LayerFeature, Point2D } from '../../geometry.js';
 import { fitIconToText, iconQuads, quadsBox } from '../../renderer/icon_quads.js';
 import type { GlyphPlacement, IconStyle, PlacedGlyph, SymbolStyle } from '../../renderer/types.js';
-import { GLYPH_EM, rangeStart, type Glyph, type GlyphRange } from '../../sources/glyphs.js';
+import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources/index.js';
 import {
 	glyphBox,
 	iconBox,

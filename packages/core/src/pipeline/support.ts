@@ -2,7 +2,7 @@
  * Which parts of a style the renderer draws, and warnings about the parts it does not, so
  * that a gap of the renderer is not mistaken for a bug of the style.
  */
-import { compileSourceFilter } from '../sources/geojson.js';
+import { compileSourceFilter } from '../sources/index.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 /**

@@ -22,7 +22,7 @@ import type {
 	RendererOptions,
 	SymbolStyle,
 } from './types.js';
-import type { SpriteAtlas } from '../sources/sprite.js';
+import type { SpriteAtlas } from '../sources/index.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape } from './circle.js';
 import { LRUCache } from '../lru_cache.js';

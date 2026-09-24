@@ -1,6 +1,6 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from '../geometry.js';
-import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
+import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
 import type { ClipCircle, Padding, Projection } from '../projection.js';
 import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 

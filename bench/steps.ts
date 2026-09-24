@@ -42,7 +42,7 @@ const byLayer = (name: string) => (layerType: string) => `${layerType} · ${name
  * the filter, Skia drawing a path) counts to that step.
  */
 export const RULES: Rule[] = [
-	{ name: 'getLayerFeatures', file: 'core/src/sources/index.ts', step: 'features' },
+	{ name: 'getLayerFeatures', file: 'core/src/sources/features.ts', step: 'features' },
 	// Tile loading resumes in these after awaiting a tile, outside getLayerFeatures' stack.
 	{ name: 'loadVectorSource', file: 'core/src/sources/vector.ts', step: 'features' },
 	{ name: '', file: 'core/src/sources/vector.ts', step: 'features' },

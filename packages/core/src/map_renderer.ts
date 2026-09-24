@@ -3,13 +3,18 @@ import { drawMap, type RenderContext } from './pipeline/render.js';
 import { getGlobalState, getLayerStyles, type GlobalState } from './pipeline/style_layer.js';
 import { SVGRenderer } from './renderer/svg.js';
 import type { LabelMode, Renderer } from './renderer/types.js';
-import { loadSprite, type SpriteAtlas } from './sources/sprite.js';
-import { TileCache } from './sources/tile_cache.js';
+import {
+	type FetchFunction,
+	type GlyphRange,
+	loadGlyphRange,
+	loadSprite,
+	resolveSources,
+	type SpriteAtlas,
+	TileCache,
+	toFetchFunction,
+} from './sources/index.js';
 import { MAX_LATITUDE, mercatorToLonLat, Projection, type Padding } from './projection.js';
 import { Point2D } from './geometry.js';
-import { toFetchFunction, type FetchFunction } from './sources/fetch.js';
-import { resolveSources } from './sources/resolve.js';
-import { loadGlyphRange, type GlyphRange } from './sources/glyphs.js';
 import { checkSources, checkStyle } from './pipeline/support.js';
 
 /** Options for {@link SVGMapRenderer}: what stays the same for every view of the map. */

@@ -73,7 +73,7 @@ describe('classify', () => {
 	});
 
 	test('divides features by the innermost library or module', () => {
-		const features = frame('getLayerFeatures', 'core/src/sources/index.ts');
+		const features = frame('getLayerFeatures', 'core/src/sources/features.ts');
 		const vector = frame('loadVectorSource', 'core/src/sources/vector.ts');
 		expect(classify([features, vector, frame('readFields', '../node_modules/pbf/index.js')])).toBe(
 			'features · decode tiles',
