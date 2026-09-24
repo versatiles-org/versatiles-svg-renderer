@@ -42,6 +42,7 @@ import {
 } from './collision.js';
 import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
+import { gapBands } from './line_gap.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
 import {
@@ -443,12 +444,33 @@ function renderLineLayer(layer: Layer): void {
 		const gapWidth = getPaint('line-gap-width', feature) as number;
 		if (!(gapWidth > 0)) return [[feature, style]];
 		// With a gap, MapLibre draws the line as a band on each side of it, from gap/2 to
-		// gap/2 + width: two lines of the same width, offset by ±(gap + width)/2.
-		const shift = (gapWidth + style.width) / 2;
-		return [
-			[feature, { ...style, offset: style.offset - shift }],
-			[feature, { ...style, offset: style.offset + shift }],
-		];
+		// gap/2 + width: lines of the same width along the middle of each band, joined
+		// around corners and ends as MapLibre joins them (see `gapBands`).
+		const { open, closed } = gapBands(feature.geometry, feature.type === 'Polygon', {
+			shift: (gapWidth + style.width) / 2,
+			offset: style.offset,
+			cap: style.cap,
+			join: style.join,
+			roundLimit: getLayout('line-round-limit', feature) as number,
+		});
+		const bandStyle: LineStyle = { ...style, offset: 0, cap: 'butt' };
+		const result: [LayerFeature, LineStyle][] = [];
+		const addBands = (type: 'LineString' | 'Polygon', geometry: Point2D[][]): void => {
+			if (geometry.length === 0) return;
+			const bands = new LayerFeature({
+				type,
+				geometry,
+				id: feature.id,
+				properties: feature.properties,
+			});
+			result.push([bands, bandStyle]);
+		};
+		addBands('LineString', open);
+		addBands(
+			'Polygon',
+			closed.map((ring) => [...ring, ring[0]!]),
+		);
+		return result;
 	});
 	layer.job.renderer.drawLineStrings(layer.layerStyle.id, styled);
 }

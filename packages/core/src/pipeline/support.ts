@@ -30,6 +30,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'line-miter-limit',
 		'line-offset',
 		'line-opacity',
+		'line-round-limit',
 		'line-sort-key',
 		'line-translate',
 		'line-translate-anchor',
@@ -116,7 +117,6 @@ const WITHOUT_EFFECT = new Set([
 	'symbol-avoid-edges',
 	'symbol-z-order',
 	'icon-keep-upright',
-	'line-round-limit',
 ]);
 
 /** Properties whose default value is what the renderer draws; any other value is not supported. */

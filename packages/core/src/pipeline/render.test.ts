@@ -2,6 +2,7 @@ import { describe, expect, test, vi, beforeEach, type Mock } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { SVGRenderer } from '../renderer/svg.js';
 import { Feature, Point2D } from '../geometry.js';
+import type { LineStyle } from '../renderer/types.js';
 import {
 	GEOJSON_LAYER,
 	type Features,
@@ -482,17 +483,26 @@ describe('renderMap', () => {
 			const drawLineStrings = vi.spyOn(job.renderer, 'drawLineStrings');
 			await renderMap(job);
 
-			const drawn = drawLineStrings.mock.calls[0]![1].map(([feature, style]) => [
-				feature,
-				style.offset,
-				style.width,
+			const drawn: [Feature, LineStyle][] = drawLineStrings.mock.calls[0]![1];
+			const [[bands, bandStyle], [drawnPath, pathStyle]] = drawn as [
+				[Feature, LineStyle],
+				[Feature, LineStyle],
+			];
+			// Road: one band at 1 ± (4 + 2) / 2 on each side, stroked without caps.
+			expect(bands.geometry.map((band) => band.map((p) => [p.x, p.y]))).toEqual([
+				[
+					[10, 48],
+					[200, 48],
+				],
+				[
+					[10, 54],
+					[200, 54],
+				],
 			]);
-			// Road: offset 1 ± (4 + 2) / 2. Path: no gap, one line.
-			expect(drawn).toEqual([
-				[road, -2, 2],
-				[road, 4, 2],
-				[path, 1, 2],
-			]);
+			expect([bandStyle.offset, bandStyle.width, bandStyle.cap]).toEqual([0, 2, 'butt']);
+			// Path: no gap, one line.
+			expect(drawnPath).toBe(path);
+			expect([pathStyle.offset, pathStyle.width]).toEqual([1, 2]);
 		});
 
 		test('draws the features of fill, line and circle layers in sort-key order', async () => {
