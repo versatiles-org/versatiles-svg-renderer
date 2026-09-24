@@ -44,13 +44,15 @@ import type { ClipCircle } from '../../projection.js';
 import { circleGradient, circleShape } from '../circle.js';
 import {
 	affineFromTriangles,
-	bleedAtTileBorder,
 	growTriangle,
-	isOnTileBorder,
+	meshTriangles,
 	RASTER_TILE_UNITS,
 	RASTER_TRIANGLE_OVERLAP_PX,
+	rasterFilter,
+	tileOverlap,
 	type Triangle,
-} from '../raster_mesh.js';
+} from '../raster.js';
+import { fontFamily } from '../text.js';
 
 // line-blur approximates MapLibre's edge-feather blur, which keeps an opaque core
 // and feathers over ~`blur` px with a hard cutoff. feGaussianBlur alone conserves
@@ -482,7 +484,7 @@ export class SVGRenderer {
 			const [px, py] = roundXY(point.x, point.y);
 
 			const fontSize = formatScaled(style.size);
-			const fontFamily = style.font.join(', ') + ', Helvetica, Arial, sans-serif';
+			const family = fontFamily(style.font);
 			const spacing = (style.letterSpacing ?? 0) * style.size;
 
 			// Several lines: each a <tspan> at its point, the block placed by the pipeline.
@@ -503,7 +505,7 @@ export class SVGRenderer {
 					})
 					.join('');
 				attrs = [
-					`font-family="${escapeXml(fontFamily)}"`,
+					`font-family="${escapeXml(family)}"`,
 					`font-size="${fontSize}"`,
 					`text-anchor="${anchor}"`,
 					'dominant-baseline="central"',
@@ -516,7 +518,7 @@ export class SVGRenderer {
 				attrs = [
 					`x="${formatNum(px)}"`,
 					`y="${formatNum(py)}"`,
-					`font-family="${escapeXml(fontFamily)}"`,
+					`font-family="${escapeXml(family)}"`,
 					`font-size="${fontSize}"`,
 					`text-anchor="${svgAnchor}"`,
 					`dominant-baseline="${baseline}"`,
@@ -566,7 +568,7 @@ export class SVGRenderer {
 		color: Color,
 		invisible = false,
 	): string {
-		const fontFamily = style.font.join(', ') + ', Helvetica, Arial, sans-serif';
+		const family = fontFamily(style.font);
 		const glyphs = path
 			.map((glyph) => {
 				const [x, y] = roundXY(glyph.x, glyph.y);
@@ -577,7 +579,7 @@ export class SVGRenderer {
 			.join('');
 		const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 		const parts = [
-			`<g font-family="${escapeXml(fontFamily)}" font-size="${formatScaled(style.size)}" text-anchor="middle" dominant-baseline="central"${opacity}>`,
+			`<g font-family="${escapeXml(family)}" font-size="${formatScaled(style.size)}" text-anchor="middle" dominant-baseline="central"${opacity}>`,
 		];
 		if (invisible) {
 			parts.push(`<g fill-opacity="0">${glyphs}</g>`, '</g>');
@@ -695,17 +697,9 @@ export class SVGRenderer {
 		if (tiles.length === 0) return;
 		if (style.opacity <= 0) return;
 
-		const filters: string[] = [];
-		if (style.hueRotate !== 0) filters.push(`hue-rotate(${String(style.hueRotate)}deg)`);
-		if (style.saturation !== 0) filters.push(`saturate(${String(style.saturation + 1)})`);
-		if (style.contrast !== 0) filters.push(`contrast(${String(style.contrast + 1)})`);
-		if (style.brightnessMin !== 0 || style.brightnessMax !== 1) {
-			const brightness = (style.brightnessMin + style.brightnessMax) / 2;
-			filters.push(`brightness(${String(brightness)})`);
-		}
-
 		let gAttrs = `id="${escapeXml(id)}" opacity="${String(style.opacity)}"`;
-		if (filters.length > 0) gAttrs += ` filter="${filters.join(' ')}"`;
+		const filter = rasterFilter(style);
+		if (filter) gAttrs += ` filter="${filter}"`;
 
 		this.#svg.push(`<g ${gAttrs}>`);
 
@@ -713,7 +707,7 @@ export class SVGRenderer {
 		this.#drawRasterMeshes(tiles, pixelated);
 		for (const tile of tiles) {
 			if (tile.triangles) continue;
-			const overlap = Math.min(tile.width, tile.height) / 10000; // slight overlap to prevent sub-pixel gaps between tiles
+			const overlap = tileOverlap(tile);
 			let attrs = `x="${formatScaled(tile.x - overlap)}" y="${formatScaled(tile.y - overlap)}" width="${formatScaled(tile.width + overlap * 2)}" height="${formatScaled(tile.height + overlap * 2)}" xlink:href="${tile.dataUri}"`;
 			if (pixelated) attrs += ' style="image-rendering:pixelated"';
 			this.#svg.push(`<image ${attrs} />`);
@@ -723,38 +717,18 @@ export class SVGRenderer {
 	}
 
 	/**
-	 * Draws raster tiles given as meshes of triangles (globe projection). Every tile image is
-	 * defined once (as a square of RASTER_TILE_UNITS); every triangle shows it through the affine
-	 * transform that maps its three source corners exactly onto its three screen corners, clipped
-	 * to the triangle on screen.
-	 *
-	 * Seams: within a tile, each clip triangle is grown by RASTER_TRIANGLE_OVERLAP_PX; the same
-	 * transform continues there, so the overlap shows (almost) the same pixels as the neighbour.
-	 * At tile borders that is not enough, as both images end on the same line and their anti-
-	 * aliased edges let a hairline of the background shine through. So first, as an underlay,
-	 * the triangles along the tile borders are drawn with their image reaching beyond the border
-	 * (see {@link bleedAtTileBorder}); then all triangles are drawn exactly on top of it. The
-	 * slightly shifted underlay only shows through the seam.
+	 * Draws the tiles given as meshes of triangles (see {@link meshTriangles}). Every tile
+	 * image is defined once, as a square of RASTER_TILE_UNITS, and shown by each triangle.
 	 */
 	#drawRasterMeshes(tiles: RasterTile[], pixelated: boolean): void {
-		const meshes: { imageId: string; triangles: RasterTriangle[]; standalone: boolean }[] = [];
+		const meshes: { image: string; triangles: RasterTriangle[]; standalone: boolean }[] = [];
 		for (const tile of tiles) {
 			if (!tile.triangles) continue;
-			const imageId = this.#defs.rasterImage(tile.dataUri, RASTER_TILE_UNITS, pixelated);
-			meshes.push({ imageId, triangles: tile.triangles, standalone: tile.standalone === true });
+			const image = this.#defs.rasterImage(tile.dataUri, RASTER_TILE_UNITS, pixelated);
+			meshes.push({ image, triangles: tile.triangles, standalone: tile.standalone === true });
 		}
-
-		for (const { imageId, triangles, standalone } of meshes) {
-			if (standalone) continue;
-			for (const { source, target } of triangles) {
-				if (!isOnTileBorder(source)) continue;
-				this.#drawRasterTriangle(imageId, bleedAtTileBorder(source, target), target);
-			}
-		}
-		for (const { imageId, triangles } of meshes) {
-			for (const { source, target } of triangles) {
-				this.#drawRasterTriangle(imageId, source, target);
-			}
+		for (const { image, source, target } of meshTriangles(meshes)) {
+			this.#drawRasterTriangle(image, source, target);
 		}
 	}
 

@@ -36,13 +36,15 @@ import { CanvasPatterns } from './patterns.js';
 import { LRUCache } from '../../lru_cache.js';
 import {
 	affineFromTriangles,
-	bleedAtTileBorder,
 	growTriangle,
-	isOnTileBorder,
+	meshTriangles,
 	RASTER_TILE_UNITS,
 	RASTER_TRIANGLE_OVERLAP_PX,
+	rasterFilter,
+	tileOverlap,
 	type Triangle,
-} from '../raster_mesh.js';
+} from '../raster.js';
+import { fontFamily } from '../text.js';
 
 // These mirror the SVG backend's constants but are deliberately *separate*: they are
 // calibrated per backend against MapLibre in the e2e comparison, and Skia's rasterizer
@@ -512,15 +514,8 @@ export class CanvasRenderer implements Renderer {
 		style: RasterStyle,
 	): void {
 		ctx.save();
-		// The same colour adjustments the SVG backend expresses as CSS filter functions.
-		const filters: string[] = [];
-		if (style.hueRotate !== 0) filters.push(`hue-rotate(${String(style.hueRotate)}deg)`);
-		if (style.saturation !== 0) filters.push(`saturate(${String(style.saturation + 1)})`);
-		if (style.contrast !== 0) filters.push(`contrast(${String(style.contrast + 1)})`);
-		if (style.brightnessMin !== 0 || style.brightnessMax !== 1) {
-			filters.push(`brightness(${String((style.brightnessMin + style.brightnessMax) / 2)})`);
-		}
-		if (filters.length > 0) ctx.filter = filters.join(' ');
+		const filter = rasterFilter(style);
+		if (filter) ctx.filter = filter;
 		if (style.resampling === 'nearest') ctx.imageSmoothingEnabled = false;
 
 		this.#drawRasterMeshes(ctx, tiles, images);
@@ -529,8 +524,7 @@ export class CanvasRenderer implements Renderer {
 			if (tile.triangles) continue;
 			const image = images.get(tile.dataUri);
 			if (!image) continue;
-			// A slight overlap prevents sub-pixel gaps between neighbouring tiles.
-			const overlap = Math.min(tile.width, tile.height) / 10000;
+			const overlap = tileOverlap(tile);
 			ctx.drawImage(
 				image,
 				tile.x - overlap,
@@ -543,17 +537,7 @@ export class CanvasRenderer implements Renderer {
 		ctx.restore();
 	}
 
-	/**
-	 * Draws the tiles given as triangle meshes (globe projection). Each triangle shows its
-	 * tile image through the affine transform mapping its three source corners onto its
-	 * three screen corners, clipped to the triangle.
-	 *
-	 * Seams: every clip triangle is grown by RASTER_TRIANGLE_OVERLAP_PX, so it overlaps its
-	 * neighbour with (almost) the same pixels. At tile borders that is not enough, as both
-	 * images end on the same line and their antialiased edges let the background show
-	 * through — so the border triangles are drawn first as an underlay with their image
-	 * reaching past the border, and the real triangles are drawn exactly on top.
-	 */
+	/** Draws the tiles given as meshes of triangles (see {@link meshTriangles}). */
 	#drawRasterMeshes(ctx: SKRSContext2D, tiles: RasterTile[], images: Map<string, Image>): void {
 		const meshes = tiles.flatMap((tile) => {
 			const image = tile.triangles ? images.get(tile.dataUri) : undefined;
@@ -561,18 +545,8 @@ export class CanvasRenderer implements Renderer {
 				? [{ image, triangles: tile.triangles, standalone: tile.standalone === true }]
 				: [];
 		});
-
-		for (const { image, triangles, standalone } of meshes) {
-			if (standalone) continue;
-			for (const { source, target } of triangles) {
-				if (!isOnTileBorder(source)) continue;
-				this.#drawRasterTriangle(ctx, image, bleedAtTileBorder(source, target), target);
-			}
-		}
-		for (const { image, triangles } of meshes) {
-			for (const { source, target } of triangles) {
-				this.#drawRasterTriangle(ctx, image, source, target);
-			}
+		for (const { image, source, target } of meshTriangles(meshes)) {
+			this.#drawRasterTriangle(ctx, image, source, target);
 		}
 	}
 
@@ -747,7 +721,7 @@ export class CanvasRenderer implements Renderer {
 		const haloColor = new Color(style.haloColor);
 		const hasHalo = style.haloWidth > 0 && haloColor.alpha > 0;
 		this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
-			ctx.font = `${String(roundToTenths(style.size))}px ${style.font.join(', ')}, Helvetica, Arial, sans-serif`;
+			ctx.font = `${String(roundToTenths(style.size))}px ${fontFamily(style.font)}`;
 			ctx.textAlign = 'center';
 			ctx.textBaseline = 'middle';
 			ctx.strokeStyle = haloColor.hex;
@@ -841,7 +815,7 @@ export class CanvasRenderer implements Renderer {
 					ctx.rotate((style.rotate * Math.PI) / 180);
 					ctx.translate(-x, -y);
 				}
-				ctx.font = `${String(roundToTenths(style.size))}px ${style.font.join(', ')}, Helvetica, Arial, sans-serif`;
+				ctx.font = `${String(roundToTenths(style.size))}px ${fontFamily(style.font)}`;
 				const spacing = (style.letterSpacing ?? 0) * style.size;
 				if (spacing !== 0) ctx.letterSpacing = `${String(spacing)}px`;
 

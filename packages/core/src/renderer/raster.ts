@@ -1,10 +1,11 @@
-import type { RasterTriangle } from '../types.js';
+import type { RasterStyle, RasterTriangle } from '../types.js';
 
 /**
- * Geometry for drawing raster tiles as a mesh of triangles on the globe, shared by every
- * backend: the SVG renderer turns each triangle into a `<use>` with a matrix transform,
- * the canvas renderer into a clipped `drawImage`. Keeping the math in one place keeps the
- * two backends from drifting apart on the seams between tiles.
+ * How every backend draws raster tiles: their colour adjustments, the slight overlap of
+ * tiles drawn as rectangles, and the geometry of tiles drawn as a mesh of triangles on the
+ * globe. The SVG renderer turns each triangle into a `<use>` with a matrix transform, the
+ * canvas renderer into a clipped `drawImage`. Keeping the math in one place keeps the two
+ * backends from drifting apart on the seams between tiles.
  */
 
 export type Triangle = RasterTriangle['source'];
@@ -56,7 +57,7 @@ export function isOnTileBorder(source: Triangle): boolean {
 /**
  * Moves the source corners of a triangle that lie on the tile border inwards, by the
  * equivalent of RASTER_TILE_BLEED_PX on screen, so that the image edge lies beyond the border.
- * (Used for the underlay that closes the seams between tiles, see `#drawRasterMeshes`.)
+ * (Used for the underlay that closes the seams between tiles, see `meshTriangles`.)
  */
 export function bleedAtTileBorder(source: Triangle, target: Triangle): Triangle {
 	const [[u0, v0], [u1, v1], [u2, v2]] = source;
@@ -89,4 +90,56 @@ export function growTriangle(triangle: Triangle, distance: number): Triangle {
 	const cy = (a * y0 + b * y1 + c * y2) / perimeter;
 	const scale = 1 + distance / Math.max(inradius, 2 * distance);
 	return triangle.map(([x, y]) => [cx + (x - cx) * scale, cy + (y - cy) * scale]) as Triangle;
+}
+
+/** A raster layer's colour adjustments as CSS filter functions, or `''` without any. */
+export function rasterFilter(style: RasterStyle): string {
+	const filters: string[] = [];
+	if (style.hueRotate !== 0) filters.push(`hue-rotate(${String(style.hueRotate)}deg)`);
+	if (style.saturation !== 0) filters.push(`saturate(${String(style.saturation + 1)})`);
+	if (style.contrast !== 0) filters.push(`contrast(${String(style.contrast + 1)})`);
+	if (style.brightnessMin !== 0 || style.brightnessMax !== 1) {
+		const brightness = (style.brightnessMin + style.brightnessMax) / 2;
+		filters.push(`brightness(${String(brightness)})`);
+	}
+	return filters.join(' ');
+}
+
+/**
+ * How far a tile drawn as a rectangle reaches past each of its sides, in pixels: a slight
+ * overlap that keeps sub-pixel gaps from showing between neighbouring tiles.
+ */
+export function tileOverlap(tile: { width: number; height: number }): number {
+	return Math.min(tile.width, tile.height) / 10000;
+}
+
+/**
+ * The triangles of tiles drawn as meshes (globe projection), in the order to draw them.
+ * Each shows its tile's image through the affine transform mapping its three source corners
+ * exactly onto its three screen corners (see {@link affineFromTriangles}), clipped to the
+ * triangle on screen.
+ *
+ * Seams: within a tile, each clip triangle is grown by RASTER_TRIANGLE_OVERLAP_PX; the same
+ * transform continues there, so the overlap shows (almost) the same pixels as the neighbour.
+ * At tile borders that is not enough, as both images end on the same line and their anti-
+ * aliased edges let a hairline of the background shine through. So first, as an underlay,
+ * the triangles along the tile borders come with their image reaching beyond the border
+ * (see {@link bleedAtTileBorder}), except for a standalone tile; then all triangles exactly
+ * on top of it. The slightly shifted underlay only shows through the seam.
+ */
+export function meshTriangles<T>(
+	meshes: { image: T; triangles: RasterTriangle[]; standalone: boolean }[],
+): { image: T; source: Triangle; target: Triangle }[] {
+	const result: { image: T; source: Triangle; target: Triangle }[] = [];
+	for (const { image, triangles, standalone } of meshes) {
+		if (standalone) continue;
+		for (const { source, target } of triangles) {
+			if (!isOnTileBorder(source)) continue;
+			result.push({ image, source: bleedAtTileBorder(source, target), target });
+		}
+	}
+	for (const { image, triangles } of meshes) {
+		for (const { source, target } of triangles) result.push({ image, source, target });
+	}
+	return result;
 }
