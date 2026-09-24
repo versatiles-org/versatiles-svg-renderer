@@ -2,7 +2,7 @@ import { describe, expect, test, vi, beforeEach, type Mock } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { SVGRenderer } from '../renderer/svg.js';
 import { Feature, Point2D } from '../geometry.js';
-import type { IconStyle, LineStyle } from '../renderer/types.js';
+import type { IconStyle, LineStyle } from '../types.js';
 import {
 	GEOJSON_LAYER,
 	type Features,

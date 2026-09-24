@@ -1,14 +1,14 @@
 import type { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
 import { Feature as LayerFeature, Point2D } from '../../geometry.js';
-import type { RenderJob } from '../../renderer/svg.js';
-import { fitIconToText, iconQuads, quadsBox } from '../../renderer/icon_quads.js';
 import type {
 	GlyphOutline,
 	GlyphPlacement,
 	IconStyle,
 	PlacedGlyph,
+	RenderJob,
 	SymbolStyle,
-} from '../../renderer/types.js';
+} from '../../types.js';
+import { fitIconToText, iconQuads, quadsBox } from '../../renderer/icon_quads.js';
 import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources/index.js';
 import type { StyleLayer } from '../style_layer.js';
 import {

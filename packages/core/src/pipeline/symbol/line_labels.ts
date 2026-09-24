@@ -5,7 +5,7 @@
  * along the line, each glyph turned with it and the whole label kept upright.
  */
 import type { Point2D } from '../../geometry.js';
-import type { GlyphPlacement } from '../../renderer/types.js';
+import type { GlyphPlacement } from '../../types.js';
 
 /** A line with the distance of each vertex from its start, in pixels. */
 export interface MeasuredLine {

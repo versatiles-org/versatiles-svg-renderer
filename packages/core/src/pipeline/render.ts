@@ -1,7 +1,6 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Projection } from '../projection.js';
-import type { RenderJob, Renderer, StringRenderer } from '../renderer/svg.js';
-import type { GlyphOutline } from '../renderer/types.js';
+import type { GlyphOutline, Renderer, RenderJob, StringRenderer } from '../types.js';
 import {
 	defaultFetch,
 	type FetchFunction,

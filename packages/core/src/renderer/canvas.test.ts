@@ -13,7 +13,7 @@ import type {
 	RasterStyle,
 	RasterTile,
 	SymbolStyle,
-} from './types.js';
+} from '../types.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {

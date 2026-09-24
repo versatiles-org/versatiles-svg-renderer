@@ -1,5 +1,5 @@
 import type { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
-import type { Renderer } from '../../renderer/svg.js';
+import type { Renderer } from '../../types.js';
 import {
 	evaluateLayer,
 	filterFeatures,

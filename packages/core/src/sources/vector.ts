@@ -1,5 +1,5 @@
 import { Point2D, Feature, viewArea } from '../geometry.js';
-import type { RenderJob } from '../renderer/svg.js';
+import type { RenderJob } from '../types.js';
 import { calculateTileGrid, getTile, loadSourceTile, type TileLoader } from './tiles.js';
 import type { LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';

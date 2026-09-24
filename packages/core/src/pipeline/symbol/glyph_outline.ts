@@ -3,7 +3,7 @@
  * crosses MapLibre GL JS's edge value, the glyph's shape as MapLibre draws it. The outline
  * is placed in MapLibre's glyph frame, so a renderer only has to move, turn and scale it.
  */
-import type { GlyphOutline } from '../../renderer/types.js';
+import type { GlyphOutline } from '../../types.js';
 import { type Glyph, GLYPH_BORDER, GLYPH_EM } from '../../sources/index.js';
 
 /** The SDF value of the glyph's edge: MapLibre's shader draws the glyph above 0.75. */

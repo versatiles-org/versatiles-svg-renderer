@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import type { SpriteEntry } from '../sources/sprite.js';
 import { fitIconToText, iconQuads, quadsBox } from './icon_quads.js';
-import type { IconStyle } from './types.js';
+import type { IconStyle } from '../types.js';
 
 const black = Color.parse('#000')!;
 

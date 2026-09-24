@@ -10,7 +10,7 @@ import type {
 	RasterStyle,
 	RasterTile,
 	SymbolStyle,
-} from './svg.js';
+} from '../types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {

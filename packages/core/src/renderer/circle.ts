@@ -1,7 +1,7 @@
 /**
  * The shape of a circle, shared by every backend so the two cannot drift apart.
  */
-import type { CircleStyle } from './types.js';
+import type { CircleStyle } from '../types.js';
 
 /**
  * How to draw one circle as MapLibre does: the fill up to `radius`, the stroke over the

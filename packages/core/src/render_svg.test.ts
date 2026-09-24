@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { RenderJob } from './renderer/types.js';
+import type { RenderJob } from './types.js';
 
 vi.mock('./pipeline/render.js', () => ({
 	drawMap: vi.fn((job: RenderJob) => Promise.resolve(job.renderer)),

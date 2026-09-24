@@ -2,7 +2,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { drawMap, type RenderContext } from './pipeline/render.js';
 import { getGlobalState, getLayerStyles, type GlobalState } from './pipeline/style_layer.js';
 import { SVGRenderer } from './renderer/svg.js';
-import type { LabelMode, Renderer } from './renderer/types.js';
+import type { LabelMode, Renderer } from './types.js';
 import {
 	type FetchFunction,
 	type GlyphRange,

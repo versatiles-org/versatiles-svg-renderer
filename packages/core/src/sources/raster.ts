@@ -1,5 +1,4 @@
-import type { RenderJob, RasterTile } from '../renderer/svg.js';
-import type { RasterTriangle } from '../renderer/types.js';
+import type { RasterTile, RasterTriangle, RenderJob } from '../types.js';
 import {
 	calculateTileGrid,
 	getTile,

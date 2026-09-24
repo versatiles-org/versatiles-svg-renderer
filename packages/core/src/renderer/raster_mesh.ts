@@ -1,4 +1,4 @@
-import type { RasterTriangle } from './types.js';
+import type { RasterTriangle } from '../types.js';
 
 /**
  * Geometry for drawing raster tiles as a mesh of triangles on the globe, shared by every

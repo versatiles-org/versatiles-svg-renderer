@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
 import { circleGradient, circleShape } from './circle.js';
-import type { CircleStyle } from './types.js';
+import type { CircleStyle } from '../types.js';
 
 function style(overrides: Partial<CircleStyle> = {}): CircleStyle {
 	return {

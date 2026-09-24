@@ -6,7 +6,7 @@
  */
 import type { SpriteEntry } from '../sources/index.js';
 import { mapIconAnchor } from './anchors.js';
-import type { IconStyle } from './types.js';
+import type { IconStyle } from '../types.js';
 
 /** A rectangle of the sprite image, and where it is drawn, relative to the icon's point. */
 export interface IconQuad {

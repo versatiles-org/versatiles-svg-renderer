@@ -1,8 +1,7 @@
 import type { Feature } from '@maplibre/maplibre-gl-style-spec';
 import { Feature as LayerFeature, GEOJSON_LAYER, Point2D } from '../../geometry.js';
 import type { Features, SourceFeatures } from '../../geometry.js';
-import type { RenderJob } from '../../renderer/svg.js';
-import type { FillPattern } from '../../renderer/types.js';
+import type { FillPattern, RenderJob } from '../../types.js';
 import type { SpriteAtlas } from '../../sources/index.js';
 import type { RenderContext } from '../render.js';
 import type {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { Renderer, RenderJob } from '../renderer/svg.js';
+import type { Renderer, RenderJob } from '../types.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 vi.mock('./vector.js', () => ({

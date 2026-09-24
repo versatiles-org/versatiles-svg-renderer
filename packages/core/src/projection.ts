@@ -1,6 +1,6 @@
 import type { ProjectionSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Point2D } from './geometry.js';
-import type { RasterTriangle } from './renderer/types.js';
+import type { RasterTriangle } from './types.js';
 
 /**
  * Map projection: web mercator, MapLibre's globe ("vertical-perspective") or a blend of both.

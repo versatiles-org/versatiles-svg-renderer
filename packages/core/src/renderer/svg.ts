@@ -20,7 +20,7 @@ import type {
 	RasterTile,
 	RendererOptions,
 	SymbolStyle as LabelStyle,
-} from './types.js';
+} from '../types.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
 import type { ClipCircle } from '../projection.js';
 import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
@@ -34,22 +34,6 @@ import {
 	RASTER_TRIANGLE_OVERLAP_PX,
 	type Triangle,
 } from './raster_mesh.js';
-
-export type {
-	BackgroundStyle,
-	CircleStyle,
-	FillStyle,
-	IconStyle,
-	LineStyle,
-	RasterStyle,
-	RasterTile,
-	Renderer,
-	RenderJob,
-	RendererOptions,
-	StringRenderer,
-	SymbolStyle,
-	View,
-} from './types.js';
 
 // line-blur approximates MapLibre's edge-feather blur, which keeps an opaque core
 // and feathers over ~`blur` px with a hard cutoff. feGaussianBlur alone conserves

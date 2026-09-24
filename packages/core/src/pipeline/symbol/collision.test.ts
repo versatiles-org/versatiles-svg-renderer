@@ -10,7 +10,7 @@ import {
 	type CollisionOptions,
 	type PlacedSymbol,
 } from './collision.js';
-import type { IconStyle, SymbolStyle } from '../../renderer/types.js';
+import type { IconStyle, SymbolStyle } from '../../types.js';
 import type { SpriteEntry } from '../../sources/sprite.js';
 
 const black = Color.parse('#000')!;

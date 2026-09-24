@@ -3,7 +3,7 @@ import { getImageSourceTiles, imageWarp } from './image.js';
 import { getRasterTiles } from './raster.js';
 import { Projection } from '../projection.js';
 import { Point2D } from '../geometry.js';
-import type { RenderJob, Renderer } from '../renderer/svg.js';
+import type { Renderer, RenderJob } from '../types.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 const RECTANGLE = [

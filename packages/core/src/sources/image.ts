@@ -1,4 +1,4 @@
-import type { RenderJob, RasterTile } from '../renderer/svg.js';
+import type { RasterTile, RenderJob } from '../types.js';
 import { Point2D } from '../geometry.js';
 import { Projection } from '../projection.js';
 import { tileDataUri, type TileLoader } from './tiles.js';

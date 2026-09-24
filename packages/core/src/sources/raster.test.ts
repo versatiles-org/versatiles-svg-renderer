@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { getRasterTiles } from './raster.js';
 import { Projection } from '../projection.js';
-import type { RenderJob, Renderer } from '../renderer/svg.js';
+import type { Renderer, RenderJob } from '../types.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 afterEach(() => {
