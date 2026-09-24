@@ -16,10 +16,11 @@ export interface View {
 /**
  * The styles regions draw (see `getStyle`):
  * - `vector`, `satellite`: the VersaTiles styles;
- * - `geojson`, `features`, `symbols`, `sources`, `patterns`: hand-made scenes, in `scenes/`.
+ * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `anchors`: hand-made scenes, in
+ *   `scenes/`.
  */
 export type StyleName =
-	'vector' | 'satellite' | 'geojson' | 'features' | 'symbols' | 'sources' | 'patterns';
+	'vector' | 'satellite' | 'geojson' | 'features' | 'symbols' | 'sources' | 'patterns' | 'anchors';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -113,6 +114,7 @@ export const regions: Region[] = [
 	{ id: 'berlin-geojson', style: 'geojson', view: { lon: 13.388, lat: 52.514, zoom: 14 } },
 	{ id: 'parity-features', style: 'features', view: scene },
 	{ id: 'parity-symbols', style: 'symbols', view: scene, labels: true },
+	{ id: 'parity-anchors', style: 'anchors', view: scene, labels: true },
 	{ id: 'parity-sources', style: 'sources', view: scene },
 	{ id: 'parity-patterns', style: 'patterns', view: scene },
 	// Patterns are scaled with the map from the zoom level's integer part.

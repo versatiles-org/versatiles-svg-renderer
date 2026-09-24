@@ -43,6 +43,7 @@ import {
 import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import { patternPeriod } from '../renderer/line_pattern.js';
+import { anchorOffsets, radialOffset } from './variable_anchor.js';
 import { gapBands } from './line_gap.js';
 import { fitIconToText, iconQuads, quadsBox } from '../renderer/icon_quads.js';
 import type { Features, SourceFeatures } from '../geometry.js';
@@ -586,6 +587,11 @@ function renderCircleLayer(layer: Layer): void {
 interface SymbolEntry extends PlacedSymbol {
 	icon?: [LayerFeature, IconStyle];
 	label?: [LayerFeature, SymbolStyle];
+	/** The label, and the icon if fitted to it, at each place to try (see `PlacedSymbol`). */
+	anchors?: (NonNullable<PlacedSymbol['anchors']>[number] & {
+		label?: [LayerFeature, SymbolStyle];
+		icon?: [LayerFeature, IconStyle];
+	})[];
 }
 
 /**
@@ -635,6 +641,18 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		);
 	}
 
+	// `text-radial-offset`, if the style sets one, takes the place of `text-offset`.
+	const radial = (feature: LayerFeature): number | undefined =>
+		layerStyle.setsLayout('text-radial-offset')
+			? (getLayout('text-radial-offset', feature) as number)
+			: undefined;
+	const textOffset = (feature: LayerFeature): [number, number] => {
+		const radius = radial(feature);
+		return radius
+			? radialOffset(getLayout('text-anchor', feature) as string, radius)
+			: (getLayout('text-offset', feature) as [number, number]);
+	};
+
 	const entries: SymbolEntry[] = [];
 	for (const feature of symbolFeatures) {
 		// Styles are evaluated for the feature itself (`geometry-type` must see a polygon as
@@ -665,7 +683,7 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					size: getLayout('text-size', feature) as number,
 					font: getLayout('text-font', feature) as string[],
 					anchor: getLayout('text-anchor', feature) as string,
-					offset: getLayout('text-offset', feature) as [number, number],
+					offset: textOffset(feature),
 					rotate: getLayout('text-rotate', feature) as number,
 					color: getPaint('text-color', feature) as MaplibreColor,
 					opacity: getPaint('text-opacity', feature) as number,
@@ -753,37 +771,59 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			const turn = (alignment: unknown): number => (alignment === 'map' ? mapRotation : 0);
 			const textTurn = turn(getLayout('text-rotation-alignment', feature));
 			const iconTurn = turn(getLayout('icon-rotation-alignment', feature));
-			const lineStyle = labelStyle &&
-				lines.length > 0 && {
-					...labelStyle,
-					text: lines.join('\n'),
-					rotate: labelStyle.rotate + textTurn,
-				};
-			const pointIcon =
+			const lineStyle: SymbolStyle | undefined =
+				labelStyle && lines.length > 0
+					? { ...labelStyle, text: lines.join('\n'), rotate: labelStyle.rotate + textTurn }
+					: undefined;
+			// With variable anchors, the places to try, each with the label anchored there.
+			const places =
+				lineStyle &&
+				anchorOffsets({
+					variableAnchorOffset: getLayout('text-variable-anchor-offset', feature),
+					variableAnchor: getLayout('text-variable-anchor', feature),
+					radialOffset: radial(feature),
+					textOffset: getLayout('text-offset', feature) as [number, number],
+				});
+			// MapLibre moves a label to each place by its padded box, so one `text-padding`
+			// further from its point than the anchor alone would put it.
+			const padding = textPadding / (lineStyle?.size ?? 1);
+			const styles: (SymbolStyle | undefined)[] = places
+				? places.map(({ anchor, offset }) => ({
+						...lineStyle,
+						anchor,
+						offset: [
+							offset[0] +
+								(anchor.endsWith('left') ? padding : anchor.endsWith('right') ? -padding : 0),
+							offset[1] +
+								(anchor.startsWith('top') ? padding : anchor.startsWith('bottom') ? -padding : 0),
+						] as [number, number],
+					}))
+				: [lineStyle];
+			const iconFor = (style: SymbolStyle | undefined): IconStyle | undefined =>
 				iconStyle &&
 				fitted(
 					{ ...iconStyle, rotate: iconStyle.rotate + iconTurn },
-					lineStyle
-						? layoutText(0, 0, lineStyle, lines, lineHeight, justify, metrics).box
-						: undefined,
+					style ? layoutText(0, 0, style, lines, lineHeight, justify, metrics).box : undefined,
 				);
+			// Only an icon fitted to its label moves with it.
+			const icons = textFit === 'none' ? [iconFor(styles[0])] : styles.map(iconFor);
 			for (const point of labelAnchors(feature)) {
 				// text-translate and icon-translate move the label and the icon, and what they block.
 				const tx = point.x + textTranslate[0];
 				const ty = point.y + textTranslate[1];
 				const ix = point.x + iconTranslate[0];
 				const iy = point.y + iconTranslate[1];
-				let label: [LayerFeature, SymbolStyle] | undefined;
-				let textBoxes: Box[] | undefined;
-				if (lineStyle) {
-					const layout = layoutText(tx, ty, lineStyle, lines, lineHeight, justify, metrics);
+				const placeLabel = (
+					style: SymbolStyle,
+				): { label: [LayerFeature, SymbolStyle]; textBoxes: Box[] } => {
+					const layout = layoutText(tx, ty, style, lines, lineHeight, justify, metrics);
 					let drawn: SymbolStyle = layout.lines
-						? { ...lineStyle, lines: layout.lines, justify: layout.justify }
-						: lineStyle;
+						? { ...style, lines: layout.lines, justify: layout.justify }
+						: style;
 					if (asGlyphs) {
 						drawn = {
-							...lineStyle,
-							glyphs: glyphsOfLines(layout.lineBoxes, lineStyle, outlineOf, tx, ty, metrics),
+							...style,
+							glyphs: glyphsOfLines(layout.lineBoxes, style, outlineOf, tx, ty, metrics),
 							textOverlay,
 							// The invisible text, line by line, as wide as the glyphs.
 							lines: layout.lineBoxes.map((line) => ({
@@ -795,14 +835,29 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 							justify: 'center',
 						};
 					}
-					label = [pointAtAnchor(tx, ty), drawn];
-					textBoxes = [paddedBox(layout.box, lineStyle, tx, ty, textPadding)];
-				}
+					return {
+						label: [pointAtAnchor(tx, ty), drawn],
+						textBoxes: [paddedBox(layout.box, style, tx, ty, textPadding)],
+					};
+				};
+				const placeIcon = (icon: IconStyle | undefined) =>
+					icon && {
+						icon: [pointAtAnchor(ix, iy), icon] as [LayerFeature, IconStyle],
+						iconBox: iconBox(ix, iy, icon, sprite!, iconPadding),
+					};
+				const first = styles[0] && placeLabel(styles[0]);
+				const firstIcon = placeIcon(icons[0]);
 				entries.push({
-					icon: pointIcon && [pointAtAnchor(ix, iy), pointIcon],
-					label,
-					iconBox: pointIcon && iconBox(ix, iy, pointIcon, sprite!, iconPadding),
-					textBoxes,
+					icon: firstIcon?.icon,
+					label: first?.label,
+					iconBox: firstIcon?.iconBox,
+					textBoxes: first?.textBoxes,
+					anchors: places
+						? styles.map((style, i) => ({
+								...placeLabel(style!),
+								...(textFit === 'none' ? {} : placeIcon(icons[i])),
+							}))
+						: undefined,
 					options,
 					showIcon: false,
 					showText: false,
@@ -1017,10 +1072,19 @@ function glyphsAlongPath(
 /** Draws the symbols of a layer that collision detection kept: icons first, then labels. */
 async function renderSymbolLayer(layer: Layer, symbols: SymbolEntry[]): Promise<void> {
 	const { job, layerStyle, spriteAtlas } = layer;
-	const icons = symbols.flatMap((symbol) => (symbol.showIcon && symbol.icon ? [symbol.icon] : []));
-	const labels = symbols.flatMap((symbol) =>
-		symbol.showText && symbol.label ? [symbol.label] : [],
-	);
+	// With variable anchors, the label (and a fitted icon) where it was placed.
+	const placed = (symbol: SymbolEntry) => {
+		const chosen = symbol.anchor !== undefined ? symbol.anchors?.[symbol.anchor] : undefined;
+		return { label: chosen?.label ?? symbol.label, icon: chosen?.icon ?? symbol.icon };
+	};
+	const icons = symbols.flatMap((symbol) => {
+		const { icon } = placed(symbol);
+		return symbol.showIcon && icon ? [icon] : [];
+	});
+	const labels = symbols.flatMap((symbol) => {
+		const { label } = placed(symbol);
+		return symbol.showText && label ? [label] : [];
+	});
 	await job.renderer.drawIcons(`${layerStyle.id}-icons`, icons, spriteAtlas);
 	job.renderer.drawLabels(`${layerStyle.id}-labels`, labels);
 }

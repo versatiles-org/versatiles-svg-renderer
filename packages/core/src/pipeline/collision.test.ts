@@ -181,6 +181,41 @@ describe('placeSymbols', () => {
 		]);
 	});
 
+	describe('variable anchors', () => {
+		const variable = (
+			anchors: { text: Box; icon?: Box }[],
+			overrides: Partial<CollisionOptions> = {},
+		): PlacedSymbol => ({
+			...symbol({ text: anchors[0]!.text }, overrides),
+			anchors: anchors.map(({ text, icon }) => ({ textBoxes: [text], iconBox: icon })),
+		});
+
+		test('places the label at the first anchor where it fits', () => {
+			const label = variable([{ text: B }, { text: C }]);
+			expect(place(symbol({ text: A }), label)).toEqual(['T', 'T']);
+			expect(label.anchor).toBe(1);
+			expect(label.textBoxes).toEqual([C]);
+		});
+
+		test('hides the label where no anchor fits, unless it may overlap: then at the first', () => {
+			const hidden = variable([{ text: B }, { text: A }]);
+			expect(place(symbol({ text: A }), hidden)).toEqual(['T', '-']);
+			const overlapping = variable([{ text: B }, { text: A }], { textAllowOverlap: true });
+			expect(place(symbol({ text: A }), overlapping)).toEqual(['T', 'T']);
+			expect(overlapping.anchor).toBe(0);
+		});
+
+		test('moves an icon fitted to the label with it, and needs room for both', () => {
+			const label = variable([
+				{ text: C, icon: B },
+				{ text: [70, 70, 80, 80], icon: [70, 70, 80, 80] },
+			]);
+			expect(place(symbol({ text: A }), label)).toEqual(['T', 'TI']);
+			expect(label.anchor).toBe(1);
+			expect(label.iconBox).toEqual([70, 70, 80, 80]);
+		});
+	});
+
 	test('allow-overlap shows a symbol anyway, ignore-placement lets others overlap it', () => {
 		expect(place(symbol({ text: A }), symbol({ text: B }, { textAllowOverlap: true }))).toEqual([
 			'T',

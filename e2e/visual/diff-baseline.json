@@ -534,5 +534,57 @@
 				"drift": 2.83
 			}
 		}
+	},
+	"parity-anchors": {
+		"svg": 0.42,
+		"png": 0.41,
+		"drift": 0.01,
+		"cells": {
+			"first place free": {
+				"svg": 0.06,
+				"png": 0.06,
+				"drift": 0
+			},
+			"first place blocked": {
+				"svg": 0.05,
+				"png": 0.05,
+				"drift": 0
+			},
+			"all blocked: hidden": {
+				"svg": 1.47,
+				"png": 1.42,
+				"drift": 0.01
+			},
+			"all blocked, may overlap": {
+				"svg": 1.83,
+				"png": 1.8,
+				"drift": 0.08
+			},
+			"radial offset only": {
+				"svg": 0.06,
+				"png": 0.06,
+				"drift": 0
+			},
+			"variable-anchor-offset": {
+				"svg": 0.05,
+				"png": 0.05,
+				"drift": 0
+			},
+			"fitted icon moves along": {
+				"svg": 0.09,
+				"png": 0.09,
+				"drift": 0
+			},
+			"two lines, justified": {
+				"svg": 0.12,
+				"png": 0.12,
+				"drift": 0
+			},
+			"icon stays, not fitted": {
+				"svg": 0.07,
+				"png": 0.06,
+				"drift": 0
+			}
+		}
 	}
 }

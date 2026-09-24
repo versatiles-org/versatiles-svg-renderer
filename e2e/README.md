@@ -19,17 +19,17 @@ helpers), then `plugin/`, then `visual/`.
 
 In `visual/`:
 
-| File                 | What it does                                                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                                                                               |
-| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                   |
-| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                                                                          |
-| `scenes/`            | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts`, `symbols.ts`, `sources.ts` and `patterns.ts`, built with `grid.ts`; `test-sprite.ts` and `test-image.ts` are fixtures. |
-| `capture.ts`         | Renders a region three ways.                                                                                                                                                                                 |
-| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                                                                             |
-| `report.ts`          | Writes the HTML report.                                                                                                                                                                                      |
-| `output.ts`          | The image size and the output folders.                                                                                                                                                                       |
-| `diff-baseline.json` | The blessed metrics per region.                                                                                                                                                                              |
+| File                 | What it does                                                                                                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                                                                                             |
+| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                 |
+| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                                                                                        |
+| `scenes/`            | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts`, `symbols.ts`, `sources.ts`, `patterns.ts` and `anchors.ts`, built with `grid.ts`; `test-sprite.ts` and `test-image.ts` are fixtures. |
+| `capture.ts`         | Renders a region three ways.                                                                                                                                                                                               |
+| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                                                                                           |
+| `report.ts`          | Writes the HTML report.                                                                                                                                                                                                    |
+| `output.ts`          | The image size and the output folders.                                                                                                                                                                                     |
+| `diff-baseline.json` | The blessed metrics per region.                                                                                                                                                                                            |
 
 The request cache (`.cache/`) and the generated screenshots, diffs and report (`output/`)
 stay in this folder, gitignored.
@@ -57,13 +57,15 @@ The `parity-*` regions draw scenes that check single MapLibre features, one per 
 `global-state`, fill patterns), `visual/scenes/symbols.ts` (`icon-text-fit` with
 stretchable icons, a turned icon), `visual/scenes/sources.ts` (`image` sources: a
 rectangle, a parallelogram, in perspective, strongly foreshortened, mirrored, translucent;
-GeoJSON sources' `filter`, `promoteId` and `generateId`) and `visual/scenes/patterns.ts`
+GeoJSON sources' `filter`, `promoteId` and `generateId`), `visual/scenes/patterns.ts`
 (`line-pattern` along straight lines, turns, round joins, a polygon's outline, a
 zoom-dependent width; a `fill-pattern`), also drawn at zoom 11.5 (`parity-patterns-z11.5`),
-where patterns are scaled with the map. Each cell is one object: a title, and a function
-that builds its sources and layers around the cell's center. When a renderer gains a
-feature MapLibre has, give it a cell in a scene (or start a new scene, with a region of
-its own), so its diff is measured without the noise of a real map.
+where patterns are scaled with the map, and `visual/scenes/anchors.ts` (labels with
+variable anchors, moved on by translucent blockers placed first; `text-radial-offset`).
+Each cell is one object: a title, and a function that builds its sources and layers around
+the cell's center. When a renderer gains a feature MapLibre has, give it a cell in a scene
+(or start a new scene, with a region of its own), so its diff is measured without the
+noise of a real map.
 
 For these regions, each cell is also measured on its own: the part of the image nearest
 to the cell's center. The report lists every cell's three numbers, and the console prints a
@@ -109,7 +111,7 @@ The `*-rotated` and `*-padded` regions are rendered with a `bearing` or `padding
 compared with MapLibre with the same.
 
 Labels and icons are switched off in every region but `berlin-labels-vector` (and its
-rotated twin) and `parity-symbols`.
+rotated twin), `parity-symbols` and `parity-anchors`.
 MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
 difference is large and inherent; confining it to one region keeps it measured
 without letting it dominate every other diff.

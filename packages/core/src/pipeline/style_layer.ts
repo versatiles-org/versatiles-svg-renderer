@@ -105,6 +105,9 @@ export class StyleLayer {
 	/** Whether the layer paints with a sprite image (`*-pattern`), so it needs the sprite. */
 	readonly usesPattern: boolean;
 
+	/** The layout properties the style sets, as opposed to those left at their defaults. */
+	readonly #layoutNames: Set<string>;
+
 	/**
 	 * @param globalState - The values `global-state` expressions read, in the layer's
 	 *   properties, filter and visibility.
@@ -117,6 +120,7 @@ export class StyleLayer {
 		this.paintExpressions = new Map();
 		this.layoutExpressions = new Map();
 		this.usesPattern = Object.keys(spec.paint ?? {}).some((name) => name.endsWith('-pattern'));
+		this.#layoutNames = new Set(Object.keys(spec.layout ?? {}));
 
 		if (spec.type !== 'background') {
 			this.source = (spec as Record<string, unknown>).source as string;
@@ -163,6 +167,11 @@ export class StyleLayer {
 				);
 			}
 		}
+	}
+
+	/** Whether the style sets the layout property `name`, rather than leaving its default. */
+	setsLayout(name: string): boolean {
+		return this.#layoutNames.has(name);
 	}
 
 	isHidden(zoom: number): boolean {

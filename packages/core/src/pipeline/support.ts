@@ -99,12 +99,15 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-opacity',
 		'text-optional',
 		'text-padding',
+		'text-radial-offset',
 		'text-rotate',
 		'text-rotation-alignment',
 		'text-size',
 		'text-transform',
 		'text-translate',
 		'text-translate-anchor',
+		'text-variable-anchor',
+		'text-variable-anchor-offset',
 	],
 };
 

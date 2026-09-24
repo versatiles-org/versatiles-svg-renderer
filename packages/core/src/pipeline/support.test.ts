@@ -88,11 +88,11 @@ describe('checkStyle', () => {
 
 	test('checks symbol layers only when labels are rendered', () => {
 		const style = makeStyle([
-			{ id: 'label', type: 'symbol', source: 's', layout: { 'text-variable-anchor': ['top'] } },
+			{ id: 'label', type: 'symbol', source: 's', layout: { 'text-writing-mode': ['vertical'] } },
 		]);
 		expect(checkStyle(style, false)).toEqual([]);
 		expect(checkStyle(style, true)).toEqual([
-			'These layer properties are not supported and are ignored: text-variable-anchor ("label").',
+			'These layer properties are not supported and are ignored: text-writing-mode ("label").',
 		]);
 	});
 

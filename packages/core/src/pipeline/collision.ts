@@ -41,6 +41,34 @@ export interface PlacedSymbol {
 	options: CollisionOptions;
 	showText: boolean;
 	showIcon: boolean;
+	/**
+	 * With `text-variable-anchor`: the label's boxes at each place to try, in order, and the
+	 * icon's where it is fitted to the label. Placement picks one (`anchor`) and puts its
+	 * boxes into `textBoxes` and `iconBox`.
+	 */
+	anchors?: { textBoxes: Box[]; iconBox?: Box }[];
+	/** The one of `anchors` placed, or the first if none could be. */
+	anchor?: number;
+}
+
+/**
+ * The first of `anchors` whose label (and fitted icon) overlaps nothing placed so far, or
+ * with `text-allow-overlap`, the first one, as MapLibre GL JS tries them
+ * (`placeBoxForVariableAnchors`). `undefined` if none can be placed.
+ */
+function chooseAnchor(
+	anchors: NonNullable<PlacedSymbol['anchors']>,
+	options: CollisionOptions,
+	index: CollisionIndex,
+): number | undefined {
+	const iconFits = (box: Box | undefined): boolean =>
+		box === undefined || options.iconAllowOverlap || !index.collides(box);
+	const found = anchors.findIndex(
+		({ textBoxes, iconBox }) => !textBoxes.some((box) => index.collides(box)) && iconFits(iconBox),
+	);
+	if (found >= 0) return found;
+	// Allowed to overlap, the label (and its fitted icon, placed alike) takes the first place.
+	return options.textAllowOverlap ? 0 : undefined;
 }
 
 /** `box` grown by `padding`: a number, or `[top, right, bottom, left]`. */
@@ -262,6 +290,16 @@ export class CollisionIndex {
  */
 export function placeSymbols(symbols: PlacedSymbol[], index: CollisionIndex): void {
 	for (const symbol of symbols) {
+		// With several places to try, the label goes to the first that fits.
+		let textFits = true;
+		if (symbol.anchors && symbol.anchors.length > 0) {
+			const chosen = chooseAnchor(symbol.anchors, symbol.options, index);
+			textFits = chosen !== undefined;
+			symbol.anchor = chosen ?? 0;
+			const { textBoxes, iconBox } = symbol.anchors[symbol.anchor]!;
+			symbol.textBoxes = textBoxes;
+			if (iconBox) symbol.iconBox = iconBox;
+		}
 		const { textBoxes, iconBox, options } = symbol;
 		const hasText = textBoxes !== undefined && textBoxes.length > 0;
 		const inView =
@@ -273,7 +311,9 @@ export function placeSymbols(symbols: PlacedSymbol[], index: CollisionIndex): vo
 			continue;
 		}
 		let showText =
-			hasText && (options.textAllowOverlap || !textBoxes.some((box) => index.collides(box)));
+			hasText &&
+			textFits &&
+			(options.textAllowOverlap || !textBoxes.some((box) => index.collides(box)));
 		let showIcon = iconBox !== undefined && (options.iconAllowOverlap || !index.collides(iconBox));
 
 		// A label with an icon: both are shown, or neither, unless one is optional. An optional

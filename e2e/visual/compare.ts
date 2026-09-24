@@ -39,6 +39,7 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	symbols: 0.03,
 	sources: 0.03,
 	patterns: 0.03,
+	anchors: 0.03,
 	satellite: 0.1,
 };
 

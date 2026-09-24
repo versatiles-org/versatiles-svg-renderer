@@ -197,7 +197,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Labels along lines                    | ✅  | ✅  |       |
 | Label position in polygons            | ✅  | ✅  |       |
 | Line breaks, wrapping, justification  | ✅  | ✅  |       |
-| Variable anchors, vertical text       | ❌  | ❌  | [#41] |
+| Variable anchors, radial offset       | ✅  | ✅  |       |
+| Vertical text                         | ❌  | ❌  | [#41] |
 | `format` expressions                  | ⚠️¹ | ⚠️¹ | [#42] |
 | **Expressions**                       |     |     |       |
 | Filters, zoom expressions             | ✅  | ✅  |       |
