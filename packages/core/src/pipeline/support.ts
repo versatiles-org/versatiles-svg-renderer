@@ -31,6 +31,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'line-miter-limit',
 		'line-offset',
 		'line-opacity',
+		'line-pattern',
 		'line-round-limit',
 		'line-sort-key',
 		'line-translate',

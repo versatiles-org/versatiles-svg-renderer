@@ -183,7 +183,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `heatmap`                             | ❌  | ❌  | [#46] |
 | `hillshade`, `color-relief`           | ❌  | ❌  | [#47] |
 | `fill-pattern`, `background-pattern`  | ✅  | ✅  |       |
-| `line-pattern`                        | ❌  | ❌  | [#44] |
+| `line-pattern`                        | ✅  | ✅  |       |
 | `line-gap-width`                      | ✅  | ✅  |       |
 | Line layers on polygons               | ✅  | ✅  |       |
 | `line-gradient`                       | ❌  | ❌  | [#53] |
@@ -213,7 +213,6 @@ Labels and icons are only drawn with the `labels` option. Interaction, animation
 [#37]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/37
 [#41]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/41
 [#42]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/42
-[#44]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/44
 [#45]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/45
 [#46]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/46
 [#47]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/47

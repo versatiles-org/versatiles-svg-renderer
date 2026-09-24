@@ -3,6 +3,7 @@ import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
 import { chainSegments, formatNum, segmentsToPath, strokeLines } from './svg_path.js';
 import { iconQuads } from './icon_quads.js';
+import { linePatternStrips } from './line_pattern.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -10,6 +11,7 @@ import type {
 	FillStyle,
 	GlyphPlacement,
 	IconStyle,
+	LinePattern,
 	PlacedGlyph,
 	LineStyle,
 	RasterStyle,
@@ -96,6 +98,8 @@ export class SVGRenderer {
 	readonly #rasterDefs: string[] = [];
 
 	#rasterClipCount = 0;
+
+	#linePatternMaskCount = 0;
 
 	#clipCircle: ClipCircle | undefined;
 
@@ -229,11 +233,25 @@ export class SVGRenderer {
 		// between the parts of one feature (tiles merge equal ways into one multi-line
 		// feature). One <path> covers its overlaps only once, so a translucent line gets
 		// a <path> per part.
-		const groups: { segments: Segment[]; rings: Segment[]; attrs: string; separate: boolean }[] =
-			[];
+		const groups: {
+			segments: Segment[];
+			rings: Segment[];
+			attrs: string;
+			separate: boolean;
+			/** A line drawn with a pattern, as it is. */
+			patterned?: string;
+		}[] = [];
 		let currentKey: string | undefined;
 		features.forEach(([feature, style]) => {
 			if (style.opacity <= 0) return;
+			if (style.pattern) {
+				if (style.width <= 0) return;
+				const patterned = this.#patternedLine(feature, style, style.pattern);
+				if (patterned)
+					groups.push({ segments: [], rings: [], attrs: '', separate: true, patterned });
+				currentKey = undefined;
+				return;
+			}
 			const color = new Color(style.color);
 			if (style.width <= 0 || color.alpha <= 0) return;
 
@@ -296,7 +314,11 @@ export class SVGRenderer {
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, rings, attrs, separate } of groups) {
+		for (const { segments, rings, attrs, separate, patterned } of groups) {
+			if (patterned) {
+				this.#svg.push(patterned);
+				continue;
+			}
 			if (separate) {
 				for (const segment of segments) {
 					this.#svg.push(`<path d="${segmentsToPath([segment])}" ${attrs} />`);
@@ -311,6 +333,87 @@ export class SVGRenderer {
 			this.#svg.push(`<path d="${d}" ${attrs} />`);
 		}
 		this.#svg.push('</g>');
+	}
+
+	/**
+	 * A line drawn with `line-pattern`: every segment covered with copies of the image along
+	 * it (see `linePatternStrips`), all masked by the line as it is stroked, which draws its
+	 * joins and caps and smooths its edges.
+	 */
+	#patternedLine(feature: Feature, style: LineStyle, pattern: LinePattern): string {
+		const { open, closed } = strokeLines(
+			feature.geometry,
+			feature.type === 'Polygon',
+			style.offset,
+		);
+		const strips = [
+			...open.flatMap((line) => linePatternStrips(line, false, style.width)),
+			...closed.flatMap((ring) => linePatternStrips(ring, true, style.width)),
+		];
+		if (strips.length === 0) return '';
+
+		const toSegment = (line: { x: number; y: number }[]): Segment =>
+			line.map((p) => roundXY(p.x, p.y));
+		const d =
+			segmentsToPath(chainSegments(open.map(toSegment))) +
+			segmentsToPath(closed.map(toSegment), true);
+		const maskId = `line-pattern-mask-${String(this.#linePatternMaskCount++)}`;
+		const stroke = [
+			`stroke="#fff" stroke-width="${formatScaled(style.width)}"`,
+			`stroke-linecap="${style.cap}" stroke-linejoin="${style.join}"`,
+			`stroke-miterlimit="${String(style.miterLimit)}"`,
+		].join(' ');
+
+		const fill = this.#linePatternPaint(pattern, style.width);
+		const parts = strips.map(({ matrix, polygon }) => {
+			// The path is in tenths of a pixel (see `roundXY`), which `formatScaled` undoes.
+			const [a, b, c, dd, e, f] = matrix;
+			const transform =
+				[a, b, c, dd].map(formatUnit).join(',') + ',' + formatScaled(e) + ',' + formatScaled(f);
+			const outline = segmentsToPath([polygon.map(([u, v]) => roundXY(u, v))], true);
+			return `<path transform="matrix(${transform})" d="${outline}" fill="${fill}" />`;
+		});
+
+		// `line-blur` is left out: MapLibre fades a pattern's edges only slightly.
+		let attrs = '';
+		if (style.translate[0] !== 0 || style.translate[1] !== 0) {
+			attrs += ` transform="translate(${formatPoint(style.translate)})"`;
+		}
+		if (style.opacity < 1) attrs += ` opacity="${style.opacity.toFixed(3)}"`;
+		return (
+			`<mask id="${maskId}"><path d="${d}" fill="none" ${stroke} /></mask>` +
+			`<g${attrs}><g mask="url(#${maskId})">${parts.join('')}</g></g>`
+		);
+	}
+
+	/**
+	 * `url(#…)` of a `<pattern>` repeating the sprite image of `pattern` along a line of
+	 * `width`: one copy per `period` along it, spanning its width (see `linePatternStrips`).
+	 */
+	#linePatternPaint(pattern: LinePattern, width: number): string {
+		const { sprite, period } = pattern;
+		const key = [
+			'line',
+			pattern.name,
+			sprite.sheetDataUri,
+			formatUnit(period),
+			formatUnit(width),
+		].join('\0');
+		let def = this.#patternDefs.get(key);
+		if (!def) {
+			const id = `pattern-${String(this.#patternDefs.size)}`;
+			const symbolId = this.#spriteSymbol(pattern.name, sprite);
+			const scale = `${formatScale(period / sprite.width)},${formatScale(width / sprite.height)}`;
+			def = {
+				id,
+				content:
+					`<pattern id="${id}" patternUnits="userSpaceOnUse" width="${formatUnit(period)}" height="${formatUnit(width)}">` +
+					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${scale})" />` +
+					`</pattern>`,
+			};
+			this.#patternDefs.set(key, def);
+		}
+		return `url(#${def.id})`;
 	}
 
 	/** Register (deduplicated by blur radius) a Gaussian blur filter and return its id. */
@@ -578,16 +681,22 @@ export class SVGRenderer {
 	 */
 	#patternPaint(pattern: FillPattern): string {
 		const { sprite, origin } = pattern;
-		const width = sprite.width / sprite.pixelRatio;
-		const height = sprite.height / sprite.pixelRatio;
+		const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
+		const width = sprite.width * scale;
+		const height = sprite.height * scale;
 		// Only the origin's position within one copy matters.
 		// Only the origin's position within one copy matters, unless the pattern turns around it.
 		const angle = pattern.angle ?? 0;
 		const x = angle === 0 ? mod(origin[0], width) : origin[0];
 		const y = angle === 0 ? mod(origin[1], height) : origin[1];
-		const key = [pattern.name, sprite.sheetDataUri, x.toFixed(2), y.toFixed(2), String(angle)].join(
-			'\0',
-		);
+		const key = [
+			pattern.name,
+			sprite.sheetDataUri,
+			x.toFixed(2),
+			y.toFixed(2),
+			String(angle),
+			formatScale(scale),
+		].join('\0');
 		let def = this.#patternDefs.get(key);
 		if (!def) {
 			const id = `pattern-${String(this.#patternDefs.size)}`;
@@ -596,7 +705,7 @@ export class SVGRenderer {
 				id,
 				content:
 					`<pattern id="${id}" patternUnits="userSpaceOnUse" x="${formatScaled(x)}" y="${formatScaled(y)}" width="${formatScaled(width)}" height="${formatScaled(height)}"${angle === 0 ? '' : ` patternTransform="rotate(${formatScale(angle)} ${formatScaled(x)} ${formatScaled(y)})"`}>` +
-					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${formatScale(1 / sprite.pixelRatio)})" />` +
+					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${formatScale(scale)})" />` +
 					`</pattern>`,
 			};
 			this.#patternDefs.set(key, def);

@@ -5,6 +5,7 @@ import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
 import { chainSegments, strokeLines } from './svg_path.js';
 import { iconQuads, quadsBox } from './icon_quads.js';
+import { linePatternStrips } from './line_pattern.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -12,6 +13,7 @@ import type {
 	FillStyle,
 	GlyphPlacement,
 	IconStyle,
+	LinePattern,
 	PlacedGlyph,
 	LineStyle,
 	RasterStyle,
@@ -181,8 +183,8 @@ export class CanvasRenderer implements Renderer {
 		box: [number, number, number, number],
 	): void {
 		const { sprite } = pattern;
-		const width = sprite.width / sprite.pixelRatio;
-		const height = sprite.height / sprite.pixelRatio;
+		const width = (sprite.width / sprite.pixelRatio) * (pattern.scale ?? 1);
+		const height = (sprite.height / sprite.pixelRatio) * (pattern.scale ?? 1);
 		const angle = pattern.angle ?? 0;
 		if (angle !== 0) {
 			// Turned with the map: the copies are drawn crisply into an offscreen image of the
@@ -241,7 +243,7 @@ export class CanvasRenderer implements Renderer {
 				// A huge area: a canvas pattern, blurred a little, instead of a huge image.
 				const fill = this.#patterns.get(`${pattern.name}\0${sprite.sheetDataUri}`);
 				if (fill) {
-					const scale = 1 / sprite.pixelRatio;
+					const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
 					fill.setTransform({ a: scale, b: 0, c: 0, d: scale, e: 0, f: 0 });
 					ctx.fillStyle = fill;
 					ctx.fillRect(i0 * width, j0 * height, (i1 - i0) * width, (j1 - j0) * height);
@@ -288,7 +290,7 @@ export class CanvasRenderer implements Renderer {
 			fill = this.ctx.createPattern(image, 'repeat');
 			this.#patterns.set(key, fill);
 		}
-		const scale = 1 / sprite.pixelRatio;
+		const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
 		// Only the origin's position within one copy matters; keeping it small keeps it precise.
 		const e = mod(pattern.origin[0], sprite.width * scale);
 		const f = mod(pattern.origin[1], sprite.height * scale);
@@ -379,11 +381,15 @@ export class CanvasRenderer implements Renderer {
 		}
 	}
 
-	public drawLineStrings(_id: string, features: [Feature, LineStyle][]): void {
+	public async drawLineStrings(_id: string, features: [Feature, LineStyle][]): Promise<void> {
 		if (features.length === 0) return;
 
 		for (const [feature, style] of features) {
 			if (style.opacity <= 0) continue;
+			if (style.pattern) {
+				if (style.width > 0) await this.#patternedLine(feature, style, style.pattern);
+				continue;
+			}
 			const color = new Color(style.color);
 			if (style.width <= 0 || color.alpha <= 0) continue;
 
@@ -446,6 +452,78 @@ export class CanvasRenderer implements Renderer {
 				},
 			);
 		}
+	}
+
+	/**
+	 * A line drawn with `line-pattern`, as the SVG backend draws it: every segment covered
+	 * with copies of the image along it (see `linePatternStrips`), in an offscreen layer that
+	 * is then cut to the line as it is stroked, with its joins and caps.
+	 */
+	async #patternedLine(feature: Feature, style: LineStyle, pattern: LinePattern): Promise<void> {
+		const lines = strokeLines(feature.geometry, feature.type === 'Polygon', style.offset);
+		const strips = [
+			...lines.open.flatMap((line) => linePatternStrips(line, false, style.width)),
+			...lines.closed.flatMap((ring) => linePatternStrips(ring, true, style.width)),
+		];
+		if (strips.length === 0) return;
+		const sheet = await this.#decode(pattern.sprite.sheetDataUri);
+		const { sprite, period } = pattern;
+		const width = style.width;
+		const segments = lines.open.map(toSegment);
+		const rings = lines.closed.map(toSegment);
+		const margin = (width / 2) * Math.max(style.miterLimit, 1) + 2;
+
+		this.#isolate(
+			regionOf([...segments, ...rings], style.translate, margin),
+			style.opacity,
+			undefined,
+			(ctx) => {
+				applyTranslate(ctx, style.translate);
+				for (const { matrix, polygon } of strips) {
+					ctx.save();
+					ctx.transform(...matrix);
+					ctx.beginPath();
+					for (const [s, t] of polygon) ctx.lineTo(s, t);
+					ctx.closePath();
+					ctx.clip();
+					const along = polygon.map(([s]) => s);
+					const first = Math.floor(Math.min(...along) / period);
+					const last = Math.ceil(Math.max(...along) / period);
+					// A row of copies on each side too, for the line's smoothed edges.
+					for (let k = first; k < last; k++) {
+						for (let row = -1; row <= 1; row++) {
+							ctx.drawImage(
+								sheet,
+								sprite.x,
+								sprite.y,
+								sprite.width,
+								sprite.height,
+								k * period,
+								row * width,
+								period,
+								width,
+							);
+						}
+					}
+					ctx.restore();
+				}
+				// Keep only what the stroked line covers.
+				ctx.globalCompositeOperation = 'destination-in';
+				ctx.strokeStyle = '#000000';
+				ctx.lineWidth = width;
+				ctx.lineCap = style.cap;
+				ctx.lineJoin = style.join;
+				ctx.miterLimit = style.miterLimit;
+				if (segments.length > 0) {
+					this.#trace(ctx, chainSegments(segments), false);
+					ctx.stroke();
+				}
+				for (const ring of rings) {
+					this.#trace(ctx, [ring], true);
+					ctx.stroke();
+				}
+			},
+		);
 	}
 
 	public drawCircles(_id: string, features: [Feature, CircleStyle][]): void {

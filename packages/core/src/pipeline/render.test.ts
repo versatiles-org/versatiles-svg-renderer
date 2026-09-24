@@ -1549,4 +1549,100 @@ describe('renderMap', () => {
 			expect(await drawnIds(undefined, 0.25)).toEqual([1]);
 		});
 	});
+
+	describe('patterns at a fractional zoom level', () => {
+		const sprite = {
+			width: 16,
+			height: 16,
+			x: 0,
+			y: 0,
+			pixelRatio: 2,
+			sdf: false,
+			sheetDataUri: 'data:image/png;base64,AAAA',
+			sheetWidth: 16,
+			sheetHeight: 16,
+		};
+
+		beforeEach(() => {
+			(loadSpriteAtlas as Mock).mockResolvedValue(new Map([['base:hatch', sprite]]));
+		});
+
+		test('repeat a line pattern as MapLibre does, and leave out a missing image', async () => {
+			const line = (pattern: string): Feature =>
+				makeLineFeature(
+					[
+						[
+							[0, 10],
+							[100, 10],
+						],
+					],
+					{ pattern },
+				);
+			setLayerFeatures(
+				new Map([['roads', makeFeatures({ linestrings: [line('base:hatch'), line('missing')] })]]),
+			);
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'roads',
+						type: 'line',
+						source: 'src',
+						'source-layer': 'roads',
+						paint: {
+							'line-pattern': ['get', 'pattern'],
+							'line-width': ['interpolate', ['linear'], ['zoom'], 10, 8, 12, 24],
+						},
+					},
+				]),
+				10.5,
+			);
+			const drawLineStrings = vi.spyOn(job.renderer, 'drawLineStrings');
+			await renderMap(job);
+
+			const drawn = drawLineStrings.mock.calls[0]![1];
+			expect(drawn).toHaveLength(1);
+			const [, style] = drawn[0]!;
+			expect(style.width).toBe(12);
+			// The 8 × 8 px image, scaled to the width at zoom 10 (8 px), then with the map by √2.
+			expect(style.pattern!.name).toBe('base:hatch');
+			expect(style.pattern!.period).toBeCloseTo(8 * Math.SQRT2, 9);
+		});
+
+		test('scale a fill pattern with the map from the zoom level’s integer part', async () => {
+			setLayerFeatures(
+				new Map([
+					[
+						'sites',
+						makeFeatures({
+							polygons: [
+								makePolygonFeature([
+									[
+										[0, 0],
+										[50, 0],
+										[50, 50],
+										[0, 0],
+									],
+								]),
+							],
+						}),
+					],
+				]),
+			);
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'sites',
+						type: 'fill',
+						source: 'src',
+						'source-layer': 'sites',
+						paint: { 'fill-pattern': 'base:hatch' },
+					},
+				]),
+				10.5,
+			);
+			const drawPolygons = vi.spyOn(job.renderer, 'drawPolygons');
+			await renderMap(job);
+			expect(drawPolygons.mock.calls[0]![1][0]![1].pattern!.scale).toBeCloseTo(Math.SQRT2, 9);
+		});
+	});
 });

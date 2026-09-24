@@ -302,28 +302,32 @@ describe('CanvasRenderer', () => {
 				],
 			]);
 
-		test('strokes in the line colour at the given width', () => {
+		test('strokes in the line colour at the given width', async () => {
 			const r = makeRenderer();
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10 })]]);
+			await r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10 })]]);
 			expect(at(r, 128, 128)).toEqual([255, 0, 0, 255]);
 			expect(at(r, 128, 120)[3]).toBe(0);
 			expect(at(r, 128, 126)[3]).toBeGreaterThan(200);
 		});
 
-		test('skips non-positive width and transparent colours', () => {
+		test('skips non-positive width and transparent colours', async () => {
 			const r = makeRenderer();
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 0 })]]);
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ color: mc('#FF0000', 0) })]]);
+			await r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 0 })]]);
+			await r.drawLineStrings('line-test', [
+				[horizontal(), lineStyle({ color: mc('#FF0000', 0) })],
+			]);
 			expect(at(r, 128, 128)[3]).toBe(0);
 		});
 
-		test('applies stroke-dasharray', () => {
+		test('applies stroke-dasharray', async () => {
 			const r = makeRenderer();
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, dasharray: [4, 2] })]]);
+			await r.drawLineStrings('line-test', [
+				[horizontal(), lineStyle({ width: 4, dasharray: [4, 2] })],
+			]);
 			expect(runsAlongRow(r, 128, 256)).toBeGreaterThan(5);
 		});
 
-		test('line-cap square extends past the endpoint, butt does not', () => {
+		test('line-cap square extends past the endpoint, butt does not', async () => {
 			const segment = (): Feature =>
 				makeLineFeature([
 					[
@@ -332,25 +336,29 @@ describe('CanvasRenderer', () => {
 					],
 				]);
 			const butt = makeRenderer();
-			butt.drawLineStrings('line-test', [[segment(), lineStyle({ width: 10, cap: 'butt' })]]);
+			await butt.drawLineStrings('line-test', [[segment(), lineStyle({ width: 10, cap: 'butt' })]]);
 			const square = makeRenderer();
-			square.drawLineStrings('line-test', [[segment(), lineStyle({ width: 10, cap: 'square' })]]);
+			await square.drawLineStrings('line-test', [
+				[segment(), lineStyle({ width: 10, cap: 'square' })],
+			]);
 			expect(at(butt, 97, 128)[3]).toBe(0);
 			expect(at(square, 97, 128)[3]).toBeGreaterThan(200);
 		});
 
-		test('positive line-offset shifts an eastward line to the right (screen +y)', () => {
+		test('positive line-offset shifts an eastward line to the right (screen +y)', async () => {
 			const r = makeRenderer();
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, offset: 10 })]]);
+			await r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, offset: 10 })]]);
 			expect(at(r, 128, 138)[3]).toBeGreaterThan(200);
 			expect(at(r, 128, 128)[3]).toBe(0);
 		});
 
-		test('line-blur feathers the edge and fades the line', () => {
+		test('line-blur feathers the edge and fades the line', async () => {
 			const sharp = makeRenderer();
-			sharp.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10 })]]);
+			await sharp.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10 })]]);
 			const blurred = makeRenderer();
-			blurred.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10, blur: 8 })]]);
+			await blurred.drawLineStrings('line-test', [
+				[horizontal(), lineStyle({ width: 10, blur: 8 })],
+			]);
 
 			const feathered = (r: CanvasRenderer): number => {
 				let count = 0;
@@ -365,11 +373,11 @@ describe('CanvasRenderer', () => {
 			expect(at(blurred, 128, 128)[3]!).toBeLessThan(at(sharp, 128, 128)[3]!);
 		});
 
-		test('heavy blur fades a thin line out entirely, as MapLibre does', () => {
+		test('heavy blur fades a thin line out entirely, as MapLibre does', async () => {
 			// The alpha curve clips the Gaussian's tails, so a blur far wider than the line
 			// leaves nothing rather than a faint smear across the map.
 			const r = makeRenderer();
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 2, blur: 40 })]]);
+			await r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 2, blur: 40 })]]);
 			for (let y = 100; y < 156; y++) expect(at(r, 128, y)[3]).toBe(0);
 		});
 
@@ -390,16 +398,16 @@ describe('CanvasRenderer', () => {
 			const before = at(r, 10, 122);
 			expect(before[3]).toBeCloseTo(128, -1); // the translucent backdrop
 
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, blur: 6 })]]);
+			await r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 4, blur: 6 })]]);
 			expect(at(r, 10, 122)).toEqual(before);
 		});
 
-		test('an axis-aligned blurred line is still drawn', () => {
+		test('an axis-aligned blurred line is still drawn', async () => {
 			// The SVG backend needs an explicit userSpaceOnUse filter region here, because a
 			// horizontal path has a zero-area bounding box. Canvas has no such concept — this
 			// pins that the case stays covered on both backends.
 			const r = makeRenderer();
-			r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10, blur: 2 })]]);
+			await r.drawLineStrings('line-test', [[horizontal(), lineStyle({ width: 10, blur: 2 })]]);
 			expect(at(r, 128, 128)[3]).toBeGreaterThan(20);
 		});
 	});
@@ -696,6 +704,37 @@ describe('CanvasRenderer', () => {
 			const r = makePatternRenderer();
 			await r.drawBackgroundFill({ color: mc('#00FF00'), opacity: 1, pattern: pattern([0, 0]) });
 			expect(row(r)).toBe('RRBBRRBBRRBBRRBB');
+		});
+
+		test('scales the pattern with the map at a fractional zoom level', async () => {
+			const r = makePatternRenderer();
+			const scaled = { ...pattern([0, 0]), scale: 2 };
+			await r.drawBackgroundFill({ color: mc('#00FF00'), opacity: 1, pattern: scaled });
+			expect(row(r)).toBe('RRRRBBBBRRRRBBBB');
+		});
+
+		test('repeats a line pattern along the line, across its width only', async () => {
+			const r = new CanvasRenderer({ width: 16, height: 8, createCanvas, loadImage });
+			const line = makeLineFeature([
+				[
+					[0, 4],
+					[16, 4],
+				],
+			]);
+			const { sprite } = pattern([0, 0]);
+			await r.drawLineStrings('l', [
+				[line, lineStyle({ width: 4, pattern: { name: 'stripes', sprite, period: 4 } })],
+			]);
+			const along = (y: number): string =>
+				[...Array(16).keys()]
+					.map((x) => {
+						const [red, , blue, alpha] = at(r, x, y);
+						if (alpha! < 200) return '.';
+						return red! > 200 ? 'R' : blue! > 200 ? 'B' : '?';
+					})
+					.join('');
+			expect(along(4)).toBe('RRBBRRBBRRBBRRBB');
+			expect(along(0)).toBe('................');
 		});
 	});
 

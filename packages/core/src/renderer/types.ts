@@ -28,7 +28,8 @@ export interface Renderer {
 	 */
 	drawBackgroundFill(style: BackgroundStyle): void | Promise<void>;
 	drawPolygons(id: string, features: [Feature, FillStyle][]): void | Promise<void>;
-	drawLineStrings(id: string, features: [Feature, LineStyle][]): void;
+	/** May be asynchronous, as a line pattern is a sprite image (see `drawPolygons`). */
+	drawLineStrings(id: string, features: [Feature, LineStyle][]): void | Promise<void>;
 	drawCircles(id: string, features: [Feature, CircleStyle][]): void;
 	/**
 	 * Draws text labels, and (below) icons. Each feature is a single point: the pipeline
@@ -116,6 +117,11 @@ export interface FillPattern {
 	origin: [number, number];
 	/** How far the pattern turns around `origin`, clockwise in degrees: with the map's bearing. */
 	angle?: number;
+	/**
+	 * How much larger than its display size the image is drawn (1 if not given): MapLibre
+	 * scales patterns with the map from the zoom level's integer part, as its tiles are.
+	 */
+	scale?: number;
 }
 
 export interface FillStyle {
@@ -149,6 +155,20 @@ export interface LineStyle {
 	opacity: number;
 	translate: [number, number];
 	width: number;
+	/** `line-pattern`: drawn instead of `color` and `dasharray`. */
+	pattern?: LinePattern;
+}
+
+/**
+ * A sprite image repeated along a line (`line-pattern`), spanning its width, as in MapLibre
+ * (see `line_pattern.ts`).
+ */
+export interface LinePattern {
+	/** The image's name in the sprite. */
+	name: string;
+	sprite: SpriteEntry;
+	/** How far one copy of the image reaches along the line, in pixels. */
+	period: number;
 }
 
 export interface CircleStyle {

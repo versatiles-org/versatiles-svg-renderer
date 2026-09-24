@@ -42,6 +42,7 @@ import {
 } from './collision.js';
 import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
+import { patternPeriod } from '../renderer/line_pattern.js';
 import { gapBands } from './line_gap.js';
 import { fitIconToText, iconQuads, quadsBox } from '../renderer/icon_quads.js';
 import type { Features, SourceFeatures } from '../geometry.js';
@@ -195,7 +196,7 @@ async function render(job: RenderJob, context: RenderContext): Promise<void> {
 				await renderFillLayer(layer);
 				continue;
 			case 'line':
-				renderLineLayer(layer);
+				await renderLineLayer(layer);
 				continue;
 			case 'raster':
 				await renderRasterLayer(layer);
@@ -304,9 +305,10 @@ function promotedFeatures(layer: Layer): ((feature: LayerFeature) => LayerFeatur
 	};
 }
 
-function evaluateLayer(layer: Layer): LayerValues {
+/** The layer's values at the render's zoom, or at `zoom`. */
+function evaluateLayer(layer: Layer, zoom = layer.job.view.zoom): LayerValues {
 	const { layerStyle, availableImages } = layer;
-	const { paint, layout } = layerStyle.evaluate({ zoom: layer.job.view.zoom }, availableImages);
+	const { paint, layout } = layerStyle.evaluate({ zoom }, availableImages);
 	const featureState = {};
 
 	function getStyleValue(
@@ -375,15 +377,18 @@ function resolvePattern(layer: Layer, value: unknown): FillPattern | null | unde
 	const sprite = layer.spriteAtlas.get(name);
 	if (!sprite) return null;
 	const bearing = layer.job.projection?.bearing ?? 0;
+	const { zoom } = layer.job.view;
+	const scale = 2 ** (zoom - Math.floor(zoom));
 	return {
 		name,
 		sprite,
 		origin: patternOrigin(
 			layer.job,
-			sprite.width / sprite.pixelRatio,
-			sprite.height / sprite.pixelRatio,
+			(sprite.width / sprite.pixelRatio) * scale,
+			(sprite.height / sprite.pixelRatio) * scale,
 		),
 		angle: bearing === 0 ? undefined : -bearing,
+		scale,
 	};
 }
 
@@ -446,7 +451,7 @@ async function renderFillLayer(layer: Layer): Promise<void> {
 	await layer.job.renderer.drawPolygons(layer.layerStyle.id, styled);
 }
 
-function renderLineLayer(layer: Layer): void {
+async function renderLineLayer(layer: Layer): Promise<void> {
 	// Stroke real linestrings plus polygon boundaries (MapLibre draws polygon rings in a
 	// line layer). polygonOutlines is kept out of `fill` so polygons are not filled a
 	// second time.
@@ -457,8 +462,16 @@ function renderLineLayer(layer: Layer): void {
 	if (lineStringFeatures.length === 0) return;
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
+	// A pattern is scaled to the line's width at the zoom level's integer part, as in MapLibre.
+	const { zoom } = layer.job.view;
+	const atFloorZoom = layer.layerStyle.usesPattern
+		? evaluateLayer(layer, Math.floor(zoom))
+		: undefined;
 	const sorted = sortByKey(lineStringFeatures, (feature) => getLayout('line-sort-key', feature));
 	const styled = sorted.flatMap((feature): Parameters<Renderer['drawLineStrings']>[1] => {
+		const found = resolvePattern(layer, getPaint('line-pattern', feature));
+		// A pattern whose image is not in the sprite draws nothing, as in MapLibre.
+		if (found === null) return [];
 		const style: LineStyle = {
 			blur: getPaint('line-blur', feature) as number,
 			color: getPaint('line-color', feature) as MaplibreColor,
@@ -475,6 +488,21 @@ function renderLineLayer(layer: Layer): void {
 			opacity: getPaint('line-opacity', feature) as number,
 			width: getPaint('line-width', feature) as number,
 		};
+		if (found) {
+			const { sprite } = found;
+			const floorWidth =
+				(atFloorZoom?.getPaint('line-width', feature) as number | undefined) ?? style.width;
+			style.pattern = {
+				name: found.name,
+				sprite,
+				period: patternPeriod(
+					sprite.width / sprite.pixelRatio,
+					sprite.height / sprite.pixelRatio,
+					floorWidth,
+					zoom,
+				),
+			};
+		}
 		const gapWidth = getPaint('line-gap-width', feature) as number;
 		if (!(gapWidth > 0)) return [[feature, style]];
 		// With a gap, MapLibre draws the line as a band on each side of it, from gap/2 to
@@ -506,7 +534,7 @@ function renderLineLayer(layer: Layer): void {
 		);
 		return result;
 	});
-	layer.job.renderer.drawLineStrings(layer.layerStyle.id, styled);
+	await layer.job.renderer.drawLineStrings(layer.layerStyle.id, styled);
 }
 
 async function renderRasterLayer(layer: Layer): Promise<void> {

@@ -8,6 +8,7 @@ import type { Region, StyleName } from './regions.js';
 import { cells as featureCells, featuresStyle } from './scenes/features.js';
 import { geojsonStyle } from './scenes/geojson.js';
 import type { Cell } from './scenes/grid.js';
+import { cells as patternCells, patternsStyle } from './scenes/patterns.js';
 import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
 
@@ -65,6 +66,8 @@ async function buildStyle(
 			return symbolsStyle();
 		case 'sources':
 			return sourcesStyle();
+		case 'patterns':
+			return patternsStyle();
 	}
 }
 
@@ -73,6 +76,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'features') return featureCells;
 	if (name === 'symbols') return symbolCells;
 	if (name === 'sources') return sourceCells;
+	if (name === 'patterns') return patternCells;
 	return undefined;
 }
 

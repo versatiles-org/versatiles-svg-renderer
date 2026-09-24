@@ -144,6 +144,26 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('<symbol id="sprite-base:hatch">');
 		});
 
+		test('scales a pattern with the map at a fractional zoom level', () => {
+			const sprite = {
+				width: 16,
+				height: 8,
+				x: 0,
+				y: 0,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 16,
+				sheetHeight: 8,
+			};
+			const r = makeRenderer();
+			const pattern = { name: 'p', sprite, origin: [0, 0] as [number, number], scale: 1.5 };
+			r.drawBackgroundFill({ color: mc('#000'), opacity: 1, pattern });
+			expect(r.getString()).toContain(
+				'width="12" height="6"><use xlink:href="#sprite-p" transform="scale(0.75)" />',
+			);
+		});
+
 		test('turns a pattern around its origin with the map', () => {
 			const sprite = {
 				width: 16,
@@ -609,6 +629,53 @@ describe('SVGRenderer', () => {
 				...overrides,
 			};
 		}
+
+		test('draws a line pattern along the line, masked by the stroked line', () => {
+			const sprite = {
+				width: 16,
+				height: 8,
+				x: 0,
+				y: 0,
+				pixelRatio: 2,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 16,
+				sheetHeight: 8,
+			};
+			const r = makeRenderer();
+			const feature = makeLineFeature([
+				[
+					[0, 50],
+					[100, 50],
+				],
+			]);
+			r.drawLineStrings('roads', [
+				[
+					feature,
+					lineStyle({
+						width: 4,
+						color: mc('#FF0000', 0),
+						pattern: { name: 'p', sprite, period: 8 },
+					}),
+				],
+			]);
+			const svg = r.getString();
+			// One copy per 8 px along the line, spanning its 4 px width.
+			expect(svg).toContain(
+				'<pattern id="pattern-0" patternUnits="userSpaceOnUse" width="8" height="4">' +
+					'<use xlink:href="#sprite-p" transform="scale(0.5,0.5)" /></pattern>',
+			);
+			// The mask is the line as it is stroked; the copies run east, their top to the south.
+			expect(svg).toContain(
+				'<mask id="line-pattern-mask-0"><path d="M0,50h100" fill="none" stroke="#fff" stroke-width="4"',
+			);
+			expect(svg).toContain(
+				'<g mask="url(#line-pattern-mask-0)"><path transform="matrix(1,0,0,-1,0,52)"',
+			);
+			expect(svg).toContain('fill="url(#pattern-0)"');
+			// A transparent line color does not hide the pattern.
+			expect(svg).not.toContain('stroke="#FF0000"');
+		});
 
 		test('positive line-offset shifts an eastward line to the right (screen +y)', () => {
 			const r = makeRenderer();
