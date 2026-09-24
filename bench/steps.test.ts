@@ -7,6 +7,9 @@ const repo = resolve(import.meta.dirname, '..');
 const url = (file: string): string => `file://${resolve(repo, 'packages', file)}`;
 const frame = (functionName: string, file: string) => ({ functionName, url: url(file) });
 const RENDER = 'core/src/pipeline/render.ts';
+const LAYER = 'core/src/pipeline/layers/layer.ts';
+const FILL = 'core/src/pipeline/layers/fill.ts';
+const LINE = 'core/src/pipeline/layers/line.ts';
 
 /** Whether `file` defines a function or method called `name`. */
 function defines(file: string, name: string): boolean {
@@ -27,26 +30,29 @@ describe('the rules of bench/steps.ts', () => {
 		},
 	);
 
-	test.each(Object.keys(LAYER_FUNCTIONS))('%s is still defined in render.ts', (name) => {
-		expect(defines(RENDER, name)).toBe(true);
-	});
+	test.each(LAYER_FUNCTIONS.map((f) => [f.name, f.file]))(
+		'%s is still defined in %s',
+		(name, file) => {
+			expect(defines(file, name)).toBe(true);
+		},
+	);
 });
 
 describe('classify', () => {
 	test('names a per-layer step after the layer function further out', () => {
 		const stack = [
 			frame('render', RENDER),
-			frame('renderFillLayer', RENDER),
-			frame('getPaint', RENDER),
+			frame('renderFillLayer', FILL),
+			frame('getPaint', LAYER),
 		];
 		expect(classify(stack)).toBe('fill · style');
 	});
 
 	test('counts what a step calls to that step', () => {
 		const stack = [
-			frame('renderLineLayer', RENDER),
-			frame('filterFeatures', RENDER),
-			frame('', RENDER),
+			frame('renderLineLayer', LINE),
+			frame('filterFeatures', LAYER),
+			frame('', LAYER),
 			frame('evaluate', '../node_modules/@maplibre/maplibre-gl-style-spec/dist/index.mjs'),
 		];
 		expect(classify(stack)).toBe('line · filter');
@@ -88,6 +94,6 @@ describe('classify', () => {
 
 	test('leaves the rest as other', () => {
 		expect(classify([frame('render', RENDER)])).toBe(OTHER);
-		expect(classify([frame('renderFillLayer', RENDER)])).toBe('fill · other');
+		expect(classify([frame('renderFillLayer', FILL)])).toBe('fill · other');
 	});
 });

@@ -20,17 +20,19 @@ type Rule = FunctionRef & {
 	step: string | ((layerType: string) => string);
 };
 
+const LAYERS_DIR = 'core/src/pipeline/layers/';
+const LAYER_FILE = `${LAYERS_DIR}layer.ts`;
+
 /** The function that draws each layer type; being in it tells a sample's layer type. */
-export const LAYER_FUNCTIONS: Record<string, string> = {
-	renderBackgroundLayer: 'background',
-	renderFillLayer: 'fill',
-	renderLineLayer: 'line',
-	renderRasterLayer: 'raster',
-	renderCircleLayer: 'circle',
-	renderSymbolLayer: 'symbol',
-	prepareSymbolLayer: 'symbol',
-};
-const RENDER_FILE = 'core/src/pipeline/render.ts';
+export const LAYER_FUNCTIONS: (FunctionRef & { layerType: string })[] = [
+	{ name: 'renderBackgroundLayer', file: `${LAYERS_DIR}background.ts`, layerType: 'background' },
+	{ name: 'renderFillLayer', file: `${LAYERS_DIR}fill.ts`, layerType: 'fill' },
+	{ name: 'renderLineLayer', file: `${LAYERS_DIR}line.ts`, layerType: 'line' },
+	{ name: 'renderRasterLayer', file: `${LAYERS_DIR}raster.ts`, layerType: 'raster' },
+	{ name: 'renderCircleLayer', file: `${LAYERS_DIR}circle.ts`, layerType: 'circle' },
+	{ name: 'renderSymbolLayer', file: `${LAYERS_DIR}symbol.ts`, layerType: 'symbol' },
+	{ name: 'prepareSymbolLayer', file: `${LAYERS_DIR}symbol.ts`, layerType: 'symbol' },
+];
 
 const byLayer = (name: string) => (layerType: string) => `${layerType} · ${name}`;
 
@@ -48,13 +50,17 @@ export const RULES: Rule[] = [
 	{ name: 'getRasterTiles', file: 'core/src/sources/raster.ts', step: 'raster · tiles' },
 	{ name: '', file: 'core/src/sources/raster.ts', step: 'raster · tiles' },
 	{ name: 'placeSymbols', file: 'core/src/pipeline/collision.ts', step: 'symbol · placement' },
-	{ name: 'filterFeatures', file: RENDER_FILE, step: byLayer('filter') },
-	{ name: 'evaluateLayer', file: RENDER_FILE, step: byLayer('style') },
-	{ name: 'getPaint', file: RENDER_FILE, step: byLayer('style') },
-	{ name: 'getLayout', file: RENDER_FILE, step: byLayer('style') },
+	{ name: 'filterFeatures', file: LAYER_FILE, step: byLayer('filter') },
+	{ name: 'evaluateLayer', file: LAYER_FILE, step: byLayer('style') },
+	{ name: 'getPaint', file: LAYER_FILE, step: byLayer('style') },
+	{ name: 'getLayout', file: LAYER_FILE, step: byLayer('style') },
 	// The callbacks that build each feature's style from getPaint and getLayout. (The one
 	// in filterFeatures counts as filtering: filterFeatures comes first in its stack.)
-	{ name: '', file: RENDER_FILE, step: byLayer('style') },
+	...[LAYER_FILE, ...new Set(LAYER_FUNCTIONS.map((f) => f.file))].map((file): Rule => ({
+		name: '',
+		file,
+		step: byLayer('style'),
+	})),
 	...drawRules('core/src/renderer/svg.ts'),
 	...drawRules('core/src/renderer/canvas.ts'),
 	{ name: 'getString', file: 'core/src/renderer/svg.ts', step: 'output · serialize SVG' },
@@ -136,7 +142,9 @@ export function classify(stack: { functionName: string; url: string }[]): string
 
 	let layerType: string | undefined;
 	for (const [i, frame] of stack.entries()) {
-		const type = frame.url.endsWith(RENDER_FILE) ? LAYER_FUNCTIONS[frame.functionName] : undefined;
+		const type = LAYER_FUNCTIONS.find(
+			(f) => f.name === frame.functionName && frame.url.endsWith(f.file),
+		)?.layerType;
 		if (type) layerType = type;
 
 		const rule = RULES.find((r) => r.name === frame.functionName && frame.url.endsWith(r.file));

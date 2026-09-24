@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import type { LayerSpecification, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { checkSources, checkStyle, SUPPORTED_PROPERTIES } from './support.js';
@@ -19,10 +19,14 @@ const fill = (id: string, paint: Record<string, unknown> = {}): LayerSpecificati
 });
 
 describe('SUPPORTED_PROPERTIES', () => {
-	// A property read in render.ts but missing here would be reported as unsupported; one
+	// A property read by a layer but missing here would be reported as unsupported; one
 	// listed here but no longer read would be dropped without a warning.
-	test('lists exactly the properties render.ts reads', () => {
-		const source = readFileSync(new URL('./render.ts', import.meta.url), 'utf8');
+	test('lists exactly the properties the layers read', () => {
+		const dir = new URL('./layers/', import.meta.url);
+		const source = readdirSync(dir)
+			.filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+			.map((file) => readFileSync(new URL(file, dir), 'utf8'))
+			.join('\n');
 		const read = new Set(
 			[...source.matchAll(/get(?:Paint|Layout)\('([a-z-]+)'/g)].map((m) => m[1]),
 		);

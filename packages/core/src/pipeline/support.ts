@@ -7,7 +7,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 /**
  * The paint and layout properties the renderer reads, by layer type. Kept in sync with
- * `render.ts` by a test.
+ * `layers/*.ts` by a test.
  */
 export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> = {
 	background: ['background-color', 'background-opacity', 'background-pattern'],

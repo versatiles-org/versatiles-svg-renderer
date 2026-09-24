@@ -21,7 +21,9 @@ vi.mock('../sources/sprite.js', () => ({
 
 const { getLayerFeatures, getRasterTiles } = await import('../sources/index.js');
 const { loadSpriteAtlas } = await import('../sources/sprite.js');
-const { renderMap, sortByKey, transformText } = await import('./render.js');
+const { renderMap } = await import('./render.js');
+const { sortByKey } = await import('./layers/layer.js');
+const { transformText } = await import('./layers/symbol.js');
 
 function makeStyle(layers: StyleSpecification['layers']): StyleSpecification {
 	return { version: 8, sources: {}, layers };
