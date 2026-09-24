@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { SVGRenderer } from './svg.js';
+import { SVGRenderer } from './renderer.js';
 import { Color } from '@maplibre/maplibre-gl-style-spec';
-import { Feature, Point2D } from '../geometry.js';
+import { Feature, Point2D } from '../../geometry.js';
 import type {
 	CircleStyle,
 	FillStyle,
@@ -10,8 +10,8 @@ import type {
 	RasterStyle,
 	RasterTile,
 	SymbolStyle,
-} from '../types.js';
-import type { SpriteAtlas } from '../sources/sprite.js';
+} from '../../types.js';
+import type { SpriteAtlas } from '../../sources/sprite.js';
 
 function mc(hex: string, alpha = 1): Color {
 	const r = (parseInt(hex.slice(1, 3), 16) / 255) * alpha;

@@ -65,9 +65,9 @@ export const RULES: Rule[] = [
 		file,
 		step: byLayer('style'),
 	})),
-	...drawRules('core/src/renderer/svg.ts'),
+	...drawRules('core/src/renderer/svg/renderer.ts'),
 	...drawRules('core/src/renderer/canvas.ts'),
-	{ name: 'getString', file: 'core/src/renderer/svg.ts', step: 'output · serialize SVG' },
+	{ name: 'getString', file: 'core/src/renderer/svg/renderer.ts', step: 'output · serialize SVG' },
 	{ name: 'toBuffer', file: 'core/src/renderer/canvas.ts', step: 'output · encode PNG' },
 ];
 

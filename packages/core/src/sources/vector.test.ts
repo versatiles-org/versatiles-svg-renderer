@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { LayerFeatures } from '../geometry.js';
 import type { RenderJob } from '../types.js';
-import { SVGRenderer } from '../renderer/svg.js';
+import { SVGRenderer } from '../renderer/svg/index.js';
 
 vi.mock('./tiles.js', async (importOriginal) => {
 	const original = await importOriginal<typeof import('./tiles.js')>();

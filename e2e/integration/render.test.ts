@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { renderMap } from '../../packages/core/src/pipeline/render.js';
-import { SVGRenderer } from '../../packages/core/src/renderer/svg.js';
+import { SVGRenderer } from '../../packages/core/src/renderer/svg/index.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { RenderJob, StringRenderer } from '../../packages/core/src/types.js';
 import { installFetchCache, uninstallFetchCache } from '../shared/fetch-cache.js';

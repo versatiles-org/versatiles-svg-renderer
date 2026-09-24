@@ -1,5 +1,5 @@
-import type { Feature } from '../geometry.js';
-import { Color } from './color.js';
+import type { Feature } from '../../geometry.js';
+import { Color } from '../color.js';
 import {
 	chainSegments,
 	iconQuads,
@@ -9,14 +9,25 @@ import {
 	mapTextAnchor,
 	type Segment,
 	strokeLines,
-} from '../layout/index.js';
-import { formatNum, segmentsToPath } from './svg_path.js';
+} from '../../layout/index.js';
+import { SvgDefs } from './defs.js';
+import {
+	escapeXml,
+	fillAttr,
+	formatNum,
+	formatPoint,
+	formatScale,
+	formatScaled,
+	formatUnit,
+	opacityAttr,
+	roundXY,
+	segmentsToPath,
+	strokeAttr,
+} from './format.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
-	FillPattern,
 	FillStyle,
-	GlyphOutline,
 	GlyphPlacement,
 	IconStyle,
 	LinePattern,
@@ -27,10 +38,10 @@ import type {
 	RasterTile,
 	RendererOptions,
 	SymbolStyle as LabelStyle,
-} from '../types.js';
-import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
-import type { ClipCircle } from '../projection.js';
-import { circleGradient, circleShape, type CircleGradientStop } from './circle.js';
+} from '../../types.js';
+import type { SpriteAtlas } from '../../sources/index.js';
+import type { ClipCircle } from '../../projection.js';
+import { circleGradient, circleShape } from '../circle.js';
 import {
 	affineFromTriangles,
 	bleedAtTileBorder,
@@ -39,7 +50,7 @@ import {
 	RASTER_TILE_UNITS,
 	RASTER_TRIANGLE_OVERLAP_PX,
 	type Triangle,
-} from './raster_mesh.js';
+} from '../raster_mesh.js';
 
 // line-blur approximates MapLibre's edge-feather blur, which keeps an opaque core
 // and feathers over ~`blur` px with a hard cutoff. feGaussianBlur alone conserves
@@ -67,25 +78,7 @@ export class SVGRenderer {
 
 	readonly #svg: string[];
 
-	readonly #spriteSheetDefs = new Map<
-		string,
-		{ defId: string; width: number; height: number; href: string }
-	>();
-
-	readonly #spriteSymbolDefs = new Map<
-		string,
-		{ symbolId: string; sheetDefId: string; x: number; y: number; width: number; height: number }
-	>();
-
-	readonly #sdfFilterDefs = new Map<string, { filterId: string; content: string }>();
-	readonly #patternDefs = new Map<string, { id: string; content: string }>();
-	/** Glyph outlines of labels drawn as glyphs, by their keys. */
-	readonly #glyphDefs = new Map<string, { id: string; d: string }>();
-	/** Radial gradients of blurred circles: their ids, by their stops. */
-	readonly #circleGradientDefs = new Map<string, string>();
-	readonly #blurFilterDefs = new Map<string, { filterId: string; stdDev: string }>();
-
-	readonly #rasterDefs: string[] = [];
+	readonly #defs = new SvgDefs();
 
 	#rasterClipCount = 0;
 
@@ -110,7 +103,7 @@ export class SVGRenderer {
 		if (style.pattern) {
 			if (style.opacity <= 0) return;
 			const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
-			this.#svg.push(`<rect ${rect} fill="${this.#patternPaint(style.pattern)}"${opacity} />`);
+			this.#svg.push(`<rect ${rect} fill="${this.#defs.fillPattern(style.pattern)}"${opacity} />`);
 			return;
 		}
 		const color = new Color(style.color);
@@ -148,7 +141,7 @@ export class SVGRenderer {
 
 			const color = new Color(style.color);
 			// A pattern is drawn instead of the color, and may itself be translucent.
-			const patternPaint = style.pattern && this.#patternPaint(style.pattern);
+			const patternPaint = style.pattern && this.#defs.fillPattern(style.pattern);
 			const translucent = style.opacity < 1 || (!patternPaint && color.alpha < 255);
 			if (patternPaint ?? color.alpha > 0) {
 				const paint = patternPaint ? `fill="${patternPaint}"` : fillAttr(color);
@@ -261,7 +254,10 @@ export class SVGRenderer {
 				style.blur > 0 ? style.width / (style.width + BLUR_OPACITY_K * style.blur) : 1;
 			const effectiveOpacity = style.opacity * blurOpacity;
 			const opacityAttr = effectiveOpacity < 1 ? ` opacity="${effectiveOpacity.toFixed(3)}"` : '';
-			const filterAttr = style.blur > 0 ? ` filter="url(#${this.#blurFilterId(style.blur)})"` : '';
+			const filterAttr =
+				style.blur > 0
+					? ` filter="url(#${this.#defs.blurFilter(formatScaled(style.blur * BLUR_STD_FACTOR), [BLUR_ALPHA_SLOPE, BLUR_ALPHA_INTERCEPT])})"`
+					: '';
 			const key = [
 				color.hex,
 				roundedWidth,
@@ -354,7 +350,7 @@ export class SVGRenderer {
 			`stroke-miterlimit="${String(style.miterLimit)}"`,
 		].join(' ');
 
-		const fill = this.#linePatternPaint(pattern, style.width);
+		const fill = this.#defs.linePattern(pattern, style.width);
 		const parts = strips.map(({ matrix, polygon }) => {
 			// The path is in tenths of a pixel (see `roundXY`), which `formatScaled` undoes.
 			const [a, b, c, dd, e, f] = matrix;
@@ -374,47 +370,6 @@ export class SVGRenderer {
 			`<mask id="${maskId}"><path d="${d}" fill="none" ${stroke} /></mask>` +
 			`<g${attrs}><g mask="url(#${maskId})">${parts.join('')}</g></g>`
 		);
-	}
-
-	/**
-	 * `url(#…)` of a `<pattern>` repeating the sprite image of `pattern` along a line of
-	 * `width`: one copy per `period` along it, spanning its width (see `linePatternStrips`).
-	 */
-	#linePatternPaint(pattern: LinePattern, width: number): string {
-		const { sprite, period } = pattern;
-		const key = [
-			'line',
-			pattern.name,
-			sprite.sheetDataUri,
-			formatUnit(period),
-			formatUnit(width),
-		].join('\0');
-		let def = this.#patternDefs.get(key);
-		if (!def) {
-			const id = `pattern-${String(this.#patternDefs.size)}`;
-			const symbolId = this.#spriteSymbol(pattern.name, sprite);
-			const scale = `${formatScale(period / sprite.width)},${formatScale(width / sprite.height)}`;
-			def = {
-				id,
-				content:
-					`<pattern id="${id}" patternUnits="userSpaceOnUse" width="${formatUnit(period)}" height="${formatUnit(width)}">` +
-					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${scale})" />` +
-					`</pattern>`,
-			};
-			this.#patternDefs.set(key, def);
-		}
-		return `url(#${def.id})`;
-	}
-
-	/** Register (deduplicated by blur radius) a Gaussian blur filter and return its id. */
-	#blurFilterId(blur: number): string {
-		const stdDev = formatScaled(blur * BLUR_STD_FACTOR);
-		let def = this.#blurFilterDefs.get(stdDev);
-		if (!def) {
-			def = { filterId: `line-blur-${String(this.#blurFilterDefs.size)}`, stdDev };
-			this.#blurFilterDefs.set(stdDev, def);
-		}
-		return def.filterId;
 	}
 
 	public drawCircles(id: string, features: [Feature, CircleStyle][]): void {
@@ -442,7 +397,7 @@ export class SVGRenderer {
 				);
 				if (radius <= 0 || stops.every((stop) => stop.opacity <= 0)) return;
 				elements = [
-					`r="${formatScaled(radius)}" fill="url(#${this.#circleGradientId(stops)})"${translate}`,
+					`r="${formatScaled(radius)}" fill="url(#${this.#defs.circleGradient(stops)})"${translate}`,
 				];
 			} else {
 				elements = this.#circleElements(style, color, strokeColor, translate);
@@ -496,24 +451,6 @@ export class SVGRenderer {
 						`r="${formatScaled(stroke.radius)}" fill="none"${strokeAttrs}${translate}`,
 					];
 		return elements;
-	}
-
-	/**
-	 * The id of a `<radialGradient>` for a blurred circle's `stops`, defined once per look.
-	 */
-	#circleGradientId(stops: CircleGradientStop[]): string {
-		const content = stops
-			.map((stop) => {
-				const [r, g, b] = stop.rgb.map((c) => Math.round(c));
-				return `<stop offset="${formatScale(stop.offset)}" stop-color="rgb(${String(r)},${String(g)},${String(b)})" stop-opacity="${formatScale(stop.opacity)}" />`;
-			})
-			.join('');
-		let id = this.#circleGradientDefs.get(content);
-		if (!id) {
-			id = `circle-blur-${String(this.#circleGradientDefs.size)}`;
-			this.#circleGradientDefs.set(content, id);
-		}
-		return id;
 	}
 
 	public drawLabels(id: string, features: [Feature, LabelStyle][]): void {
@@ -619,91 +556,6 @@ export class SVGRenderer {
 	}
 
 	/**
-	 * The id of a `<symbol>` showing sprite image `name` at its native size, defined once:
-	 * the sprite sheet goes into the defs once, and each image clips it.
-	 */
-	#spriteSymbol(
-		name: string,
-		sprite: SpriteEntry,
-		source: { x: number; y: number; width: number; height: number } = sprite,
-	): string {
-		const sheetKey = sprite.sheetDataUri;
-		let sheetDef = this.#spriteSheetDefs.get(sheetKey);
-		if (!sheetDef) {
-			sheetDef = {
-				defId: `sprite-sheet-${String(this.#spriteSheetDefs.size)}`,
-				width: Math.round(sprite.sheetWidth * 10),
-				height: Math.round(sprite.sheetHeight * 10),
-				href: sprite.sheetDataUri,
-			};
-			this.#spriteSheetDefs.set(sheetKey, sheetDef);
-		}
-		const x = Math.round(source.x * 10);
-		const y = Math.round(source.y * 10);
-		const width = Math.round(source.width * 10);
-		const height = Math.round(source.height * 10);
-		// The whole image, or a piece of it (see `iconQuads`).
-		const whole =
-			source.x === sprite.x &&
-			source.y === sprite.y &&
-			source.width === sprite.width &&
-			source.height === sprite.height;
-		const symKey = `${name}\0${sheetKey}\0${String(x)}\0${String(y)}\0${String(width)}\0${String(height)}`;
-		let symDef = this.#spriteSymbolDefs.get(symKey);
-		if (!symDef) {
-			const piece = whole ? '' : `-${String(x)}-${String(y)}-${String(width)}-${String(height)}`;
-			symDef = {
-				symbolId: `sprite-${escapeXml(name)}${piece}`,
-				sheetDefId: sheetDef.defId,
-				x,
-				y,
-				width,
-				height,
-			};
-			this.#spriteSymbolDefs.set(symKey, symDef);
-		}
-		return symDef.symbolId;
-	}
-
-	/**
-	 * `url(#…)` of a `<pattern>` repeating the sprite image of `pattern` at its display size,
-	 * with a copy's corner at `pattern.origin`: defined once per image and origin.
-	 */
-	#patternPaint(pattern: FillPattern): string {
-		const { sprite, origin } = pattern;
-		const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
-		const width = sprite.width * scale;
-		const height = sprite.height * scale;
-		// Only the origin's position within one copy matters.
-		// Only the origin's position within one copy matters, unless the pattern turns around it.
-		const angle = pattern.angle ?? 0;
-		const x = angle === 0 ? mod(origin[0], width) : origin[0];
-		const y = angle === 0 ? mod(origin[1], height) : origin[1];
-		const key = [
-			pattern.name,
-			sprite.sheetDataUri,
-			x.toFixed(2),
-			y.toFixed(2),
-			String(angle),
-			formatScale(scale),
-		].join('\0');
-		let def = this.#patternDefs.get(key);
-		if (!def) {
-			const id = `pattern-${String(this.#patternDefs.size)}`;
-			const symbolId = this.#spriteSymbol(pattern.name, sprite);
-			def = {
-				id,
-				content:
-					`<pattern id="${id}" patternUnits="userSpaceOnUse" x="${formatScaled(x)}" y="${formatScaled(y)}" width="${formatScaled(width)}" height="${formatScaled(height)}"${angle === 0 ? '' : ` patternTransform="rotate(${formatScale(angle)} ${formatScaled(x)} ${formatScaled(y)})"`}>` +
-					`<use xlink:href="#${escapeXml(symbolId)}" transform="scale(${formatScale(scale)})" />` +
-					`</pattern>`,
-			};
-			this.#patternDefs.set(key, def);
-		}
-		return `url(#${def.id})`;
-	}
-
-	/**
 	 * A label along a line: each glyph centered on its place and turned with the line. All
 	 * halos come first, then all glyphs, as MapLibre draws them, so a glyph's halo does not
 	 * cover its neighbour.
@@ -752,7 +604,7 @@ export class SVGRenderer {
 				const [x, y] = roundXY(glyph.x, glyph.y);
 				const angle = Math.round(glyph.angle * 10) / 10;
 				const rotate = angle === 0 ? '' : ` rotate(${String(angle)})`;
-				return `<use xlink:href="#${this.#glyphId(glyph.outline)}" transform="translate(${formatNum(x)},${formatNum(y)})${rotate} scale(${formatScale(glyph.scale)})" />`;
+				return `<use xlink:href="#${this.#defs.glyph(glyph.outline)}" transform="translate(${formatNum(x)},${formatNum(y)})${rotate} scale(${formatScale(glyph.scale)})" />`;
 			})
 			.join('');
 		const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
@@ -766,19 +618,6 @@ export class SVGRenderer {
 		}
 		parts.push(`<g ${fillAttr(color)}>${uses}</g>`, '</g>');
 		return parts.join('');
-	}
-
-	/** The id of a glyph's outline in the defs, defined once. */
-	#glyphId(outline: GlyphOutline): string {
-		let id = this.#glyphDefs.get(outline.key)?.id;
-		if (!id) {
-			id = `glyph-${String(this.#glyphDefs.size)}`;
-			const d = outline.rings
-				.map((ring) => 'M' + ring.map(([x, y]) => `${String(x)},${String(y)}`).join('L') + 'Z')
-				.join('');
-			this.#glyphDefs.set(outline.key, { id, d });
-		}
-		return id;
 	}
 
 	public drawIcons(id: string, features: [Feature, IconStyle][], spriteAtlas: SpriteAtlas): void {
@@ -808,7 +647,7 @@ export class SVGRenderer {
 							: ` scale(${formatScale(scaleX)})`
 						: ` scale(${formatScale(scaleX)},${formatScale(scaleY)})`;
 				return {
-					symbolId: this.#spriteSymbol(style.image, sprite, quad.source),
+					symbolId: this.#defs.spriteSymbol(style.image, sprite, quad.source),
 					transform: `translate(${formatNum(x)},${formatNum(y)})${scale}`,
 				};
 			});
@@ -816,52 +655,9 @@ export class SVGRenderer {
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 
 			// SDF filter for colorable icons
-			let filterAttr = '';
-			if (style.sdf) {
-				const iconColor = new Color(style.color);
-				const haloColor = new Color(style.haloColor);
-				const hasHalo = style.haloWidth > 0 && haloColor.alpha > 0;
-				const filterKey = hasHalo
-					? `sdf\0${iconColor.hex}\0${haloColor.hex}\0${String(style.haloWidth)}`
-					: `sdf\0${iconColor.hex}`;
-
-				if (!this.#sdfFilterDefs.has(filterKey)) {
-					const filterId = `sdf-${String(this.#sdfFilterDefs.size)}`;
-					const iconFloodOpacity =
-						iconColor.alpha < 255 ? ` flood-opacity="${iconColor.opacity.toFixed(3)}"` : '';
-					let content: string;
-					if (hasHalo) {
-						const haloRadius = formatScale(style.haloWidth);
-						const haloFloodOpacity =
-							haloColor.alpha < 255 ? ` flood-opacity="${haloColor.opacity.toFixed(3)}"` : '';
-						content =
-							`<filter id="${filterId}" color-interpolation-filters="sRGB">` +
-							// Threshold alpha at 0.75 (MapLibre SDF edge) to get sharp icon mask
-							`<feComponentTransfer in="SourceGraphic" result="sharp"><feFuncA type="discrete" tableValues="0 0 0 1" /></feComponentTransfer>` +
-							// Dilate sharp mask for halo
-							`<feMorphology in="sharp" operator="dilate" radius="${haloRadius}" result="dilated" />` +
-							`<feFlood flood-color="${haloColor.rgb}"${haloFloodOpacity} result="haloColor" />` +
-							`<feComposite in="haloColor" in2="dilated" operator="in" result="halo" />` +
-							// Color the sharp icon
-							`<feFlood flood-color="${iconColor.rgb}"${iconFloodOpacity} result="iconColor" />` +
-							`<feComposite in="iconColor" in2="sharp" operator="in" result="colored" />` +
-							`<feComposite in="colored" in2="halo" operator="over" />` +
-							`</filter>`;
-					} else {
-						content =
-							`<filter id="${filterId}" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">` +
-							// Threshold alpha at 0.75 (MapLibre SDF edge) to get sharp mask
-							`<feComponentTransfer in="SourceGraphic" result="sharp"><feFuncA type="discrete" tableValues="0 0 0 1" /></feComponentTransfer>` +
-							// Replace color while keeping sharp alpha
-							`<feFlood flood-color="${iconColor.rgb}"${iconFloodOpacity} result="color" />` +
-							`<feComposite in="color" in2="sharp" operator="in" />` +
-							`</filter>`;
-					}
-					this.#sdfFilterDefs.set(filterKey, { filterId, content });
-				}
-				const { filterId } = this.#sdfFilterDefs.get(filterKey)!;
-				filterAttr = ` filter="url(#${filterId})"`;
-			}
+			const filterAttr = style.sdf
+				? ` filter="url(#${this.#defs.sdfFilter(new Color(style.color), new Color(style.haloColor), style.haloWidth)})"`
+				: '';
 
 			// One piece is placed by its group; several share the group's opacity and filter.
 			const icon =
@@ -944,11 +740,7 @@ export class SVGRenderer {
 		const meshes: { imageId: string; triangles: RasterTriangle[]; standalone: boolean }[] = [];
 		for (const tile of tiles) {
 			if (!tile.triangles) continue;
-			const imageId = `raster-${String(this.#rasterDefs.length)}`;
-			const size = String(RASTER_TILE_UNITS);
-			let imageAttrs = `id="${imageId}" width="${size}" height="${size}" preserveAspectRatio="none" xlink:href="${tile.dataUri}"`;
-			if (pixelated) imageAttrs += ' style="image-rendering:pixelated"';
-			this.#rasterDefs.push(`<image ${imageAttrs} />`);
+			const imageId = this.#defs.rasterImage(tile.dataUri, RASTER_TILE_UNITS, pixelated);
 			meshes.push({ imageId, triangles: tile.triangles, standalone: tile.standalone === true });
 		}
 
@@ -982,107 +774,12 @@ export class SVGRenderer {
 		const w = this.width.toFixed(0);
 		const h = this.height.toFixed(0);
 
-		// Build defs content
-		const clip = this.#clipCircle;
-		const clipShape = clip
-			? `<circle cx="${formatUnit(clip.x)}" cy="${formatUnit(clip.y)}" r="${formatUnit(clip.radius)}"/>`
-			: `<rect width="${w}" height="${h}"/>`;
-		const defsContent = [`<clipPath id="vb">${clipShape}</clipPath>`, ...this.#rasterDefs];
-		for (const sheet of this.#spriteSheetDefs.values()) {
-			defsContent.push(
-				`<image id="${escapeXml(sheet.defId)}" width="${formatNum(sheet.width)}" height="${formatNum(sheet.height)}" xlink:href="${escapeXml(sheet.href)}" />`,
-			);
-		}
-		for (const sym of this.#spriteSymbolDefs.values()) {
-			const clipId = `${sym.symbolId}-clip`;
-			defsContent.push(
-				`<clipPath id="${escapeXml(clipId)}"><rect width="${formatNum(sym.width)}" height="${formatNum(sym.height)}" /></clipPath>`,
-				`<symbol id="${escapeXml(sym.symbolId)}"><g clip-path="url(#${escapeXml(clipId)})"><use xlink:href="#${escapeXml(sym.sheetDefId)}" x="${formatNum(-sym.x)}" y="${formatNum(-sym.y)}" /></g></symbol>`,
-			);
-		}
-		for (const { content } of this.#sdfFilterDefs.values()) {
-			defsContent.push(content);
-		}
-		for (const { content } of this.#patternDefs.values()) {
-			defsContent.push(content);
-		}
-		for (const { id, d } of this.#glyphDefs.values()) {
-			defsContent.push(`<path id="${id}" fill-rule="evenodd" d="${d}" />`);
-		}
-		for (const [stops, id] of this.#circleGradientDefs) {
-			defsContent.push(`<radialGradient id="${id}">${stops}</radialGradient>`);
-		}
-		for (const { filterId, stdDev } of this.#blurFilterDefs.values()) {
-			// Use userSpaceOnUse over the whole canvas: the default objectBoundingBox
-			// region collapses to zero for axis-aligned lines (a horizontal/vertical
-			// path has a zero-height/width bounding box), which clips the blur away.
-			// feGaussianBlur softens the line, then feComponentTransfer steepens the
-			// alpha to clip the Gaussian tails toward MapLibre's hard-edged feather.
-			defsContent.push(
-				`<filter id="${filterId}" filterUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}">` +
-					`<feGaussianBlur stdDeviation="${stdDev}" />` +
-					`<feComponentTransfer><feFuncA type="linear" slope="${String(BLUR_ALPHA_SLOPE)}" intercept="${String(BLUR_ALPHA_INTERCEPT)}" /></feComponentTransfer>` +
-					`</filter>`,
-			);
-		}
-
 		const parts = [
 			`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`,
-			`<defs>\n  ${defsContent.join('\n  ')}\n</defs>`,
+			this.#defs.toString(w, h, this.#clipCircle),
 			`<g id="map" clip-path="url(#vb)">`,
 		];
 		parts.push(...this.#svg, '</g>', '</svg>');
 		return parts.join('\n');
 	}
-}
-
-/** `value` modulo `period`, always in `[0, period)`. */
-function mod(value: number, period: number): number {
-	return ((value % period) + period) % period;
-}
-
-/** ` name="opacity"`, or nothing for a fully opaque value. */
-function opacityAttr(name: string, opacity: number): string {
-	return opacity < 1 ? ` ${name}="${opacity.toFixed(3)}"` : '';
-}
-
-function fillAttr(color: Color): string {
-	let attr = `fill="${color.rgb}"`;
-	if (color.alpha < 255) attr += ` fill-opacity="${color.opacity.toFixed(3)}"`;
-	return attr;
-}
-
-function strokeAttr(color: Color, width: string): string {
-	let attr = `stroke="${color.rgb}" stroke-width="${width}"`;
-	if (color.alpha < 255) attr += ` stroke-opacity="${color.opacity.toFixed(3)}"`;
-	return attr;
-}
-
-function formatScaled(v: number): string {
-	return formatNum(Math.round(v * 10));
-}
-
-function formatUnit(v: number): string {
-	return (Math.round(v * 100000) / 100000).toString();
-}
-
-function formatScale(v: number): string {
-	return (Math.round(v * 10000) / 10000).toString();
-}
-
-function roundXY(x: number, y: number): [number, number] {
-	return [Math.round(x * 10), Math.round(y * 10)];
-}
-
-function formatPoint(p: [number, number]): string {
-	const [x, y] = roundXY(p[0], p[1]);
-	return formatNum(x) + ',' + formatNum(y);
-}
-
-function escapeXml(s: string): string {
-	return s
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;');
 }
