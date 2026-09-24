@@ -158,7 +158,10 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 						area -= ring[j]!.x * ring[i]!.y;
 					}
 
-					if (area < 0 !== needsCW) ring.reverse();
+					// Wound as geojson-vt winds them for MapLibre GL JS, and as vector tiles are:
+					// the exterior ring clockwise on screen, holes counter-clockwise. Line layers
+					// follow this direction (`line-offset`, `line-pattern`).
+					if (area > 0 !== needsCW) ring.reverse();
 				});
 				const f = makeFeature('Polygon', geometry, id, properties);
 				if (f) {

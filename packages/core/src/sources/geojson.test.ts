@@ -357,4 +357,44 @@ describe('loadGeoJSONSource', () => {
 			);
 		});
 	});
+
+	describe('ring winding', () => {
+		/** Twice the ring's area on screen (y down): positive if it runs clockwise. */
+		function clockwiseArea(ring: { x: number; y: number }[]): number {
+			let area = 0;
+			for (let i = 0; i < ring.length; i++) {
+				const a = ring[i]!;
+				const b = ring[(i + 1) % ring.length]!;
+				area += a.x * b.y - b.x * a.y;
+			}
+			return area;
+		}
+
+		test.each([
+			['clockwise', 1],
+			['counter-clockwise', -1],
+		])(
+			'winds a %s exterior ring clockwise on screen and its hole counter-clockwise, as geojson-vt does',
+			(_, direction) => {
+				const square = (size: number): number[][] => {
+					const ring = [
+						[-size, size],
+						[size, size],
+						[size, -size],
+						[-size, -size],
+						[-size, size],
+					];
+					return direction > 0 ? ring : ring.reverse();
+				};
+				const lf = load({
+					type: 'Feature',
+					properties: {},
+					geometry: { type: 'Polygon', coordinates: [square(10), square(5)] },
+				});
+				const [exterior, hole] = getFeatures(lf).polygons[0]!.geometry;
+				expect(clockwiseArea(exterior!)).toBeGreaterThan(0);
+				expect(clockwiseArea(hole!)).toBeLessThan(0);
+			},
+		);
+	});
 });
