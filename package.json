@@ -32,6 +32,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts && npm run test:e2e:maplibre && npm run test:e2e:screenshots",
     "test:e2e:maplibre": "tsx e2e/plugin/maplibre-control.ts",
     "test:e2e:screenshots": "tsx e2e/visual/run.ts",
+    "test:e2e:docker": "tsx scripts/e2e-docker.ts",
     "test:pack": "tsx scripts/pack-test.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e/tsconfig.json && tsc --noEmit -p dev/tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
     "upgrade": "ncu --upgrade --workspaces --no-root && vrt deps-upgrade"

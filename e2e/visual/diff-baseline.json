@@ -1,8 +1,8 @@
 {
 	"berlin-vector": {
-		"svg": 0.39,
+		"svg": 0.32,
 		"png": 0.22,
-		"drift": 0.3
+		"drift": 0.29
 	},
 	"paris-vector": {
 		"svg": 0.35,
@@ -10,18 +10,18 @@
 		"drift": 0.29
 	},
 	"warsaw-vector": {
-		"svg": 0.59,
-		"png": 0.44,
+		"svg": 0.54,
+		"png": 0.35,
 		"drift": 0.25
 	},
 	"tokyo-vector": {
 		"svg": 1.12,
 		"png": 0.6,
-		"drift": 0.87
+		"drift": 0.86
 	},
 	"roma-vector": {
 		"svg": 0.55,
-		"png": 0.25,
+		"png": 0.24,
 		"drift": 0.3
 	},
 	"sao-paulo-vector": {
@@ -30,106 +30,9 @@
 		"drift": 0.63
 	},
 	"berlin-labels-vector": {
-		"svg": 4.53,
-		"png": 4.58,
+		"svg": 4.54,
+		"png": 4.59,
 		"drift": 0.82
-	},
-	"berlin-satellite": {
-		"svg": 0.58,
-		"png": 0.49,
-		"drift": 0
-	},
-	"berlin-geojson": {
-		"svg": 1.48,
-		"png": 1.65,
-		"drift": 0.84
-	},
-	"parity-features": {
-		"svg": 0.07,
-		"png": 0.06,
-		"drift": 0,
-		"cells": {
-			"fill-sort-key": {
-				"svg": 0.21,
-				"png": 0.21,
-				"drift": 0
-			},
-			"line-sort-key": {
-				"svg": 0,
-				"png": 0,
-				"drift": 0
-			},
-			"circle-sort-key": {
-				"svg": 0,
-				"png": 0,
-				"drift": 0
-			},
-			"circle opacities, circle-blur": {
-				"svg": 0,
-				"png": 0.01,
-				"drift": 0
-			},
-			"line-gap-width": {
-				"svg": 0.02,
-				"png": 0.02,
-				"drift": 0
-			},
-			"global-state": {
-				"svg": 0,
-				"png": 0,
-				"drift": 0
-			},
-			"fill-pattern": {
-				"svg": 0,
-				"png": 0,
-				"drift": 0
-			},
-			"translucent pattern, outline": {
-				"svg": 0.41,
-				"png": 0.28,
-				"drift": 0
-			},
-			"data-driven pattern, missing image": {
-				"svg": 0,
-				"png": 0,
-				"drift": 0
-			}
-		}
-	},
-	"world-vector-globe": {
-		"svg": 0.35,
-		"png": 0.64,
-		"drift": 0.28
-	},
-	"europe-vector-globe": {
-		"svg": 0.22,
-		"png": 0.2,
-		"drift": 0.05
-	},
-	"scandinavia-vector-globe": {
-		"svg": 0.37,
-		"png": 0.21,
-		"drift": 0.05
-	},
-	"japan-vector-globe": {
-		"svg": 1.34,
-		"png": 0.72,
-		"drift": 0.99
-	},
-	"tokyo-z11.5-vector-globe": {
-		"svg": 2.37,
-		"png": 1.72,
-		"drift": 1.38
-	},
-	"world-satellite-globe": {
-		"svg": 0.5,
-		"png": 0.61,
-		"drift": 0.06
-	},
-	"europe-satellite-globe": {
-		"svg": 0.55,
-		"png": 0.55,
-		"drift": 0
 	},
 	"berlin-outlines-vector": {
 		"svg": 1.08,
@@ -142,8 +45,8 @@
 		"drift": 0.3
 	},
 	"berlin-labels-rotated-vector": {
-		"svg": 4.33,
-		"png": 4.37,
+		"svg": 4.34,
+		"png": 4.38,
 		"drift": 0.88
 	},
 	"berlin-rotated-satellite": {
@@ -192,9 +95,9 @@
 				"drift": 0
 			},
 			"translucent pattern, outline": {
-				"svg": 0.14,
+				"svg": 0.16,
 				"png": 0.14,
-				"drift": 0.07
+				"drift": 0.04
 			},
 			"data-driven pattern, missing image": {
 				"svg": 0,
@@ -203,13 +106,8 @@
 			}
 		}
 	},
-	"europe-rotated-vector-globe": {
-		"svg": 0.22,
-		"png": 0.2,
-		"drift": 0.06
-	},
 	"berlin-padded-vector": {
-		"svg": 0.47,
+		"svg": 0.39,
 		"png": 0.23,
 		"drift": 0.38
 	},
@@ -222,6 +120,73 @@
 		"svg": 0.2,
 		"png": 0.17,
 		"drift": 0.04
+	},
+	"europe-rotated-vector-globe": {
+		"svg": 0.22,
+		"png": 0.2,
+		"drift": 0.06
+	},
+	"berlin-satellite": {
+		"svg": 0.58,
+		"png": 0.49,
+		"drift": 0
+	},
+	"berlin-geojson": {
+		"svg": 1.46,
+		"png": 1.65,
+		"drift": 0.79
+	},
+	"parity-features": {
+		"svg": 0.08,
+		"png": 0.06,
+		"drift": 0,
+		"cells": {
+			"fill-sort-key": {
+				"svg": 0.21,
+				"png": 0.21,
+				"drift": 0
+			},
+			"line-sort-key": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"circle-sort-key": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"circle opacities, circle-blur": {
+				"svg": 0,
+				"png": 0.01,
+				"drift": 0
+			},
+			"line-gap-width": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"global-state": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"fill-pattern": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"translucent pattern, outline": {
+				"svg": 0.48,
+				"png": 0.28,
+				"drift": 0
+			},
+			"data-driven pattern, missing image": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			}
+		}
 	},
 	"parity-symbols": {
 		"svg": 0.09,
@@ -274,5 +239,40 @@
 				"drift": 0
 			}
 		}
+	},
+	"world-vector-globe": {
+		"svg": 0.35,
+		"png": 0.64,
+		"drift": 0.28
+	},
+	"europe-vector-globe": {
+		"svg": 0.22,
+		"png": 0.2,
+		"drift": 0.05
+	},
+	"scandinavia-vector-globe": {
+		"svg": 0.37,
+		"png": 0.21,
+		"drift": 0.05
+	},
+	"japan-vector-globe": {
+		"svg": 1.34,
+		"png": 0.72,
+		"drift": 0.99
+	},
+	"tokyo-z11.5-vector-globe": {
+		"svg": 2.37,
+		"png": 1.71,
+		"drift": 1.38
+	},
+	"world-satellite-globe": {
+		"svg": 0.5,
+		"png": 0.61,
+		"drift": 0.06
+	},
+	"europe-satellite-globe": {
+		"svg": 0.55,
+		"png": 0.55,
+		"drift": 0
 	}
 }

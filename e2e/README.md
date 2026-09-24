@@ -74,6 +74,28 @@ To run only some regions, name them: `E2E_REGIONS=parity-features,berlin-vector 
 test:e2e:screenshots`. With `UPDATE_BASELINE=1`, such a run re-blesses only those
 regions.
 
+### Measuring as CI does
+
+CI and the Pages workflow run the e2e tests in the Playwright container (the image of the
+installed Playwright version). `npm run test:e2e:docker` runs the screenshots in the same
+container, with Docker, so it measures what CI measures; the baseline is blessed there:
+
+```sh
+npm run test:e2e:docker                                  # the screenshots
+E2E_REGIONS=parity-features npm run test:e2e:docker      # some regions
+UPDATE_BASELINE=1 npm run test:e2e:docker                # bless the baseline
+npm run test:e2e:docker -- npm run test:e2e              # any command
+```
+
+It runs as x86-64, like CI's runners, also on Apple silicon, where Docker emulates it (a
+full run takes some minutes longer). Natively on ARM (`E2E_DOCKER_PLATFORM=linux/arm64`) it
+is faster, but the PNG renderer draws edges a little differently there, which moves `png`
+and `drift` by up to 0.05 points. The dependencies are installed in the container, into a
+Docker volume, and again when `package-lock.json` changes.
+
+`npm run test:e2e:screenshots` on the host measures differently: macOS draws text and
+edges differently, and some regions move by whole percentage points.
+
 `berlin-outlines-vector` adds line layers on polygons (building and translucent water
 outlines) to the VersaTiles style, which has none.
 
@@ -99,18 +121,12 @@ value per region and metric), and the run **exits non-zero** (failing CI) on:
 
 ### Why the tolerances are loose
 
-The same commit does not produce the same numbers everywhere. `svg` is stable —
-it compares Chromium against Chromium on one machine — but `png` and `drift`
-compare a Skia-rendered image against a Chromium one, so they carry each
-rasterizer's platform differences. Text is by far the worst of it: between macOS
-and Linux the labels region moves by whole percentage points, while every other
-region stays within 0.05.
-
-Three environments run this suite — a developer's machine, the CI runner, and the
-Pages container — so a baseline tight enough to be exact in one of them just fails
-in the other two. Each baseline therefore holds the **highest** value seen across
-them; a lower number elsewhere shows up as a (non-failing) improvement. When an
-environment disagrees after re-blessing, keep the higher figure.
+The baseline is measured in the same container CI runs in (see above), but the same
+commit still does not always measure the same there: Chromium rasterizes some SVGs a
+little differently from run to run, and a region's `svg` can move by up to 0.08 points
+between two runs (`berlin-vector`, `berlin-padded-vector`). On the host, macOS moves text
+by whole percentage points. The tolerances leave room for both; when a re-blessed value
+turns out to fail on CI, keep the higher figure.
 
 A **surprising improvement** (fallen beyond the same tolerance) is highlighted in
 green but does not fail — it's a nudge to re-bless. Regions with no baseline yet
@@ -120,7 +136,7 @@ When a change is intentional (you improved the renderer, or accept a new diff),
 re-bless the baseline:
 
 ```sh
-UPDATE_BASELINE=1 npm run test:e2e:screenshots
+UPDATE_BASELINE=1 npm run test:e2e:docker
 ```
 
 then commit the updated `visual/diff-baseline.json`.

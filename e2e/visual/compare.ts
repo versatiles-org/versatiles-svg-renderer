@@ -84,9 +84,8 @@ export function measure(region: Region, shots: Shots): Measurement {
 // --- Baseline ---
 
 /**
- * The last blessed metrics, by region id. Baselines hold the highest value seen across the
- * environments that run this suite, so the gate passes in all of them; a lower number
- * elsewhere reads as an improvement rather than a failure.
+ * The last blessed metrics, by region id, as measured in the container CI runs in. When a
+ * run there measures higher than a re-blessed value, keep the higher one.
  */
 export type Baseline = Record<
 	string,
@@ -148,13 +147,11 @@ export function writeBaseline(baseline: Baseline): string {
  * A change counts only if it clears both a 10% relative move and a 0.1 percentage-point
  * floor.
  *
- * These are deliberately looser than the measurement is precise. The same commit does not
- * produce the same numbers everywhere: `png` and `drift` compare a Skia-rendered image
- * against a Chromium one, so they carry each rasterizer's platform differences, and text
- * is the worst of it — between macOS and Linux the labels region moves by whole
- * percentage points while everything else stays within 0.05. Three environments run this
- * suite (a developer's machine, the CI runner, and the Pages container), and a baseline
- * tight enough to be exact in one of them just fails in the other two.
+ * These are deliberately looser than the measurement is precise. The baseline is measured
+ * in the container CI runs in (`npm run test:e2e:docker`), but even there Chromium
+ * rasterizes some SVGs a little differently from run to run, and a region's `svg` can move
+ * by up to 0.08 points between two runs; on a developer's machine, text moves by whole
+ * percentage points.
  */
 const REL_TOLERANCE = 0.1;
 const ABS_FLOOR = 0.1;
