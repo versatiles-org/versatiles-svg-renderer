@@ -1,6 +1,6 @@
 {
   "name": "versatiles-svg-renderer",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "Monorepo of @versatiles/svg-renderer, @versatiles/png-renderer and @versatiles/maplibre-svg-export.",
   "homepage": "https://github.com/versatiles-org/versatiles-svg-renderer",

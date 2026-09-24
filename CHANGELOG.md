@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-24
+
 ### Added
 
 - **Variable anchors and radial offsets.** `text-variable-anchor`, `text-variable-anchor-offset` and `text-radial-offset` were ignored. As in MapLibre GL JS, a label with variable anchors now goes to the first of its places where it overlaps nothing placed before, or, with `text-allow-overlap`, to the first; where none is free, it is left out. Each place gets its offset (`text-radial-offset`, else `text-offset`, or the offsets of `text-variable-anchor-offset`), and its lines are justified to it with `text-justify: "auto"`. An icon fitted to its label (`icon-text-fit`) moves with it, and needs room there too. `text-radial-offset` also moves labels with a single anchor. `text-writing-mode` (vertical text) is not supported. ([#41](https://github.com/versatiles-org/versatiles-svg-renderer/issues/41))
