@@ -57,7 +57,18 @@ jobs:
         run: npm run test:pack -- --docker
 
       - name: Run MapLibre plugin E2E test
+        id: e2e
         run: npm run test:e2e
+
+      # A failed E2E run skips the Pages workflow, which publishes the report otherwise:
+      # keep the screenshots and diffs, to see what differs on Linux.
+      - name: Upload E2E report
+        uses: actions/upload-artifact@v7
+        if: failure() && steps.e2e.outcome == 'failure'
+        with:
+          name: e2e-report
+          path: e2e/output/
+          retention-days: 30
 
       - name: Generate test coverage
         run: npm run test:coverage
