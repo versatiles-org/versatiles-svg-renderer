@@ -23,8 +23,10 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 		linestrings: [],
 		polygons: [],
 		polygonOutlines: [],
+		vertices: [],
 	};
 	features.polygonOutlines ??= [];
+	features.vertices ??= [];
 	if (!existing) layerFeatures.set(GEOJSON_LAYER, features);
 
 	const worldSize = 512 * 2 ** zoom;
@@ -83,7 +85,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 				const f = makeFeature('LineString', geometry, id, properties);
 				if (f) {
 					features.linestrings.push(f);
-					features.points.push(
+					features.vertices!.push(
 						new Feature({ type: 'Point', geometry: extractPoints(geometry), id, properties }),
 					);
 				}
@@ -111,7 +113,7 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 					features.polygonOutlines!.push(
 						new Feature({ type: 'Polygon', geometry, id, properties }),
 					);
-					features.points.push(
+					features.vertices!.push(
 						new Feature({ type: 'Point', geometry: extractPoints(geometry), id, properties }),
 					);
 				}

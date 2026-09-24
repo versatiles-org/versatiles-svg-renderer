@@ -2,6 +2,7 @@ import type { Feature } from '../geometry.js';
 import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
 import { chainSegments, formatNum, segmentsToPath, strokeLines } from './svg_path.js';
+import { iconQuads } from './icon_quads.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -20,7 +21,7 @@ import type {
 import type { SpriteAtlas, SpriteEntry } from '../sources/sprite.js';
 import type { GlyphOutline } from '../pipeline/glyph_outline.js';
 import type { ClipCircle } from '../projection.js';
-import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape, type CircleGradientStop } from './circle.js';
 import {
 	affineFromTriangles,
@@ -528,7 +529,11 @@ export class SVGRenderer {
 	 * The id of a `<symbol>` showing sprite image `name` at its native size, defined once:
 	 * the sprite sheet goes into the defs once, and each image clips it.
 	 */
-	#spriteSymbol(name: string, sprite: SpriteEntry): string {
+	#spriteSymbol(
+		name: string,
+		sprite: SpriteEntry,
+		source: { x: number; y: number; width: number; height: number } = sprite,
+	): string {
 		const sheetKey = sprite.sheetDataUri;
 		let sheetDef = this.#spriteSheetDefs.get(sheetKey);
 		if (!sheetDef) {
@@ -540,16 +545,27 @@ export class SVGRenderer {
 			};
 			this.#spriteSheetDefs.set(sheetKey, sheetDef);
 		}
-		const symKey = `${name}\0${sheetKey}`;
+		const x = Math.round(source.x * 10);
+		const y = Math.round(source.y * 10);
+		const width = Math.round(source.width * 10);
+		const height = Math.round(source.height * 10);
+		// The whole image, or a piece of it (see `iconQuads`).
+		const whole =
+			source.x === sprite.x &&
+			source.y === sprite.y &&
+			source.width === sprite.width &&
+			source.height === sprite.height;
+		const symKey = `${name}\0${sheetKey}\0${String(x)}\0${String(y)}\0${String(width)}\0${String(height)}`;
 		let symDef = this.#spriteSymbolDefs.get(symKey);
 		if (!symDef) {
+			const piece = whole ? '' : `-${String(x)}-${String(y)}-${String(width)}-${String(height)}`;
 			symDef = {
-				symbolId: `sprite-${escapeXml(name)}`,
+				symbolId: `sprite-${escapeXml(name)}${piece}`,
 				sheetDefId: sheetDef.defId,
-				x: Math.round(sprite.x * 10),
-				y: Math.round(sprite.y * 10),
-				width: Math.round(sprite.width * 10),
-				height: Math.round(sprite.height * 10),
+				x,
+				y,
+				width,
+				height,
 			};
 			this.#spriteSymbolDefs.set(symKey, symDef);
 		}
@@ -681,20 +697,23 @@ export class SVGRenderer {
 			const point = feature.geometry[0]?.[0];
 			if (!point) continue;
 
-			const scale = style.size / sprite.pixelRatio;
-			const iconW = sprite.width * scale;
-			const iconH = sprite.height * scale;
+			// Each piece of the sprite image: moved to its place, scaled from the image's size.
+			const pieces = iconQuads(style, sprite).map((quad) => {
+				const [x, y] = roundXY(point.x + quad.left, point.y + quad.top);
+				const scaleX = (quad.right - quad.left) / quad.source.width;
+				const scaleY = (quad.bottom - quad.top) / quad.source.height;
+				const scale =
+					formatScale(scaleX) === formatScale(scaleY)
+						? scaleX === 1
+							? ''
+							: ` scale(${formatScale(scaleX)})`
+						: ` scale(${formatScale(scaleX)},${formatScale(scaleY)})`;
+				return {
+					symbolId: this.#spriteSymbol(style.image, sprite, quad.source),
+					transform: `translate(${formatNum(x)},${formatNum(y)})${scale}`,
+				};
+			});
 
-			const [anchorDx, anchorDy] = mapIconAnchor(style.anchor, iconW, iconH);
-			const ox = style.offset[0] * style.size + anchorDx;
-			const oy = style.offset[1] * style.size + anchorDy;
-
-			const [iconXr, iconYr] = roundXY(point.x + ox, point.y + oy);
-
-			const symbolId = this.#spriteSymbol(style.image, sprite);
-
-			// Build instance: translate to position, scale from native to desired size
-			const scaleStr = scale === 1 ? '' : ` scale(${formatScale(scale)})`;
 			const opacityAttr = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 
 			// SDF filter for colorable icons
@@ -745,23 +764,28 @@ export class SVGRenderer {
 				filterAttr = ` filter="url(#${filterId})"`;
 			}
 
+			// One piece is placed by its group; several share the group's opacity and filter.
+			const icon =
+				pieces.length === 1
+					? `<g transform="${pieces[0]!.transform}"${opacityAttr}${filterAttr}>` +
+						`<use xlink:href="#${escapeXml(pieces[0]!.symbolId)}" />` +
+						`</g>`
+					: `<g${opacityAttr}${filterAttr}>` +
+						pieces
+							.map(
+								({ symbolId, transform }) =>
+									`<use xlink:href="#${escapeXml(symbolId)}" transform="${transform}" />`,
+							)
+							.join('') +
+						`</g>`;
 			if (style.rotate !== 0) {
-				const [cx, cy] = roundXY(
-					point.x + style.offset[0] * style.size,
-					point.y + style.offset[1] * style.size,
-				);
+				// As in MapLibre, `icon-rotate` turns the icon, offset included, around its point.
+				const [cx, cy] = roundXY(point.x, point.y);
 				elements.push(
-					`<g transform="rotate(${String(style.rotate)},${formatNum(cx)},${formatNum(cy)})">` +
-						`<g transform="translate(${formatNum(iconXr)},${formatNum(iconYr)})${scaleStr}"${opacityAttr}${filterAttr}>` +
-						`<use xlink:href="#${escapeXml(symbolId)}" />` +
-						`</g></g>`,
+					`<g transform="rotate(${String(style.rotate)},${formatNum(cx)},${formatNum(cy)})">${icon}</g>`,
 				);
 			} else {
-				elements.push(
-					`<g transform="translate(${formatNum(iconXr)},${formatNum(iconYr)})${scaleStr}"${opacityAttr}${filterAttr}>` +
-						`<use xlink:href="#${escapeXml(symbolId)}" />` +
-						`</g>`,
-				);
+				elements.push(icon);
 			}
 		}
 

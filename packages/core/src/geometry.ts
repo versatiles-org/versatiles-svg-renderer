@@ -27,6 +27,11 @@ export interface Features {
 	 * NOT fill them a second time (the polygon itself is already in `polygons`).
 	 */
 	polygonOutlines?: Feature[];
+	/**
+	 * The vertices of lines and polygons, as points: a `circle` layer draws a circle at each
+	 * (as MapLibre does); other layers leave them out.
+	 */
+	vertices?: Feature[];
 }
 
 /**

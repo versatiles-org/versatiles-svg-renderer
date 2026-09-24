@@ -2,7 +2,7 @@ import { describe, expect, test, vi, beforeEach, type Mock } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { SVGRenderer } from '../renderer/svg.js';
 import { Feature, Point2D } from '../geometry.js';
-import type { LineStyle } from '../renderer/types.js';
+import type { IconStyle, LineStyle } from '../renderer/types.js';
 import {
 	GEOJSON_LAYER,
 	type Features,
@@ -691,6 +691,38 @@ describe('renderMap', () => {
 			expect(result).toContain('<circle');
 		});
 
+		test('draws circles at the vertices of lines, but places no labels there', async () => {
+			const vertices = makePointFeature([[[40, 40]], [[80, 80]]], { name: 'Road' });
+			setLayerFeatures(new Map([['roads', { ...makeFeatures(), vertices: [vertices] }]]));
+
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'dots',
+						type: 'circle',
+						source: 'src',
+						'source-layer': 'roads',
+						paint: { 'circle-radius': 3 },
+					},
+					{
+						id: 'names',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'roads',
+						layout: { 'text-field': '{name}' },
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawCircles = vi.spyOn(job.renderer, 'drawCircles');
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+
+			expect(drawCircles.mock.calls[0]![1].map(([feature]) => feature)).toEqual([vertices]);
+			expect(drawLabels.mock.calls.flatMap(([, labels]) => labels)).toEqual([]);
+		});
+
 		test('skips circle layer when no points exist', async () => {
 			const features = new Map<string, Features>();
 			features.set('pois', makeFeatures({ points: [] }));
@@ -1298,6 +1330,53 @@ describe('renderMap', () => {
 			expect(result).toContain('<image');
 			expect(result).toContain('<text');
 			expect(result).toContain('Berlin');
+		});
+
+		test('fits an icon to its label with icon-text-fit and icon-text-fit-padding', async () => {
+			const point = makePointFeature([[[50, 50]]], { name: 'Berlin' });
+			setLayerFeatures(new Map([['places', makeFeatures({ points: [point] })]]));
+			const spriteAtlas = new Map();
+			spriteAtlas.set('shield', {
+				x: 0,
+				y: 0,
+				width: 24,
+				height: 24,
+				pixelRatio: 1,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 256,
+				sheetHeight: 256,
+			});
+			(loadSpriteAtlas as Mock).mockResolvedValue(spriteAtlas);
+
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'shields',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'places',
+						layout: {
+							'icon-image': 'shield',
+							'text-field': '{name}',
+							'text-size': 10,
+							'icon-text-fit': 'both',
+							'icon-text-fit-padding': [2, 4, 2, 4],
+						},
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawIcons = vi.spyOn(job.renderer, 'drawIcons');
+			await renderMap(job);
+
+			const icons = drawIcons.mock.calls.find(([id]) => id === 'shields-icons')![1];
+			const style: IconStyle = icons[0]![1];
+			// The label's box, one line of 10 × 1.2 pixels, plus the padding.
+			const [left, top, right, bottom] = style.fit!;
+			expect([top, bottom]).toEqual([-8, 8]);
+			expect(left).toBeCloseTo(-right);
+			expect(right - left).toBeGreaterThan(30);
 		});
 	});
 

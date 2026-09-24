@@ -3,6 +3,7 @@ import { inlineSources, osm, satellite } from '@versatiles/style';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Feature } from 'geojson';
 import { LineLayerSpecification } from 'maplibre-gl';
+import { TEST_SPRITE_URL } from './test-sprite.js';
 
 export interface Region {
 	name: string;
@@ -101,6 +102,8 @@ export const regions: Region[] = [
 	{ name: 'berlin', lon: 13.388, lat: 52.514, zoom: 14, type: 'geojson' },
 
 	{ name: 'parity', lon: 0, lat: 0, zoom: 12, type: 'features' },
+	// Icons fitted to their labels, south of the other features (see `symbolCells`).
+	{ name: 'parity-symbols', lon: 0, lat: -0.1, zoom: 12, type: 'features', labels: true },
 
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.
@@ -183,7 +186,7 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
 				style = await inlineSources(satellite({ projection, osmOverlay: false }));
 				break;
 			case 'features':
-				style = featuresStyle();
+				style = featuresStyle(labels);
 				break;
 			case 'geojson':
 				style = {
@@ -376,7 +379,7 @@ export async function getStyle(region: Region): Promise<StyleSpecification> {
  * | circle opacities, blur  | line-gap-width              | global-state                 |
  * | fill-pattern            | translucent pattern, outline | data-driven, missing image |
  */
-function featuresStyle(): StyleSpecification {
+function featuresStyle(labels: boolean): StyleSpecification {
 	const columns = [-0.045, 0, 0.045];
 	const rows = [0.033, 0, -0.033];
 	const colors = ['#e41a1c', '#4daf4a', '#377eb8'];
@@ -410,7 +413,7 @@ function featuresStyle(): StyleSpecification {
 	const sortKeyed = (make: (i: number) => Geometry) =>
 		collection(colors.map((color, i) => feature(make(i), { color, key: 3 - i })));
 
-	return {
+	const style: StyleSpecification = {
 		version: 8,
 		sprite: [{ id: 'base', url: 'https://tiles.versatiles.org/assets/sprites/base' }],
 		state: {
@@ -594,4 +597,155 @@ function featuresStyle(): StyleSpecification {
 			},
 		],
 	};
+	return labels ? withSymbolCells(style) : style;
+}
+
+/**
+ * Symbol cells, one per cell of a 3 × 3 grid south of the features (around 0°/-0.1°), for a
+ * region with labels: icons fitted to their labels (`icon-text-fit`), stretched by the
+ * stretch zones of the test sprite (see `test-sprite.ts`), and a turned icon.
+ *
+ * | fit both, padding      | fit width              | fit height, two lines     |
+ * | plain image, fit both  | fit both, icon-size    | plain image, turned       |
+ * | fit both, along a line | turned icon with offset | fit both, anchor + offset |
+ */
+function withSymbolCells(style: StyleSpecification): StyleSpecification {
+	const columns = [-0.045, 0, 0.045];
+	const rows = [-0.067, -0.1, -0.133];
+	const at = (col: number, row: number): [number, number] => [columns[col]!, rows[row]!];
+	type Layout = Record<string, unknown>;
+	const cells: { id: string; geometry: Feature['geometry']; text?: string; layout: Layout }[] = [
+		{
+			id: 'fit-both',
+			geometry: { type: 'Point', coordinates: at(0, 0) },
+			text: 'A 100',
+			layout: { 'icon-text-fit': 'both', 'icon-text-fit-padding': [2, 4, 2, 4] },
+		},
+		{
+			id: 'fit-width',
+			geometry: { type: 'Point', coordinates: at(1, 0) },
+			text: 'Hauptstraße',
+			layout: { 'icon-text-fit': 'width', 'icon-text-fit-padding': [0, 3, 0, 3] },
+		},
+		{
+			id: 'fit-height',
+			geometry: { type: 'Point', coordinates: at(2, 0) },
+			text: 'E 55\nNord',
+			layout: { 'icon-text-fit': 'height', 'icon-text-fit-padding': [3, 0, 3, 0] },
+		},
+		{
+			id: 'fit-plain',
+			geometry: { type: 'Point', coordinates: at(0, 1) },
+			text: 'Stretch',
+			layout: {
+				'icon-image': 'test:plain',
+				'icon-text-fit': 'both',
+				'icon-text-fit-padding': [4, 4, 4, 4],
+			},
+		},
+		{
+			id: 'fit-size',
+			geometry: { type: 'Point', coordinates: at(1, 1) },
+			text: 'M 1',
+			layout: { 'icon-text-fit': 'both', 'icon-size': 1.5 },
+		},
+		{
+			// A plain image: MapLibre does not turn the fixed parts of a stretched one with it.
+			id: 'fit-rotated',
+			geometry: { type: 'Point', coordinates: at(2, 1) },
+			text: 'R 20',
+			layout: {
+				'icon-image': 'test:plain',
+				'icon-text-fit': 'both',
+				'icon-text-fit-padding': [2, 4, 2, 4],
+				'icon-rotate': 20,
+				'text-rotate': 20,
+			},
+		},
+		{
+			id: 'fit-line',
+			geometry: {
+				type: 'LineString',
+				coordinates: [
+					[columns[0]! - 0.02, rows[2]! - 0.008],
+					[columns[0]! + 0.02, rows[2]! + 0.008],
+				],
+			},
+			text: 'L 7',
+			layout: {
+				'symbol-placement': 'line-center',
+				'text-rotation-alignment': 'viewport',
+				'icon-rotation-alignment': 'viewport',
+				'icon-text-fit': 'both',
+				'icon-text-fit-padding': [2, 4, 2, 4],
+			},
+		},
+		{
+			id: 'rotated-icon',
+			geometry: { type: 'Point', coordinates: at(1, 2) },
+			layout: {
+				'icon-image': 'test:arrow',
+				'icon-size': 2,
+				'icon-offset': [12, 0],
+				'icon-rotate': 60,
+			},
+		},
+		{
+			id: 'fit-anchor',
+			geometry: { type: 'Point', coordinates: at(2, 2) },
+			text: 'Left',
+			layout: {
+				'icon-text-fit': 'both',
+				'icon-text-fit-padding': [2, 8, 2, 2],
+				'text-anchor': 'left',
+				'text-offset': [1, 0.5],
+			},
+		},
+	];
+
+	style.glyphs = 'https://tiles.versatiles.org/assets/glyphs/{fontstack}/{range}.pbf';
+	style.sprite = [
+		...(style.sprite as { id: string; url: string }[]),
+		{ id: 'test', url: TEST_SPRITE_URL },
+	];
+	style.sources.symbols = {
+		type: 'geojson',
+		data: {
+			type: 'FeatureCollection',
+			features: cells.map(({ id, geometry, text }) => ({
+				type: 'Feature' as const,
+				properties: { cell: id, text: text ?? '' },
+				geometry,
+			})),
+		},
+	};
+	// The line of the label along a line, to see where it lies.
+	style.layers.push({
+		id: 'symbol-line',
+		type: 'line',
+		source: 'symbols',
+		filter: ['==', ['get', 'cell'], 'fit-line'],
+		paint: { 'line-color': '#999999', 'line-width': 2 },
+	});
+	for (const { id, text, layout } of cells) {
+		style.layers.push({
+			id: `symbol-${id}`,
+			type: 'symbol',
+			source: 'symbols',
+			filter: ['==', ['get', 'cell'], id],
+			layout: {
+				'icon-image': 'test:shield',
+				'icon-allow-overlap': true,
+				'text-allow-overlap': true,
+				...(text && {
+					'text-field': ['get', 'text'],
+					'text-font': ['noto_sans_regular'],
+					'text-size': 14,
+				}),
+				...layout,
+			},
+			paint: { 'text-color': '#000000' },
+		});
+	}
+	return style;
 }

@@ -185,9 +185,10 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `line-gap-width`                      | ✅  | ✅  |       |
 | Line layers on polygons               | ✅  | ✅  |       |
 | `line-gradient`                       | ❌  | ❌  | [#53] |
-| Other paint/layout properties         | ⚠️  | ⚠️  | [#54] |
+| Other paint/layout properties         | ✅² | ✅² |       |
 | **Labels and icons**                  |     |     |       |
 | Icons from the sprite, SDF icons      | ✅  | ✅  |       |
+| `icon-text-fit`, stretchable icons    | ✅  | ✅  |       |
 | Point labels                          | ✅  | ✅  |       |
 | Letter shapes of the style's glyphs   | ✅  | ✅  |       |
 | Dropping overlaps                     | ✅  | ✅  |       |
@@ -201,6 +202,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `global-state`                        | ✅  | ✅  |       |
 
 ¹ The text is drawn, its formatting is lost.
+
+² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones.
 
 Labels and icons are only drawn with the `labels` option. Interaction, animation and `feature-state` do not apply to a static image.
 
@@ -217,4 +220,3 @@ Labels and icons are only drawn with the `labels` option. Interaction, animation
 [#51]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/51
 [#52]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/52
 [#53]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/53
-[#54]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/54

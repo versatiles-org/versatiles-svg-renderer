@@ -228,6 +228,11 @@ export interface IconStyle {
 	color: MaplibreColor;
 	haloColor: MaplibreColor;
 	haloWidth: number;
+	/**
+	 * Fitted to its label (`icon-text-fit`): the box the icon spans, `[left, top, right,
+	 * bottom]` from its point, before `icon-size`; `anchor` and `offset` then do not apply.
+	 */
+	fit?: [number, number, number, number];
 }
 
 export interface RasterTile {

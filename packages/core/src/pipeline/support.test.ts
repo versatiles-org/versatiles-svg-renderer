@@ -96,17 +96,14 @@ describe('checkStyle', () => {
 		]);
 	});
 
-	test('accepts the default value of a property supported with that value only', () => {
-		const layout = (value: string): LayerSpecification => ({
-			id: value,
+	test('accepts icon-text-fit and labels along lines', () => {
+		const fit: LayerSpecification = {
+			id: 'shields',
 			type: 'symbol',
 			source: 's',
-			layout: { 'icon-text-fit': value as 'none' },
-		});
-		expect(checkStyle(makeStyle([layout('none')]), true)).toEqual([]);
-		expect(checkStyle(makeStyle([layout('both')]), true)).toEqual([
-			'These layer properties are not supported and are ignored: icon-text-fit: "both" ("both").',
-		]);
+			layout: { 'icon-text-fit': 'both', 'icon-text-fit-padding': [2, 4, 2, 4] },
+		};
+		expect(checkStyle(makeStyle([fit]), true)).toEqual([]);
 		// Labels along lines are supported.
 		const line: LayerSpecification = {
 			id: 'streets',

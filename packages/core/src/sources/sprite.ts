@@ -12,7 +12,19 @@ export interface SpriteEntry {
 	sheetDataUri: string;
 	sheetWidth: number;
 	sheetHeight: number;
+	/** The columns of the image that stretch with `icon-text-fit`, as `[from, to]` pixels. */
+	stretchX?: [number, number][];
+	/** The rows of the image that stretch with `icon-text-fit`, as `[from, to]` pixels. */
+	stretchY?: [number, number][];
+	/** The part of the image `icon-text-fit` fits to the label: `[left, top, right, bottom]` pixels. */
+	content?: [number, number, number, number];
+	/** Whether a fitted image keeps the content's aspect ratio, horizontally. */
+	textFitWidth?: TextFit;
+	/** Whether a fitted image keeps the content's aspect ratio, vertically. */
+	textFitHeight?: TextFit;
 }
+
+export type TextFit = 'stretchOrShrink' | 'stretchOnly' | 'proportional';
 
 export type SpriteAtlas = Map<string, SpriteEntry>;
 
@@ -23,6 +35,11 @@ interface SpriteJsonEntry {
 	y: number;
 	pixelRatio?: number;
 	sdf?: boolean;
+	stretchX?: [number, number][];
+	stretchY?: [number, number][];
+	content?: [number, number, number, number];
+	textFitWidth?: TextFit;
+	textFitHeight?: TextFit;
 }
 
 async function fetchSpritePair(
@@ -98,6 +115,11 @@ export async function loadSprite(
 						sheetDataUri,
 						sheetWidth,
 						sheetHeight,
+						...(entry.stretchX && { stretchX: entry.stretchX }),
+						...(entry.stretchY && { stretchY: entry.stretchY }),
+						...(entry.content && { content: entry.content }),
+						...(entry.textFitWidth && { textFitWidth: entry.textFitWidth }),
+						...(entry.textFitHeight && { textFitHeight: entry.textFitHeight }),
 					});
 				}
 			} catch {

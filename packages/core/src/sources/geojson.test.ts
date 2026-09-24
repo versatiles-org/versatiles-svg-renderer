@@ -63,7 +63,7 @@ describe('loadGeoJSONSource', () => {
 	});
 
 	describe('LineString', () => {
-		test('loads a LineString and also adds points', () => {
+		test('loads a LineString and also adds its vertices', () => {
 			const lf = load({
 				type: 'Feature',
 				properties: {},
@@ -79,8 +79,9 @@ describe('loadGeoJSONSource', () => {
 			const features = getFeatures(lf);
 			expect(features.linestrings.length).toBe(1);
 			expect(features.linestrings[0]!.type).toBe('LineString');
-			// Points are also created from linestring vertices
-			expect(features.points.length).toBe(1);
+			// Its vertices, for circle layers only: a symbol layer places no label at them.
+			expect(features.points.length).toBe(0);
+			expect(features.vertices?.length).toBe(1);
 		});
 
 		test('loads a MultiLineString', () => {
@@ -109,7 +110,7 @@ describe('loadGeoJSONSource', () => {
 	});
 
 	describe('Polygon', () => {
-		test('loads a Polygon and also adds linestrings and points', () => {
+		test('loads a Polygon and also adds its outline and vertices', () => {
 			const lf = load({
 				type: 'Feature',
 				properties: {},
@@ -137,7 +138,8 @@ describe('loadGeoJSONSource', () => {
 			expect(features.polygonOutlines?.length).toBe(1);
 			// A polygon, as in MapLibre: a line layer closes its rings.
 			expect(features.polygonOutlines![0]!.type).toBe('Polygon');
-			expect(features.points.length).toBe(1);
+			expect(features.points.length).toBe(0);
+			expect(features.vertices?.length).toBe(1);
 		});
 
 		test('loads a MultiPolygon', () => {
@@ -199,8 +201,9 @@ describe('loadGeoJSONSource', () => {
 			});
 
 			const features = getFeatures(lf);
-			// 1 explicit point + 1 point from linestring vertices
-			expect(features.points.length).toBe(2);
+			// 1 explicit point, and the linestring's vertices apart
+			expect(features.points.length).toBe(1);
+			expect(features.vertices?.length).toBe(1);
 			expect(features.linestrings.length).toBe(1);
 		});
 	});
@@ -235,7 +238,8 @@ describe('loadGeoJSONSource', () => {
 			});
 
 			const features = getFeatures(lf);
-			expect(features.points.length).toBe(2);
+			expect(features.points.length).toBe(1);
+			expect(features.vertices?.length).toBe(1);
 			expect(features.linestrings.length).toBe(1);
 		});
 	});

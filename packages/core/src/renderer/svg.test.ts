@@ -1385,6 +1385,22 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('<use xlink:href="#sprite-airport"');
 		});
 
+		test('draws a fitted icon in pieces: the stretch zones stretched, the rest kept', () => {
+			const r = makeRenderer();
+			const atlas = makeSpriteAtlas();
+			atlas.set('airport', { ...atlas.get('airport')!, stretchX: [[8, 24]] });
+			const feature = makePointFeature([[100, 50]]);
+			r.drawIcons('icon-test', [[feature, defaultIconStyle({ fit: [-40, -16, 40, 16] })]], atlas);
+			const svg = r.getString();
+			// Three pieces of the image, each defined once, drawn in one group.
+			for (const piece of ['0-0-80-320', '80-0-160-320', '240-0-80-320']) {
+				expect(svg).toContain(`<symbol id="sprite-airport-${piece}">`);
+			}
+			expect(svg.match(/<use xlink:href="#sprite-airport-/g)).toHaveLength(3);
+			// 16 pixels of stretch zone span the 64 between the fixed 8-pixel ends.
+			expect(svg).toContain('scale(4,1)');
+		});
+
 		test('empty features produce no output', () => {
 			const r = makeRenderer();
 			r.drawIcons('icon-test', [], makeSpriteAtlas());

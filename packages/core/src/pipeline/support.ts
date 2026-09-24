@@ -72,6 +72,8 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'icon-rotate',
 		'icon-rotation-alignment',
 		'icon-size',
+		'icon-text-fit',
+		'icon-text-fit-padding',
 		'icon-translate',
 		'icon-translate-anchor',
 		'symbol-placement',
@@ -119,11 +121,6 @@ const WITHOUT_EFFECT = new Set([
 	'icon-keep-upright',
 ]);
 
-/** Properties whose default value is what the renderer draws; any other value is not supported. */
-const SUPPORTED_VALUES: Readonly<Record<string, unknown>> = {
-	'icon-text-fit': 'none',
-};
-
 const SUPPORTED_SOURCE_TYPES = new Set(['vector', 'raster', 'geojson']);
 
 /** How many layer ids a warning lists before it cuts the list short. */
@@ -162,16 +159,10 @@ export function checkStyle(style: StyleSpecification, renderLabels: boolean): st
 			...(layer as { paint?: Record<string, unknown> }).paint,
 			...(layer as { layout?: Record<string, unknown> }).layout,
 		};
-		for (const [name, value] of Object.entries(properties)) {
-			if (name in SUPPORTED_VALUES) {
-				if (value === SUPPORTED_VALUES[name]) continue;
-			} else if (supported.includes(name) || WITHOUT_EFFECT.has(name)) {
-				continue;
-			}
-			const label =
-				typeof value === 'string' && name in SUPPORTED_VALUES ? `${name}: "${value}"` : name;
-			if (!layersByProperty.has(label)) layersByProperty.set(label, []);
-			layersByProperty.get(label)!.push(layer.id);
+		for (const name of Object.keys(properties)) {
+			if (supported.includes(name) || WITHOUT_EFFECT.has(name)) continue;
+			if (!layersByProperty.has(name)) layersByProperty.set(name, []);
+			layersByProperty.get(name)!.push(layer.id);
 		}
 	}
 

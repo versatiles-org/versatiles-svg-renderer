@@ -4,6 +4,7 @@ import type { ClipCircle } from '../projection.js';
 import { Color } from './color.js';
 import type { Segment } from './svg_path.js';
 import { chainSegments, strokeLines } from './svg_path.js';
+import { iconQuads, quadsBox } from './icon_quads.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -20,7 +21,7 @@ import type {
 	SymbolStyle,
 } from './types.js';
 import type { SpriteAtlas } from '../sources/sprite.js';
-import { JUSTIFY_ANCHOR, letterSpacingShift, mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape } from './circle.js';
 import { LRUCache } from '../lru_cache.js';
 import {
@@ -677,26 +678,27 @@ export class CanvasRenderer implements Renderer {
 			const point = feature.geometry[0]?.[0];
 			if (!point) continue;
 
-			const scale = style.size / sprite.pixelRatio;
-			const width = sprite.width * scale;
-			const height = sprite.height * scale;
-			const [anchorX, anchorY] = mapIconAnchor(style.anchor, width, height);
-			const [x, y] = roundPoint(
-				point.x + style.offset[0] * style.size + anchorX,
-				point.y + style.offset[1] * style.size + anchorY,
-			);
+			// Each piece of the sprite image (see `iconQuads`), at its place from the point.
+			const pieces = iconQuads(style, sprite);
+			const quads = pieces.map((quad) => {
+				const [left, top] = roundPoint(point.x + quad.left, point.y + quad.top);
+				return {
+					source: quad.source,
+					x: left / UNITS_PER_PX,
+					y: top / UNITS_PER_PX,
+					width: quad.right - quad.left,
+					height: quad.bottom - quad.top,
+				};
+			});
+			const [left, top, right, bottom] = quadsBox(pieces);
 			const box = {
-				x: x / UNITS_PER_PX,
-				y: y / UNITS_PER_PX,
-				width,
-				height,
+				x: Math.min(...quads.map((quad) => quad.x)),
+				y: Math.min(...quads.map((quad) => quad.y)),
+				width: right - left,
+				height: bottom - top,
 			};
-			// The SVG backend rotates about the point plus its offset, before the anchor is
-			// applied; mirror that so both backends place a rotated icon identically.
-			const [pivotX, pivotY] = roundPoint(
-				point.x + style.offset[0] * style.size,
-				point.y + style.offset[1] * style.size,
-			);
+			// As in MapLibre, `icon-rotate` turns the icon, offset included, around its point.
+			const [pivotX, pivotY] = roundPoint(point.x, point.y);
 			const pivot: [number, number] = [pivotX / UNITS_PER_PX, pivotY / UNITS_PER_PX];
 
 			const blit = (ctx: SKRSContext2D): void => {
@@ -706,17 +708,19 @@ export class CanvasRenderer implements Renderer {
 					ctx.rotate((style.rotate * Math.PI) / 180);
 					ctx.translate(-pivot[0], -pivot[1]);
 				}
-				ctx.drawImage(
-					sheet,
-					sprite.x,
-					sprite.y,
-					sprite.width,
-					sprite.height,
-					box.x,
-					box.y,
-					box.width,
-					box.height,
-				);
+				for (const quad of quads) {
+					ctx.drawImage(
+						sheet,
+						quad.source.x,
+						quad.source.y,
+						quad.source.width,
+						quad.source.height,
+						quad.x,
+						quad.y,
+						quad.width,
+						quad.height,
+					);
+				}
 				ctx.restore();
 			};
 

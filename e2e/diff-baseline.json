@@ -128,5 +128,10 @@
 		"svg": 0.2,
 		"png": 0.17,
 		"drift": 0.04
+	},
+	"parity-symbols-features": {
+		"svg": 0.14,
+		"png": 0.13,
+		"drift": 0.01
 	}
 }

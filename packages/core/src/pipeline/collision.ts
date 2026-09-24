@@ -4,7 +4,8 @@
  * features (by `symbol-sort-key` first). A symbol is shown if its boxes do not overlap any
  * box placed before, and then blocks its own area. The renderers draw what is kept.
  */
-import { mapIconAnchor, mapTextAnchor } from '../renderer/anchors.js';
+import { mapTextAnchor } from '../renderer/anchors.js';
+import { iconQuads, quadsBox } from '../renderer/icon_quads.js';
 import type { GlyphPlacement, IconStyle, SymbolStyle } from '../renderer/types.js';
 import type { SpriteEntry } from '../sources/sprite.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
@@ -196,15 +197,9 @@ export function iconBox(
 	sprite: SpriteEntry,
 	padding: number | readonly number[],
 ): Box {
-	const scale = style.size / sprite.pixelRatio;
-	const width = sprite.width * scale;
-	const height = sprite.height * scale;
-	const [anchorX, anchorY] = mapIconAnchor(style.anchor, width, height);
-	const pivotX = x + style.offset[0] * style.size;
-	const pivotY = y + style.offset[1] * style.size;
-	const left = pivotX + anchorX;
-	const top = pivotY + anchorY;
-	const box = rotate([left, top, left + width, top + height], style.rotate, [pivotX, pivotY]);
+	const [left, top, right, bottom] = quadsBox(iconQuads(style, sprite));
+	// As in MapLibre, `icon-rotate` turns the icon, offset included, around its point.
+	const box = rotate([x + left, y + top, x + right, y + bottom], style.rotate, [x, y]);
 	return pad(box, padding);
 }
 

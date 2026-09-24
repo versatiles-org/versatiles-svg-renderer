@@ -113,6 +113,18 @@ describe('iconBox', () => {
 			76, 29, 122, 53,
 		]);
 	});
+
+	test('turns with icon-rotate around its point, offset included, as MapLibre does', () => {
+		// 20 × 10 display pixels, 20 to the right of the point; turned 90°, it is below it.
+		const box = iconBox(100, 50, icon({ offset: [20, 0], rotate: 90 }), sprite, 0).map(
+			(v) => Math.round(v * 100) / 100,
+		);
+		expect(box).toEqual([95, 60, 105, 80]);
+	});
+
+	test('covers a fitted icon where it is fitted to (icon-text-fit)', () => {
+		expect(iconBox(100, 50, icon({ fit: [-30, -8, 30, 8] }), sprite, 0)).toEqual([70, 42, 130, 58]);
+	});
 });
 
 describe('CollisionIndex', () => {

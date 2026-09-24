@@ -43,6 +43,7 @@ import {
 import { GEOJSON_LAYER } from '../geometry.js';
 import { Feature as LayerFeature, Point2D } from '../geometry.js';
 import { gapBands } from './line_gap.js';
+import { fitIconToText, iconQuads, quadsBox } from '../renderer/icon_quads.js';
 import type { Features, SourceFeatures } from '../geometry.js';
 import { labelAnchors } from './label_anchors.js';
 import {
@@ -491,7 +492,9 @@ async function renderRasterLayer(layer: Layer): Promise<void> {
 }
 
 function renderCircleLayer(layer: Layer): void {
-	const points = getFeatures(layer.sourceFeatures, layer.layerStyle)?.points;
+	// A circle at each point, and at each vertex of lines and polygons, as in MapLibre.
+	const features = getFeatures(layer.sourceFeatures, layer.layerStyle);
+	const points = features && [...features.points, ...(features.vertices ?? [])];
 	if (!points || points.length === 0) return;
 	const pointFeatures = filterFeatures(layer, points);
 	if (pointFeatures.length === 0) return;
@@ -646,6 +649,13 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		const iconPadding = (getLayout('icon-padding', feature) as { values: number[] }).values;
 
 		const placement = getLayout('symbol-placement', feature) as string;
+		// icon-text-fit: the icon spans its label's box, from the label's point.
+		const textFit = getLayout('icon-text-fit', feature) as 'none' | 'width' | 'height' | 'both';
+		const fitPadding = getLayout('icon-text-fit-padding', feature) as number[];
+		const fitted = (icon: IconStyle, textBox: Box | undefined): IconStyle =>
+			textFit === 'none' || !textBox
+				? icon
+				: { ...icon, fit: fitIconToText(icon, sprite!, textBox, textFit, fitPadding) };
 		const textTranslate = screenTranslate(
 			job,
 			getPaint('text-translate', feature),
@@ -688,7 +698,14 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					text: lines.join('\n'),
 					rotate: labelStyle.rotate + textTurn,
 				};
-			const pointIcon = iconStyle && { ...iconStyle, rotate: iconStyle.rotate + iconTurn };
+			const pointIcon =
+				iconStyle &&
+				fitted(
+					{ ...iconStyle, rotate: iconStyle.rotate + iconTurn },
+					lineStyle
+						? layoutText(0, 0, lineStyle, lines, lineHeight, justify, metrics).box
+						: undefined,
+				);
 			for (const point of labelAnchors(feature)) {
 				// text-translate and icon-translate move the label and the icon, and what they block.
 				const tx = point.x + textTranslate[0];
@@ -741,11 +758,20 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			labelStyle !== undefined && alignedToMap(getLayout('text-rotation-alignment', feature));
 		const iconAlongLine =
 			iconStyle !== undefined && alignedToMap(getLayout('icon-rotation-alignment', feature));
+		// Fitted, the icon spans the label as if it were straight.
+		const lineIconStyle =
+			iconStyle &&
+			fitted(
+				iconStyle,
+				labelStyle &&
+					layoutText(0, 0, labelStyle, [labelStyle.text], undefined, undefined, metrics).box,
+			);
 		// Along a line, a label is one line.
 		const glyphs =
 			labelStyle && glyphAdvances(labelStyle.text.replace(/\s+/g, ' '), metrics, labelStyle.size);
 		const textLength = glyphs ? glyphs.advances.reduce((sum, width) => sum + width, 0) : 0;
-		const iconLength = iconStyle ? (sprite!.width / sprite!.pixelRatio) * iconStyle.size : 0;
+		const iconBounds = lineIconStyle && quadsBox(iconQuads(lineIconStyle, sprite!));
+		const iconLength = iconBounds ? iconBounds[2] - iconBounds[0] : 0;
 		const labelLength = Math.max(textLength, iconLength);
 		const textSize = labelStyle?.size ?? (getLayout('text-size', feature) as number);
 		// Spacing is in pixels of the tile's zoom level, whose tiles a fractional zoom enlarges.
@@ -825,9 +851,9 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 				}
 
 				const lineIcon =
-					iconStyle && iconAlongLine
-						? { ...iconStyle, rotate: iconStyle.rotate + lineAngle }
-						: iconStyle;
+					lineIconStyle && iconAlongLine
+						? { ...lineIconStyle, rotate: lineIconStyle.rotate + lineAngle }
+						: lineIconStyle;
 				const ix = anchor.x + iconTranslate[0];
 				const iy = anchor.y + iconTranslate[1];
 				entries.push({

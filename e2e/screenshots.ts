@@ -10,6 +10,7 @@ import type { Page } from 'playwright';
 import { ensureCacheDir, installFetchCache, readCache, writeCache } from './fetch-cache.js';
 import { installMapLibrePage } from './maplibre-page.js';
 import { fonts, getStyle, regionId, regions, type Region } from './styles.js';
+import { seedTestSprite } from './test-sprite.js';
 
 installFetchCache();
 
@@ -55,6 +56,7 @@ const browser = await chromium.launch({
 
 // Cache browser network requests (unpkg.com, tile servers) to disk.
 ensureCacheDir();
+seedTestSprite();
 async function installPageCache(page: Page): Promise<void> {
 	await page.route('**/*', async (route) => {
 		const url = route.request().url();

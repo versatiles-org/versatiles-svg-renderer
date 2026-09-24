@@ -63,6 +63,40 @@ describe('loadSpriteAtlas', () => {
 		expect(airport.sheetDataUri).toContain('data:image/png;base64,');
 	});
 
+	test('keeps the stretch zones and content area of stretchable images', async () => {
+		const spriteJson = {
+			shield: {
+				x: 0,
+				y: 0,
+				width: 20,
+				height: 10,
+				pixelRatio: 1,
+				stretchX: [[4, 16]],
+				stretchY: [[3, 7]],
+				content: [2, 2, 18, 8],
+				textFitWidth: 'stretchOnly',
+			},
+			plain: { x: 20, y: 0, width: 10, height: 10, pixelRatio: 1 },
+		};
+		globalThis.fetch = vi.fn().mockImplementation(() =>
+			Promise.resolve({
+				ok: true,
+				json: () => Promise.resolve(spriteJson),
+				arrayBuffer: () => Promise.resolve(new Uint8Array([0x89]).buffer),
+			}),
+		);
+
+		const atlas = await loadSpriteAtlas(makeStyle('https://example.com/sprite'));
+		expect(atlas.get('shield')).toMatchObject({
+			stretchX: [[4, 16]],
+			stretchY: [[3, 7]],
+			content: [2, 2, 18, 8],
+			textFitWidth: 'stretchOnly',
+		});
+		expect(atlas.get('shield')!.textFitHeight).toBeUndefined();
+		expect(Object.keys(atlas.get('plain')!)).not.toContain('stretchX');
+	});
+
 	test('loads sprite from array format with prefix', async () => {
 		const spriteJson = {
 			icon1: { x: 0, y: 0, width: 16, height: 16, pixelRatio: 2 },

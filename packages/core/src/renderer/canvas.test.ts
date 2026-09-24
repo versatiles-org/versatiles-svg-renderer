@@ -773,6 +773,24 @@ describe('CanvasRenderer', () => {
 			expect(at(r, 29, 29)[3]).toBe(0);
 		});
 
+		test('draws a fitted icon in pieces: the stretch zones stretched, the rest kept', async () => {
+			// The soft sprite: columns 0–1 and 6–7 keep their size, 2–5 stretch.
+			const r = makeIconRenderer();
+			await r.drawIcons(
+				'icons',
+				[[makePointFeature([[32, 32]]), iconStyle({ fit: [-20, -4, 20, 4] })]],
+				atlas({ x: 0, stretchX: [[2, 6]] }),
+			);
+			// It spans 12..52; its last column is opaque, its first nearly transparent.
+			expect(at(r, 51, 32)[3]).toBeGreaterThan(200);
+			expect(at(r, 12, 32)[3]).toBeLessThan(20);
+			// The middle is the stretched middle of the ramp.
+			expect(at(r, 32, 32)[3]).toBeGreaterThan(80);
+			expect(at(r, 32, 32)[3]).toBeLessThan(180);
+			expect(at(r, 53, 32)[3]).toBe(0);
+			expect(at(r, 10, 32)[3]).toBe(0);
+		});
+
 		test('skips an unknown sprite and zero opacity', async () => {
 			const r = makeIconRenderer();
 			await r.drawIcons(
