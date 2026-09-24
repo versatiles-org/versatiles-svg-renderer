@@ -7,6 +7,7 @@ vi.mock('./vector.js', () => ({
 }));
 vi.mock('./geojson.js', () => ({
 	loadGeoJSONSource: vi.fn(),
+	compileSourceFilter: vi.fn(),
 }));
 
 // Import after mocking
@@ -70,6 +71,7 @@ describe('getLayerFeatures', () => {
 			center: [0, 0],
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			layerFeatures: expect.any(Map),
+			generateId: false,
 		});
 	});
 

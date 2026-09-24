@@ -273,6 +273,37 @@ export function transformText(text: string, transform: unknown): string {
 	return text;
 }
 
+/**
+ * With a source's `promoteId`, how paint properties see a feature: MapLibre GL JS gives them
+ * the promoted property as it is as the id (`['id']`; a boolean as a number), where filters
+ * and layout properties read the tile feature's own id. `undefined` without `promoteId`.
+ */
+function promotedFeatures(layer: Layer): ((feature: LayerFeature) => LayerFeature) | undefined {
+	const { layerStyle, job } = layer;
+	const source = job.style.sources[layerStyle.source] as
+		{ type: string; promoteId?: unknown } | undefined;
+	const promoteId = source?.promoteId;
+	if (!source || !promoteId) return undefined;
+	const sourceLayer = source.type === 'geojson' ? '_geojsonTileLayer' : layerStyle.sourceLayer;
+	const property =
+		typeof promoteId === 'string'
+			? promoteId
+			: (promoteId as Record<string, string | undefined>)[sourceLayer];
+	const promoted = new WeakMap<LayerFeature, LayerFeature>();
+	return (feature) => {
+		let result = promoted.get(feature);
+		if (!result) {
+			let id = property === undefined ? undefined : feature.properties[property];
+			if (typeof id === 'boolean') id = Number(id);
+			// What expressions read of a feature, with the promoted id.
+			const { type, properties, geometry } = feature;
+			result = { type, properties, geometry, id } as LayerFeature;
+			promoted.set(feature, result);
+		}
+		return result;
+	};
+}
+
 function evaluateLayer(layer: Layer): LayerValues {
 	const { layerStyle, availableImages } = layer;
 	const { paint, layout } = layerStyle.evaluate({ zoom: layer.job.view.zoom }, availableImages);
@@ -296,8 +327,10 @@ function evaluateLayer(layer: Layer): LayerValues {
 		return value;
 	}
 
+	const paintFeature = promotedFeatures(layer);
+
 	function getPaint(key: string, feature?: LayerFeature): unknown {
-		return getStyleValue(paint, key, feature);
+		return getStyleValue(paint, key, feature && paintFeature ? paintFeature(feature) : feature);
 	}
 
 	function getLayout(key: string, feature?: LayerFeature): unknown {

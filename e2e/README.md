@@ -56,10 +56,11 @@ The `parity-*` regions draw scenes that check single MapLibre features, one per 
 `visual/scenes/features.ts` (sort keys, circle opacities and blur, `line-gap-width`,
 `global-state`, fill patterns), `visual/scenes/symbols.ts` (`icon-text-fit` with
 stretchable icons, a turned icon) and `visual/scenes/sources.ts` (`image` sources: a
-rectangle, a parallelogram, in perspective, strongly foreshortened, mirrored, translucent). Each cell is one object: a title, and a function that
-builds its sources and layers around the cell's center. When a renderer gains a feature
-MapLibre has, give it a cell in a scene (or start a new scene, with a region of its
-own), so its diff is measured without the noise of a real map.
+rectangle, a parallelogram, in perspective, strongly foreshortened, mirrored, translucent;
+GeoJSON sources' `filter`, `promoteId` and `generateId`). Each cell is one object: a
+title, and a function that builds its sources and layers around the cell's center. When a
+renderer gains a feature MapLibre has, give it a cell in a scene (or start a new scene,
+with a region of its own), so its diff is measured without the noise of a real map.
 
 For these regions, each cell is also measured on its own: the part of the image nearest
 to the cell's center. The report lists every cell's three numbers, and the console prints a

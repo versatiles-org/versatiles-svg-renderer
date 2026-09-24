@@ -172,6 +172,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Several URLs in `tiles`               | ✅  | ✅  |       |
 | `image` sources                       | ✅  | ✅  |       |
 | `video` sources                       | ❌  | ❌  | [#51] |
+| GeoJSON `filter`, `promoteId`, …      | ✅  | ✅  |       |
 | GeoJSON clustering                    | ❌  | ❌  | [#52] |
 | `raster-dem`                          | ❌  | ❌  | [#47] |
 | **Layers**                            |     |     |       |

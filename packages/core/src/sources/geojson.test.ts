@@ -1,7 +1,7 @@
 import type { GeoJSON } from 'geojson';
 import { describe, expect, test } from 'vitest';
 import { GEOJSON_LAYER, type LayerFeatures } from '../geometry.js';
-import { loadGeoJSONSource } from './geojson.js';
+import { compileSourceFilter, loadGeoJSONSource, type GeoJSONLoadOptions } from './geojson.js';
 
 // Center on 0,0 at zoom 0 — keeps projection math simple
 const CENTER: [number, number] = [0, 0];
@@ -9,7 +9,10 @@ const WIDTH = 512;
 const HEIGHT = 512;
 const ZOOM = 0;
 
-function load(data: GeoJSON): LayerFeatures {
+function load(
+	data: GeoJSON,
+	options: Pick<GeoJSONLoadOptions, 'filter' | 'promoteId' | 'generateId'> = {},
+): LayerFeatures {
 	const layerFeatures: LayerFeatures = new Map();
 	loadGeoJSONSource({
 		data,
@@ -18,6 +21,7 @@ function load(data: GeoJSON): LayerFeatures {
 		zoom: ZOOM,
 		center: CENTER,
 		layerFeatures,
+		...options,
 	});
 	return layerFeatures;
 }
@@ -299,6 +303,58 @@ describe('loadGeoJSONSource', () => {
 			const point = features.points[0]!.geometry[0]![0]!;
 			expect(point.x).toBeCloseTo(WIDTH / 2);
 			expect(point.y).toBeCloseTo(HEIGHT / 2);
+		});
+	});
+
+	describe('source options', () => {
+		/** Three points, with an `id`, a `ref` and a `kind` each. */
+		const points: GeoJSON = {
+			type: 'FeatureCollection',
+			features: [
+				{ id: 7, kind: 'a', ref: 'r1' },
+				{ id: '12', kind: 'b', ref: 30 },
+				{ id: 'x', kind: 'a', ref: 31 },
+			].map(({ id, kind, ref }) => ({
+				type: 'Feature',
+				id,
+				properties: { kind, ref },
+				geometry: { type: 'Point', coordinates: [0, 0] },
+			})),
+		};
+
+		const ids = (lf: LayerFeatures): unknown[] => getFeatures(lf).points.map((f) => f.id);
+
+		test('reads ids as MapLibre GL JS does: strings as integers', () => {
+			expect(ids(load(points))).toEqual([7, 12, NaN]);
+		});
+
+		test('keeps only the features that pass the filter', () => {
+			const filter = compileSourceFilter(['==', ['get', 'kind'], 'a'], 'points');
+			const features = getFeatures(load(points, { filter })).points;
+			expect(features.map((f) => f.properties.ref)).toEqual(['r1', 31]);
+		});
+
+		test('evaluates the filter at zoom 0', () => {
+			const filter = compileSourceFilter(['<', ['zoom'], 1], 'points');
+			expect(getFeatures(load(points, { filter })).points).toHaveLength(3);
+		});
+
+		test('promotes a property to the id', () => {
+			expect(ids(load(points, { promoteId: 'ref' }))).toEqual([NaN, 30, 31]);
+		});
+
+		test('generates ids from the index, after filtering', () => {
+			const filter = compileSourceFilter(['==', ['get', 'kind'], 'a'], 'points');
+			expect(ids(load(points, { generateId: true }))).toEqual([0, 1, 2]);
+			expect(ids(load(points, { generateId: true, filter }))).toEqual([0, 1]);
+		});
+
+		test('compiles no filter without one, and throws on an invalid one', () => {
+			expect(compileSourceFilter(undefined, 'points')).toBeUndefined();
+			expect(compileSourceFilter([], 'points')).toBeUndefined();
+			expect(() => compileSourceFilter(['nonsense'], 'points')).toThrow(
+				'Unknown expression "nonsense"',
+			);
 		});
 	});
 });

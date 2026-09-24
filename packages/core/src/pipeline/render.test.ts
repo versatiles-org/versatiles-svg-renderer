@@ -1500,4 +1500,53 @@ describe('renderMap', () => {
 			});
 		}
 	});
+
+	describe('promoteId', () => {
+		/** A square with the tile id 7, and the property `ref`. */
+		function square(ref: unknown): Feature {
+			return new Feature({
+				type: 'Polygon',
+				id: 7,
+				properties: { ref },
+				geometry: [
+					[new Point2D(10, 10), new Point2D(50, 10), new Point2D(50, 50), new Point2D(10, 10)],
+				],
+			});
+		}
+
+		async function drawnIds(promoteId: unknown, ref: unknown): Promise<unknown[]> {
+			setLayerFeatures(new Map([['sites', makeFeatures({ polygons: [square(ref)] })]]));
+			const style = makeStyle([
+				{
+					id: 'sites',
+					type: 'fill',
+					source: 'src',
+					'source-layer': 'sites',
+					// Filters read the tile's id.
+					filter: ['==', ['id'], 7],
+					// The id as the color's alpha channel, so it can be read back.
+					paint: {
+						'fill-color': ['to-color', ['concat', 'hsla(0,0%,0%,', ['to-string', ['id']], ')']],
+					},
+				},
+			]);
+			style.sources = { src: { type: 'vector', tiles: [], promoteId } as never };
+			const job = makeJob(style);
+			const drawPolygons = vi.spyOn(job.renderer, 'drawPolygons');
+			await renderMap(job);
+			return (drawPolygons.mock.calls[0]?.[1] ?? []).map(([, fill]) => fill.color.a);
+		}
+
+		test('gives paint properties the promoted property, and filters the tile id', async () => {
+			expect(await drawnIds('ref', 0.25)).toEqual([0.25]);
+			expect(await drawnIds({ sites: 'ref' }, 0.5)).toEqual([0.5]);
+			// A boolean becomes a number.
+			expect(await drawnIds('ref', true)).toEqual([1]);
+		});
+
+		test('leaves the tile id to paint properties without promoteId', async () => {
+			// hsla(0,0%,0%,7) is clamped to opaque.
+			expect(await drawnIds(undefined, 0.25)).toEqual([1]);
+		});
+	});
 });

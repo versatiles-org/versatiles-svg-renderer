@@ -2,6 +2,7 @@
  * Which parts of a style the renderer draws, and warnings about the parts it does not, so
  * that a gap of the renderer is not mistaken for a bug of the style.
  */
+import { compileSourceFilter } from '../sources/geojson.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 /**
@@ -198,6 +199,13 @@ export function checkSources(sources: StyleSpecification['sources']): string[] {
 			if (typeof spec.data === 'string') {
 				warnings.push(
 					`Source "${name}": the GeoJSON data could not be loaded from ${spec.data}; the source is empty.`,
+				);
+			}
+			try {
+				compileSourceFilter((spec as { filter?: unknown }).filter, name);
+			} catch (error) {
+				warnings.push(
+					`Source "${name}": the filter is invalid (${(error as Error).message}); the source is empty.`,
 				);
 			}
 			continue;

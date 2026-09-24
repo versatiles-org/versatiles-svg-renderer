@@ -173,6 +173,18 @@ describe('checkSources', () => {
 		]);
 	});
 
+	test('reports an invalid filter of a GeoJSON source', () => {
+		const data = { type: 'FeatureCollection' as const, features: [] };
+		expect(
+			checkSources({
+				ok: { type: 'geojson', data, filter: ['==', ['get', 'kind'], 'a'] },
+				bad: { type: 'geojson', data, filter: ['nonsense'] as never },
+			}),
+		).toEqual([
+			'Source "bad": the filter is invalid ([0]: Unknown expression "nonsense". If you wanted a literal array, use ["literal", [...]].); the source is empty.',
+		]);
+	});
+
 	test('reports a TileJSON document that was not loaded, and a source without tiles', () => {
 		expect(
 			checkSources({

@@ -1,10 +1,12 @@
 /**
- * Sources other than tiles and inline GeoJSON, one per cell:
+ * Source types and source options, one per cell:
  *
  * | image                  | skewed image (parallelogram)     | image in perspective |
  * | translucent image      | strongly foreshortened image     | mirrored image       |
+ * | GeoJSON filter         | GeoJSON promoteId                | GeoJSON generateId   |
  */
-import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { ExpressionSpecification, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { Feature } from 'geojson';
 import { box, collection, feature, gridStyle, type Cell } from './grid.js';
 import { TEST_IMAGE_URL } from './test-image.js';
 
@@ -46,6 +48,39 @@ function imageCell(
 		}),
 	};
 }
+
+/**
+ * Six squares in two rows around the cell's center, from the top left, with `properties`
+ * each (and an `id`, if given).
+ */
+function squares(x: number, y: number, properties: Record<string, unknown>[]): Feature[] {
+	return properties.map(({ id, ...props }, i) => ({
+		...feature(
+			box(x - 0.012 + (i % 3) * 0.012, y + 0.006 - Math.floor(i / 3) * 0.012, 0.0045),
+			props,
+		),
+		...(id === undefined ? {} : { id: id as string | number }),
+	}));
+}
+
+/** Colors a square by its id, as `['id']` reads it: 0 to 5, else grey. */
+const BY_ID: ExpressionSpecification = [
+	'match',
+	['id'],
+	0,
+	'#d7191c',
+	1,
+	'#fdae61',
+	2,
+	'#1b7837',
+	3,
+	'#2c7bb6',
+	4,
+	'#762a83',
+	5,
+	'#000000',
+	'#bbbbbb',
+];
 
 /** The scene's cells, row by row. */
 export const cells: Cell[] = [
@@ -96,6 +131,97 @@ export const cells: Cell[] = [
 		[x - 0.016, y - 0.012],
 		[x + 0.016, y - 0.012],
 	]),
+	// The source's filter keeps the squares of kind "a": the first, third, fifth.
+	{
+		title: 'GeoJSON filter',
+		build: (x, y) => ({
+			sources: {
+				filtered: {
+					type: 'geojson',
+					data: {
+						type: 'FeatureCollection',
+						features: squares(
+							x,
+							y,
+							['a', 'b', 'a', 'b', 'a', 'b'].map((kind) => ({ kind })),
+						),
+					},
+					filter: ['==', ['get', 'kind'], 'a'],
+				},
+			},
+			layers: [
+				{
+					id: 'geojson-filter',
+					type: 'fill',
+					source: 'filtered',
+					paint: { 'fill-color': '#2c7bb6' },
+				},
+			],
+		}),
+	},
+	// Paint properties see `ref` as the id, as it is: the numbers 0 and 1; strings, even
+	// numeric ones, and a missing `ref` match no number (grey). The features' own ids are
+	// ignored. (Filters would see the numeric strings as integers.)
+	{
+		title: 'GeoJSON promoteId',
+		build: (x, y) => ({
+			sources: {
+				promoted: {
+					type: 'geojson',
+					data: {
+						type: 'FeatureCollection',
+						features: squares(x, y, [
+							{ id: 5, ref: 0 },
+							{ id: 5, ref: 1 },
+							{ id: 5, ref: '2' },
+							{ id: 5, ref: '3.9' },
+							{ id: 5, ref: 'four' },
+							{ id: 5 },
+						]),
+					},
+					promoteId: 'ref',
+				},
+			},
+			layers: [
+				{
+					id: 'geojson-promote-id',
+					type: 'fill',
+					source: 'promoted',
+					paint: { 'fill-color': BY_ID },
+				},
+			],
+		}),
+	},
+	// Ids are the index among the features that pass the filter: the squares of kind "b"
+	// are left out, so the rest count 0, 1, 2, 3.
+	{
+		title: 'GeoJSON generateId',
+		build: (x, y) => ({
+			sources: {
+				generated: {
+					type: 'geojson',
+					data: {
+						type: 'FeatureCollection',
+						features: squares(
+							x,
+							y,
+							['a', 'b', 'a', 'a', 'b', 'a'].map((kind) => ({ id: 5, kind })),
+						),
+					},
+					filter: ['==', ['get', 'kind'], 'a'],
+					generateId: true,
+				},
+			},
+			layers: [
+				{
+					id: 'geojson-generate-id',
+					type: 'fill',
+					source: 'generated',
+					paint: { 'fill-color': BY_ID },
+				},
+			],
+		}),
+	},
 ];
 
 export function sourcesStyle(): StyleSpecification {

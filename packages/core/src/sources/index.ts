@@ -1,7 +1,7 @@
 import type { GeoJSON } from 'geojson';
 import type { RenderJob } from '../renderer/svg.js';
 import { loadVectorSource } from './vector.js';
-import { loadGeoJSONSource } from './geojson.js';
+import { compileSourceFilter, loadGeoJSONSource, type SourceFilter } from './geojson.js';
 import type { LayerFeatures, SourceFeatures } from '../geometry.js';
 import { getTile, type TileLoader } from './tiles.js';
 
@@ -40,6 +40,13 @@ export async function getLayerFeatures(
 			case 'geojson':
 				// Data given as a URL is a string here only if it could not be loaded.
 				if (typeof source.data === 'object' && source.data !== null) {
+					// An invalid filter leaves the source empty, as in MapLibre GL JS (see `checkSources`).
+					let filter: SourceFilter | undefined;
+					try {
+						filter = compileSourceFilter(source.filter, sourceName);
+					} catch {
+						break;
+					}
 					sourceFeatures.set(sourceName, layerFeatures);
 					loadGeoJSONSource({
 						data: source.data as GeoJSON,
@@ -49,6 +56,9 @@ export async function getLayerFeatures(
 						center,
 						layerFeatures,
 						projection: job.projection,
+						filter,
+						promoteId: typeof source.promoteId === 'string' ? source.promoteId : undefined,
+						generateId: source.generateId === true,
 					});
 				}
 				break;

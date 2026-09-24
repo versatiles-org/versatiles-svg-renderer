@@ -1,4 +1,5 @@
-import type { GeoJSON, Geometry } from 'geojson';
+import type { GeoJSON, Geometry, Feature as GeoJSONFeature } from 'geojson';
+import { createExpression, type FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Point2D, Feature, GEOJSON_LAYER, viewArea } from '../geometry.js';
 import type { Features, LayerFeatures } from '../geometry.js';
 import type { Projection } from '../projection.js';
@@ -13,10 +14,65 @@ export interface GeoJSONLoadOptions {
 	center: [number, number];
 	layerFeatures: LayerFeatures;
 	projection?: Projection;
+	/** The source's `filter`, compiled by {@link compileSourceFilter}. */
+	filter?: SourceFilter;
+	/** The source's `promoteId`: the property that becomes each feature's id. */
+	promoteId?: string;
+	/** The source's `generateId`: each feature's index becomes its id. */
+	generateId?: boolean;
+}
+
+/** Whether a feature of a GeoJSON source passes the source's `filter`. */
+export type SourceFilter = (feature: GeoJSONFeature) => boolean;
+
+/**
+ * The `filter` of a GeoJSON source as a predicate, as MapLibre GL JS compiles it: evaluated
+ * once per feature, at zoom 0. `undefined` without a filter. Throws if it is invalid.
+ */
+export function compileSourceFilter(filter: unknown, sourceName: string): SourceFilter | undefined {
+	if (typeof filter !== 'boolean' && !(Array.isArray(filter) && filter.length > 0)) {
+		return undefined;
+	}
+	const compiled = createExpression(filter as FilterSpecification, `sources.${sourceName}.filter`, {
+		type: 'boolean',
+		'property-type': 'data-driven',
+		overridable: false,
+		transition: false,
+	} as Parameters<typeof createExpression>[2]);
+	if (compiled.result === 'error') {
+		throw new Error(compiled.value.map((error) => `${error.key}: ${error.message}`).join(', '));
+	}
+	const expression = compiled.value;
+	// The GeoJSON feature itself is evaluated, as in MapLibre GL JS.
+	type EvaluationFeature = Parameters<typeof expression.evaluate>[1];
+	return (feature) =>
+		expression.evaluate({ zoom: 0 }, feature as unknown as EvaluationFeature) === true;
+}
+
+/**
+ * A feature's id as MapLibre GL JS reads it with `['id']`: taken from the property
+ * `promoteId`, or the feature's index with `generateId`, else its own `id` (as geojson-vt
+ * does); then a string is read as an integer, as vt-pbf does, and anything but a number
+ * is dropped.
+ */
+function featureId(
+	feature: { id?: unknown; properties?: Record<string, unknown> | null },
+	index: number | undefined,
+	promoteId: string | undefined,
+	generateId: boolean | undefined,
+): number | undefined {
+	let id: unknown;
+	if (promoteId !== undefined) id = feature.properties?.[promoteId];
+	else if (generateId) id = index ?? 0;
+	else id = feature.id;
+	if (typeof id === 'string') return parseInt(id, 10);
+	if (typeof id === 'number' && !Number.isNaN(id)) return id;
+	return undefined;
 }
 
 export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 	const { data, width, height, zoom, center, layerFeatures, projection } = options;
+	const { filter, promoteId, generateId } = options;
 	const existing = layerFeatures.get(GEOJSON_LAYER);
 	const features: Features = existing ?? {
 		points: [],
@@ -182,16 +238,25 @@ export function loadGeoJSONSource(options: GeoJSONLoadOptions): void {
 	}
 
 	switch (data.type) {
-		case 'FeatureCollection':
-			for (const f of data.features) {
-				processGeometry(f.geometry, f.id, f.properties ?? {});
-			}
+		case 'FeatureCollection': {
+			// Filtered first, so generated ids count only the features that pass.
+			const features = filter ? data.features.filter((f) => filter(f)) : data.features;
+			features.forEach((f, index) => {
+				processGeometry(f.geometry, featureId(f, index, promoteId, generateId), f.properties ?? {});
+			});
 			break;
+		}
 		case 'Feature':
-			processGeometry(data.geometry, data.id, data.properties ?? {});
+			// A single feature is not filtered, as in MapLibre GL JS.
+			processGeometry(
+				data.geometry,
+				featureId(data, undefined, promoteId, generateId),
+				data.properties ?? {},
+			);
 			break;
 		default:
-			processGeometry(data, undefined, {});
+			// A bare geometry, as a feature without properties.
+			processGeometry(data, featureId({}, undefined, promoteId, generateId), {});
 			break;
 	}
 }
