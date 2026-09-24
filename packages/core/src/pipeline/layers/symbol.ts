@@ -8,7 +8,7 @@ import type {
 	RenderJob,
 	SymbolStyle,
 } from '../../types.js';
-import { fitIconToText, iconQuads, quadsBox } from '../../renderer/icon_quads.js';
+import { fitIconToText, iconQuads, quadsBox } from '../../layout/index.js';
 import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources/index.js';
 import type { StyleLayer } from '../style_layer.js';
 import {

@@ -2,10 +2,17 @@ import type { Canvas, CanvasPattern, Image, SKRSContext2D } from '@napi-rs/canva
 import type { Feature } from '../geometry.js';
 import type { ClipCircle } from '../projection.js';
 import { Color } from './color.js';
-import type { Segment } from './svg_path.js';
-import { chainSegments, strokeLines } from './svg_path.js';
-import { iconQuads, quadsBox } from './icon_quads.js';
-import { linePatternStrips } from './line_pattern.js';
+import {
+	chainSegments,
+	iconQuads,
+	JUSTIFY_ANCHOR,
+	letterSpacingShift,
+	linePatternStrips,
+	mapTextAnchor,
+	quadsBox,
+	type Segment,
+	strokeLines,
+} from '../layout/index.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -23,7 +30,6 @@ import type {
 	SymbolStyle,
 } from '../types.js';
 import type { SpriteAtlas } from '../sources/index.js';
-import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape } from './circle.js';
 import { LRUCache } from '../lru_cache.js';
 import {

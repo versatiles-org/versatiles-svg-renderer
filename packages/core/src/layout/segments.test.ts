@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { offsetSegmentPoints, strokeLines } from './svg_path.js';
+import { offsetSegmentPoints, strokeLines } from './segments.js';
 
 describe('offsetSegmentPoints', () => {
 	test('returns the input unchanged when offset is 0', () => {

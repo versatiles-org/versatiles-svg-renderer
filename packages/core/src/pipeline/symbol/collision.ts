@@ -4,8 +4,7 @@
  * features (by `symbol-sort-key` first). A symbol is shown if its boxes do not overlap any
  * box placed before, and then blocks its own area. The renderers draw what is kept.
  */
-import { mapTextAnchor } from '../../renderer/anchors.js';
-import { iconQuads, quadsBox } from '../../renderer/icon_quads.js';
+import { iconQuads, mapTextAnchor, quadsBox } from '../../layout/index.js';
 import type { GlyphPlacement, IconStyle, SymbolStyle } from '../../types.js';
 import type { SpriteEntry } from '../../sources/index.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';

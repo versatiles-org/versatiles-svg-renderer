@@ -1,9 +1,16 @@
 import type { Feature } from '../geometry.js';
 import { Color } from './color.js';
-import type { Segment } from './svg_path.js';
-import { chainSegments, formatNum, segmentsToPath, strokeLines } from './svg_path.js';
-import { iconQuads } from './icon_quads.js';
-import { linePatternStrips } from './line_pattern.js';
+import {
+	chainSegments,
+	iconQuads,
+	JUSTIFY_ANCHOR,
+	letterSpacingShift,
+	linePatternStrips,
+	mapTextAnchor,
+	type Segment,
+	strokeLines,
+} from '../layout/index.js';
+import { formatNum, segmentsToPath } from './svg_path.js';
 import type {
 	BackgroundStyle,
 	CircleStyle,
@@ -23,7 +30,6 @@ import type {
 } from '../types.js';
 import type { SpriteAtlas, SpriteEntry } from '../sources/index.js';
 import type { ClipCircle } from '../projection.js';
-import { JUSTIFY_ANCHOR, letterSpacingShift, mapTextAnchor } from './anchors.js';
 import { circleGradient, circleShape, type CircleGradientStop } from './circle.js';
 import {
 	affineFromTriangles,
