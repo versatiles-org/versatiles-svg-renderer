@@ -308,14 +308,32 @@ async function watchRelease(tag: string, commit: string, restarted = false): Pro
 			`The release workflow ended with "${release.conclusion}": ${release.url}\n  gh run view ${String(release.databaseId)} --log-failed\n  Then run \`npm run release\` again: it offers to finish ${tag}.`,
 		);
 	}
-	const version = tag.slice(1);
-	for (const name of packages) {
-		check(`${name}@${version} is on npm`, () => (isOnNpm(name, version) ? undefined : 'not found'));
-	}
 	check(`GitHub release ${tag} is published`, () =>
 		isGithubReleasePublished(tag) ? undefined : 'not found, or still a draft',
 	);
 	if (problems.length > 0) fail(`The release workflow succeeded, but ${tag} is not complete.`);
+
+	// The workflow succeeded, so npm has accepted the packages. The registry shows a new
+	// version only some time later, usually within a few minutes: wait for it.
+	const version = tag.slice(1);
+	const started = Date.now();
+	let awaited = packages;
+	for (;;) {
+		const missing = awaited.filter((name) => !isOnNpm(name, version));
+		for (const name of awaited) {
+			if (!missing.includes(name)) console.log(`${green('✓')} ${name}@${version} is on npm`);
+		}
+		if (missing.length === 0) break;
+		if (Date.now() - started > 15 * 60_000) {
+			console.log(
+				`\n${green(`✓ Released ${tag}`)}, but npm does not show ${missing.join(', ')} yet, 15 minutes after publishing.\n  Check later: npm view ${missing[0]!}@${version} version`,
+			);
+			process.exit(0);
+		}
+		if (awaited === packages) info('waiting until npm shows the new version …');
+		awaited = missing;
+		await sleep(10_000);
+	}
 
 	console.log(green(`\n✓ Released ${tag}.`));
 	console.log(`  https://github.com/versatiles-org/versatiles-svg-renderer/releases/tag/${tag}`);
