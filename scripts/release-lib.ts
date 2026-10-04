@@ -80,6 +80,73 @@ export function nextVersion(current: string, request: string): string {
 	return request;
 }
 
+export type Bump = 'patch' | 'minor' | 'major';
+
+export interface Commit {
+	subject: string;
+	body: string;
+	/** Whether the commit changed CHANGELOG.md. */
+	changelog: boolean;
+}
+
+/** The type of a conventional commit (`feat`, `fix`, ...) and whether it is marked as breaking. */
+function parseCommit(commit: Commit): { type: string | undefined; breaking: boolean } {
+	const match = /^(\w+)(?:\([^)]*\))?(!)?:/.exec(commit.subject);
+	return {
+		type: match?.[1],
+		breaking: match?.[2] === '!' || /^BREAKING[ -]CHANGE:/m.test(commit.body),
+	};
+}
+
+/** The bump a commit asks for, or `undefined` if users do not notice it (chore, refactor, ...). */
+function commitBump(commit: Commit): Bump | undefined {
+	const { type, breaking } = parseCommit(commit);
+	if (breaking) return 'major';
+	if (type === 'feat') return 'minor';
+	if (type === 'fix' || type === 'perf') return 'patch';
+	return undefined;
+}
+
+/** The commits users notice (features, fixes, breaking changes) that left CHANGELOG.md alone. */
+export function commitsMissingNotes(commits: Commit[]): Commit[] {
+	return commits.filter((commit) => commitBump(commit) !== undefined && !commit.changelog);
+}
+
+const BUMPS: Bump[] = ['patch', 'minor', 'major'];
+const SUBSECTION_BUMPS: Record<string, Bump> = {
+	Added: 'minor',
+	Changed: 'minor',
+	Deprecated: 'minor',
+	Removed: 'major',
+};
+
+/**
+ * The bump that the commits since the last release and the pending changelog notes ask
+ * for: the highest that any of them names, at least `patch`.
+ */
+export function recommendBump(commits: Commit[], notes: string): Bump {
+	const subsections = [...notes.matchAll(/^### (.+)$/gm)].map((match) => match[1]!.trim());
+	const bumps = [
+		...commits.map(commitBump),
+		...subsections.map((title) => SUBSECTION_BUMPS[title]),
+	];
+	return BUMPS[Math.max(0, ...bumps.map((bump) => (bump ? BUMPS.indexOf(bump) : 0)))]!;
+}
+
+/**
+ * The version to offer when none is given: `current` raised by `bump`. After a prerelease
+ * it is the next prerelease (2.0.0-rc.0 → 2.0.0-rc.1), or the stable version if the
+ * prerelease does not end with a number.
+ */
+export function recommendVersion(current: string, bump: Bump): string {
+	const v = parseVersion(current);
+	if (v.prerelease.length === 0) return nextVersion(current, bump);
+	const core = `${String(v.major)}.${String(v.minor)}.${String(v.patch)}`;
+	const last = v.prerelease.at(-1)!;
+	if (!/^\d+$/.test(last)) return core;
+	return `${core}-${[...v.prerelease.slice(0, -1), String(Number(last) + 1)].join('.')}`;
+}
+
 const UNRELEASED = 'Unreleased';
 
 interface Section {
@@ -125,7 +192,7 @@ function prereleaseSections(sections: Section[], version: string): Section[] {
  * into one, in the order the titles first appear; text before the first subsection is
  * kept in front.
  */
-function mergeNotes(notes: string[]): string {
+export function mergeNotes(notes: string[]): string {
 	const preambles: string[] = [];
 	const subsections = new Map<string, string[]>();
 	for (const note of notes) {
@@ -158,6 +225,15 @@ export function unreleasedNotes(changelog: string): string {
 	const section = parseSections(changelog.split('\n')).find((s) => s.name === UNRELEASED);
 	if (!section) throw new Error(`CHANGELOG.md has no "## [${UNRELEASED}]" section`);
 	return section.body;
+}
+
+/** Replaces the notes of the `[Unreleased]` section. */
+export function setUnreleasedNotes(changelog: string, notes: string): string {
+	const lines = changelog.split('\n');
+	const section = parseSections(lines).find((s) => s.name === UNRELEASED);
+	if (!section) throw new Error(`CHANGELOG.md has no "## [${UNRELEASED}]" section`);
+	const body = notes.trim() === '' ? [''] : ['', notes.trim(), ''];
+	return [...lines.slice(0, section.start + 1), ...body, ...lines.slice(section.end)].join('\n');
 }
 
 /**

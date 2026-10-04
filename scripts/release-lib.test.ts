@@ -1,12 +1,18 @@
 import { describe, expect, test } from 'vitest';
 import {
+	commitsMissingNotes,
 	compareVersions,
 	isPrerelease,
+	mergeNotes,
 	nextVersion,
 	pendingNotes,
+	recommendBump,
+	recommendVersion,
 	releaseChangelog,
 	releaseNotes,
+	setUnreleasedNotes,
 	unreleasedNotes,
+	type Commit,
 } from './release-lib.js';
 
 describe('compareVersions', () => {
@@ -57,6 +63,71 @@ describe('nextVersion', () => {
 	});
 });
 
+describe('recommended version', () => {
+	const commit = (subject: string, body = '', changelog = false): Commit => ({
+		subject,
+		body,
+		changelog,
+	});
+
+	test.each([
+		[['chore: update dependencies', 'refactor: move files'], '', 'patch'],
+		[['fix: repair ring winding', 'perf(core): cache tiles'], '', 'patch'],
+		[['fix: a bug', 'feat(png): support image sources'], '', 'minor'],
+		[['feat!: drop renderLabels'], '', 'major'],
+		[['refactor(core)!: rename the options'], '', 'major'],
+		[['chore: tidy up'], '### Fixed\n\n- a bug', 'patch'],
+		[['chore: tidy up'], '### Fixed\n\n- a bug\n\n### Added\n\n- a thing', 'minor'],
+		[['fix: a bug'], '### Deprecated\n\n- an option', 'minor'],
+		[['feat: a thing'], '### Removed\n\n- an option', 'major'],
+		[[], '', 'patch'],
+	])('%j with notes %j → %s', (subjects, notes, expected) => {
+		expect(
+			recommendBump(
+				subjects.map((s) => commit(s)),
+				notes,
+			),
+		).toBe(expected);
+	});
+
+	test('reads BREAKING CHANGE from the body', () => {
+		expect(recommendBump([commit('fix: a bug', 'BREAKING CHANGE: the option is gone')], '')).toBe(
+			'major',
+		);
+		expect(recommendBump([commit('fix: a bug', 'nothing is BREAKING CHANGE: here')], '')).toBe(
+			'patch',
+		);
+	});
+
+	test.each([
+		['1.2.3', 'patch', '1.2.4'],
+		['1.2.3', 'minor', '1.3.0'],
+		['1.2.3', 'major', '2.0.0'],
+		['2.0.0-rc.0', 'minor', '2.0.0-rc.1'],
+		['2.0.0-rc.9', 'patch', '2.0.0-rc.10'],
+		['2.0.0-beta', 'major', '2.0.0'],
+	] as const)('%s + %s → %s', (current, bump, expected) => {
+		expect(recommendVersion(current, bump)).toBe(expected);
+		expect(nextVersion(current, expected)).toBe(expected);
+	});
+
+	test('commitsMissingNotes lists what users notice and the changelog lacks', () => {
+		const commits = [
+			commit('feat: with notes', '', true),
+			commit('feat: without notes'),
+			commit('fix(svg): without notes'),
+			commit('chore!: breaking without notes'),
+			commit('refactor: nothing to note'),
+			commit('Merge branch main'),
+		];
+		expect(commitsMissingNotes(commits).map((c) => c.subject)).toEqual([
+			'feat: without notes',
+			'fix(svg): without notes',
+			'chore!: breaking without notes',
+		]);
+	});
+});
+
 const CHANGELOG = `# Changelog
 
 Intro.
@@ -93,6 +164,26 @@ describe('changelog', () => {
 		const released = releaseChangelog(CHANGELOG, '2.0.0', '2026-09-30');
 		expect(() => releaseChangelog(released, '2.0.1', '2026-10-01')).toThrow(/Nothing to release/);
 		expect(() => releaseChangelog(CHANGELOG, '1.2.0', '2026-10-01')).toThrow(/already/);
+	});
+
+	test('setUnreleasedNotes replaces the pending notes only', () => {
+		const notes = '### Added\n\n- a new thing\n- another thing';
+		const updated = setUnreleasedNotes(CHANGELOG, notes);
+		expect(unreleasedNotes(updated)).toBe(notes);
+		expect(updated).toBe(CHANGELOG.replace('- a new thing\n', '- a new thing\n- another thing\n'));
+		expect(setUnreleasedNotes(updated, unreleasedNotes(CHANGELOG))).toBe(CHANGELOG);
+	});
+
+	test('setUnreleasedNotes fills and empties the section', () => {
+		const empty = setUnreleasedNotes(CHANGELOG, '');
+		expect(empty).toContain('## [Unreleased]\n\n## [1.2.0] - 2026-09-19');
+		expect(setUnreleasedNotes(empty, '### Added\n\n- a new thing')).toBe(CHANGELOG);
+	});
+
+	test('mergeNotes adds drafted notes to the subsections that exist', () => {
+		expect(
+			mergeNotes(['### Added\n\n- a new thing', '### Fixed\n\n- a bug\n\n### Added\n\n- more']),
+		).toBe('### Added\n\n- a new thing\n- more\n\n### Fixed\n\n- a bug');
 	});
 
 	test('releaseNotes fails for an unknown version', () => {
