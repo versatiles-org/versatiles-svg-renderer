@@ -1,6 +1,6 @@
 {
   "name": "@versatiles/png-renderer",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Renders MapLibre styles as PNG (and SVG) in Node.js.",
   "keywords": [
     "png",
