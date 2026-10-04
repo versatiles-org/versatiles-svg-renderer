@@ -21,7 +21,18 @@
  * the `npm` environment) and creates the GitHub release. Step 9 only watches it, so it can
  * be interrupted.
  *
+ * If something fails:
+ *   - before the tag is pushed (steps 5 to 8), the release commit and the tag are undone;
+ *     notes added to CHANGELOG.md are kept. Start again.
+ *   - in the release workflow, the release is unfinished, and the next `npm run release`
+ *     offers to finish it instead of starting a new one. On the tagged commit it runs the
+ *     failed jobs again (an npm outage, a declined approval). If there are commits since
+ *     then (the code had to be fixed), it moves the tag to HEAD and releases that, with
+ *     the same version and changelog section. A tag only moves while nothing of the
+ *     version is on npm or in a GitHub release; after that, the fix is the next version.
+ *
  * Options:
+ *   --resume         finish the unfinished release without asking whether to
  *   --dry-run        run the checks and show what would happen, change nothing
  *   --yes            do not ask anything: take the recommended version, draft no notes
  *   --skip-ci-check  do not require a green CI run on this commit (emergencies only)
@@ -53,6 +64,7 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const yes = args.includes('--yes');
 const skipCiCheck = args.includes('--skip-ci-check');
+const resume = args.includes('--resume');
 const request = args.find((a) => !a.startsWith('--'));
 const interactive = !yes && !dryRun && process.stdin.isTTY;
 
@@ -65,6 +77,15 @@ const dim = (s: string): string => paint(90, s);
 
 function run(command: string, commandArgs: string[]): string {
 	return execFileSync(command, commandArgs, { cwd: repo, encoding: 'utf8' }).trim();
+}
+
+/** Like {@link run}, but keeps what the command writes to stderr off the terminal. */
+function runQuiet(command: string, commandArgs: string[]): string {
+	return execFileSync(command, commandArgs, {
+		cwd: repo,
+		encoding: 'utf8',
+		stdio: ['ignore', 'pipe', 'pipe'],
+	}).trim();
 }
 
 function fail(message: string): never {
@@ -81,6 +102,11 @@ async function ask(question: string): Promise<string> {
 	const answer = await rl.question(question);
 	rl.close();
 	return answer.trim();
+}
+
+/** Asks for a yes; `--yes` gives it. */
+async function confirm(question: string): Promise<boolean> {
+	return yes || (await ask(`${question} [y/N] `)).toLowerCase() === 'y';
 }
 
 const errorMessage = (error: unknown): string =>
@@ -113,24 +139,34 @@ function findRun(workflow: string, sha: string): WorkflowRun | undefined {
 	return runs[0];
 }
 
-/** Waits until the run of a workflow on a commit has completed, reporting its progress. */
-async function waitForRun(workflow: string, sha: string, name: string): Promise<WorkflowRun> {
+/**
+ * Waits until the run of a workflow on a commit has completed, reporting its progress.
+ * `restarted` says that the run was just started again, so that it may still show the
+ * result of its last attempt.
+ */
+async function waitForRun(
+	workflow: string,
+	commit: string,
+	name: string,
+	restarted = false,
+): Promise<WorkflowRun> {
 	const started = Date.now();
 	let reported = '';
 	for (;;) {
 		let latest: WorkflowRun | undefined;
 		try {
-			latest = findRun(workflow, sha);
+			latest = findRun(workflow, commit);
 		} catch {
 			// GitHub was not reachable: try again.
 			await sleep(10_000);
 			continue;
 		}
-		if (latest?.status === 'completed') return latest;
+		const stale = restarted && latest?.status === 'completed' && Date.now() - started < 60_000;
+		if (latest?.status === 'completed' && !stale) return latest;
 		if (!latest && Date.now() - started > 180_000) {
-			fail(`GitHub started no ${name} run for ${sha.slice(0, 9)}`);
+			fail(`GitHub started no ${name} run for ${commit.slice(0, 9)}`);
 		}
-		const state = latest?.status ?? 'not started yet';
+		const state = stale ? 'starting again' : (latest?.status ?? 'not started yet');
 		if (state !== reported) {
 			reported = state;
 			info(`${name} is ${state.replace('_', ' ')}${latest ? dim(` ${latest.url}`) : ''}`);
@@ -159,6 +195,13 @@ function check(name: string, test: () => string | undefined): void {
 
 const manifests = lockstepManifests(repo);
 const current = readVersion(manifests[0]!);
+const sha = run('git', ['rev-parse', 'HEAD']);
+const packages = manifests
+	.map(
+		(manifest) => JSON.parse(readFileSync(manifest, 'utf8')) as { name: string; private?: boolean },
+	)
+	.filter((manifest) => !manifest.private)
+	.map((manifest) => manifest.name);
 
 if (request) {
 	try {
@@ -168,44 +211,215 @@ if (request) {
 	}
 }
 
-check('all packages share one version', () => {
-	const mismatched = manifests.filter((m) => readVersion(m) !== current);
-	return mismatched.length === 0
-		? undefined
-		: `${mismatched.map((m) => m.slice(repo.length + 1)).join(', ')} differ from ${current}`;
-});
-// Notes written for this release go into the release commit, so CHANGELOG.md may differ.
-check('nothing is uncommitted but CHANGELOG.md', () => {
-	const changed = [
-		run('git', ['diff', '--name-only', 'HEAD']),
-		run('git', ['ls-files', '--others', '--exclude-standard']),
-	]
-		.flatMap((list) => list.split('\n'))
-		.filter((file) => file !== '' && file !== 'CHANGELOG.md');
-	return changed.length === 0 ? undefined : `commit or stash ${changed.join(', ')}`;
-});
-check('on branch main', () => {
-	const branch = run('git', ['branch', '--show-current']);
-	return branch === 'main' ? undefined : `on "${branch}"`;
-});
+/** The checks that HEAD can be released; they also count the commits that origin lacks. */
 let unpushed = 0;
-check('main is not behind origin', () => {
-	run('git', ['fetch', '--quiet', 'origin', 'main', '--tags']);
-	const [behind, ahead] = run('git', ['rev-list', '--left-right', '--count', 'origin/main...HEAD'])
-		.split(/\s+/)
-		.map(Number);
-	unpushed = ahead!;
-	return behind === 0 ? undefined : `origin has ${String(behind)} commit(s) more: pull first`;
-});
-const sha = run('git', ['rev-parse', 'HEAD']);
-if (!skipCiCheck) {
-	check('CI has not failed on this commit', () => {
-		if (unpushed > 0) return undefined;
-		const latest = findRun('ci.yml', sha);
-		if (latest?.status !== 'completed' || latest.conclusion === 'success') return undefined;
-		return `CI ${latest.conclusion}: ${latest.url}`;
+function checkHead(): void {
+	check('all packages share one version', () => {
+		const mismatched = manifests.filter((m) => readVersion(m) !== current);
+		return mismatched.length === 0
+			? undefined
+			: `${mismatched.map((m) => m.slice(repo.length + 1)).join(', ')} differ from ${current}`;
 	});
+	// Notes written for this release go into the release commit, so CHANGELOG.md may differ.
+	check('nothing is uncommitted but CHANGELOG.md', () => {
+		const changed = [
+			run('git', ['diff', '--name-only', 'HEAD']),
+			run('git', ['ls-files', '--others', '--exclude-standard']),
+		]
+			.flatMap((list) => list.split('\n'))
+			.filter((file) => file !== '' && file !== 'CHANGELOG.md');
+		return changed.length === 0 ? undefined : `commit or stash ${changed.join(', ')}`;
+	});
+	check('on branch main', () => {
+		const branch = run('git', ['branch', '--show-current']);
+		return branch === 'main' ? undefined : `on "${branch}"`;
+	});
+	check('main is not behind origin', () => {
+		run('git', ['fetch', '--quiet', 'origin', 'main', '--tags']);
+		const [behind, ahead] = run('git', [
+			'rev-list',
+			'--left-right',
+			'--count',
+			'origin/main...HEAD',
+		])
+			.split(/\s+/)
+			.map(Number);
+		unpushed = ahead!;
+		return behind === 0 ? undefined : `origin has ${String(behind)} commit(s) more: pull first`;
+	});
+	if (!skipCiCheck) {
+		check('CI has not failed on this commit', () => {
+			if (unpushed > 0) return undefined;
+			const latest = findRun('ci.yml', sha);
+			if (latest?.status !== 'completed' || latest.conclusion === 'success') return undefined;
+			return `CI ${latest.conclusion}: ${latest.url}`;
+		});
+	}
 }
+
+/** Pushes the commits that origin lacks, and waits until CI has passed on HEAD. */
+async function pushAndAwaitCi(): Promise<void> {
+	if (unpushed > 0) {
+		run('git', ['push', 'origin', 'main']);
+		info(`pushed ${String(unpushed)} commit(s) to origin`);
+	}
+	if (skipCiCheck) return;
+	const ci = await waitForRun('ci.yml', sha, 'CI');
+	if (ci.conclusion !== 'success') {
+		fail(
+			`CI ${ci.conclusion}; nothing was released.\n  ${ci.url}\n  gh run view ${String(ci.databaseId)} --log-failed`,
+		);
+	}
+	console.log(`${green('✓')} CI passed on this commit`);
+}
+
+function isOnNpm(name: string, version: string): boolean {
+	try {
+		return runQuiet('npm', ['view', `${name}@${version}`, 'version']) === version;
+	} catch {
+		return false;
+	}
+}
+
+function isGithubReleasePublished(tag: string): boolean {
+	try {
+		const release = JSON.parse(runQuiet('gh', ['release', 'view', tag, '--json', 'isDraft'])) as {
+			isDraft: boolean;
+		};
+		return !release.isDraft;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Watches the release workflow on the tagged commit until it has finished, and confirms
+ * that the packages are on npm and the GitHub release is published.
+ */
+async function watchRelease(tag: string, commit: string, restarted = false): Promise<never> {
+	console.log(
+		dim(
+			'Watching the release workflow. It goes on without this script: Ctrl-C only stops watching.',
+		),
+	);
+	const release = await waitForRun('release.yml', commit, 'the release', restarted);
+	if (release.conclusion !== 'success') {
+		fail(
+			`The release workflow ended with "${release.conclusion}": ${release.url}\n  gh run view ${String(release.databaseId)} --log-failed\n  Then run \`npm run release\` again: it offers to finish ${tag}.`,
+		);
+	}
+	const version = tag.slice(1);
+	for (const name of packages) {
+		check(`${name}@${version} is on npm`, () => (isOnNpm(name, version) ? undefined : 'not found'));
+	}
+	check(`GitHub release ${tag} is published`, () =>
+		isGithubReleasePublished(tag) ? undefined : 'not found, or still a draft',
+	);
+	if (problems.length > 0) fail(`The release workflow succeeded, but ${tag} is not complete.`);
+
+	console.log(green(`\n✓ Released ${tag}.`));
+	console.log(`  https://github.com/versatiles-org/versatiles-svg-renderer/releases/tag/${tag}`);
+	process.exit(0);
+}
+
+// --- Unfinished release -------------------------------------------------------------
+// The last release is unfinished if its workflow did not succeed. It is finished in one of
+// two ways. If the cause was outside the code (an npm outage, a declined approval), the
+// failed jobs run again on the tagged commit. If the code had to be fixed, the tag moves
+// to HEAD, which keeps the version and its changelog section and starts the workflow anew;
+// that is only possible while nothing of the version is published.
+const currentTag = `v${current}`;
+
+function findUnfinishedRelease(): { commit: string; latest: WorkflowRun | undefined } | undefined {
+	try {
+		if (run('git', ['tag', '--list', currentTag]) === '') return undefined;
+		const commit = run('git', ['rev-list', '-n', '1', currentTag]);
+		const latest = findRun('release.yml', commit);
+		if (latest?.status === 'completed' && latest.conclusion === 'success') return undefined;
+		return { commit, latest };
+	} catch {
+		return undefined;
+	}
+}
+
+async function finishRelease(commit: string, latest: WorkflowRun | undefined): Promise<never> {
+	if (latest && latest.status !== 'completed') {
+		info(`the release workflow of ${currentTag} is still running`);
+		return watchRelease(currentTag, commit);
+	}
+
+	const published = packages.filter((name) => isOnNpm(name, current));
+	const githubRelease = isGithubReleasePublished(currentTag);
+	const fixes = run('git', ['log', '--oneline', `${commit}..HEAD`])
+		.split('\n')
+		.filter((line) => line !== '');
+	if (latest) info(`the release workflow ended with "${latest.conclusion}": ${latest.url}`);
+	info(published.length > 0 ? `on npm: ${published.join(', ')}` : 'nothing is on npm yet');
+
+	if (latest && fixes.length === 0) {
+		if (dryRun) {
+			console.log(green(`Dry run: would run the failed jobs of ${currentTag} again.`));
+			process.exit(0);
+		}
+		if (!(await confirm(`Run the failed jobs of ${currentTag} again?`))) fail('Aborted.');
+		run('gh', ['run', 'rerun', String(latest.databaseId), '--failed']);
+		return watchRelease(currentTag, commit, true);
+	}
+
+	if (published.length > 0 || githubRelease) {
+		fail(
+			`${currentTag} is partly published from ${commit.slice(0, 9)}, so the tag cannot move to another commit.\n` +
+				`  To finish ${currentTag} as it is tagged: gh run rerun ${String(latest?.databaseId ?? '<run>')} --failed\n` +
+				`  To release the commits since then: add their notes to CHANGELOG.md and run \`npm run release patch\`.`,
+		);
+	}
+	try {
+		run('git', ['merge-base', '--is-ancestor', commit, 'HEAD']);
+	} catch {
+		fail(`${currentTag} (${commit.slice(0, 9)}) is not part of this branch`);
+	}
+	checkHead();
+	if (fixes.length > 0) {
+		console.log(`\n${currentTag} moves from ${commit.slice(0, 9)} to HEAD, taking in:`);
+		for (const fix of fixes) console.log(dim(`    ${fix}`));
+	}
+	console.log('');
+	if (problems.length > 0) fail(`${String(problems.length)} check(s) failed; nothing was changed.`);
+	if (dryRun) {
+		console.log(green(`Dry run: would tag HEAD as ${currentTag} and release it.`));
+		process.exit(0);
+	}
+	if (!(await confirm(`Tag HEAD as ${currentTag} and release it?`))) fail('Aborted.');
+
+	await pushAndAwaitCi();
+	run('git', ['tag', '--annotate', '--force', currentTag, '-m', `Release ${currentTag}`]);
+	// A tag that only moves starts no workflow if it already points at this commit on
+	// origin, so it is deleted there first; that fails if origin does not have it.
+	try {
+		runQuiet('git', ['push', 'origin', `:refs/tags/${currentTag}`]);
+	} catch {
+		// origin has no such tag
+	}
+	run('git', ['push', '--force', 'origin', `refs/tags/${currentTag}`]);
+	console.log(green(`\n✓ Pushed ${currentTag}.`));
+	return watchRelease(currentTag, sha);
+}
+
+const unfinished = findUnfinishedRelease();
+if (unfinished) {
+	info(`the release of ${bold(currentTag)} is not finished`);
+	if (
+		resume ||
+		(interactive && !request && (await ask(`Finish ${currentTag}? [Y/n] `)).toLowerCase() !== 'n')
+	) {
+		await finishRelease(unfinished.commit, unfinished.latest);
+	}
+	info(`leaving it; \`npm run release -- --resume\` finishes it`);
+} else if (resume) {
+	fail(`The release of ${currentTag} is finished; there is nothing to resume.`);
+}
+
+checkHead();
 if (problems.length > 0 && !dryRun) {
 	fail(`${String(problems.length)} check(s) failed; nothing was changed.`);
 }
@@ -393,73 +607,45 @@ if (dryRun) {
 	process.exit(0);
 }
 
-if (!yes) {
-	const answer = await ask(`Release ${tag} and push it to origin? [y/N] `);
-	if (answer.toLowerCase() !== 'y') fail('Aborted; nothing was committed or pushed.');
+if (!(await confirm(`Release ${tag} and push it to origin?`))) {
+	fail('Aborted; nothing was committed or pushed.');
 }
 
-// --- Push and wait for CI ---------------------------------------------------------
-if (unpushed > 0) {
-	run('git', ['push', 'origin', 'main']);
-	info(`pushed ${String(unpushed)} commit(s) to origin`);
-}
-if (!skipCiCheck) {
-	const ci = await waitForRun('ci.yml', sha, 'CI');
-	if (ci.conclusion !== 'success') {
-		fail(
-			`CI ${ci.conclusion}; nothing was released.\n  ${ci.url}\n  gh run view ${String(ci.databaseId)} --log-failed`,
-		);
-	}
-	console.log(`${green('✓')} CI passed on this commit`);
-}
+await pushAndAwaitCi();
 
 // --- Release ------------------------------------------------------------------------
+// Until the push, which is atomic, nothing has left this machine: a failure is undone, so
+// that the release can simply be started again.
 const date = new Date().toISOString().slice(0, 10);
-for (const manifest of manifests) {
-	const content = readFileSync(manifest, 'utf8');
-	const updated = content.replace(/^(\s*"version":\s*")[^"]+(")/m, `$1${version}$2`);
-	if (updated === content) fail(`could not set the version in ${manifest}`);
-	writeFileSync(manifest, updated);
-}
-run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']);
-writeFileSync(changelogPath, releaseChangelog(changelog, version, date));
+const releaseFiles = ['CHANGELOG.md', 'package-lock.json', ...manifests];
+let committed = false;
+let tagged = false;
+try {
+	for (const manifest of manifests) {
+		const content = readFileSync(manifest, 'utf8');
+		const updated = content.replace(/^(\s*"version":\s*")[^"]+(")/m, `$1${version}$2`);
+		if (updated === content) throw new Error(`could not set the version in ${manifest}`);
+		writeFileSync(manifest, updated);
+	}
+	run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']);
+	writeFileSync(changelogPath, releaseChangelog(changelog, version, date));
 
-run('git', ['add', 'CHANGELOG.md', 'package-lock.json', ...manifests]);
-run('git', ['commit', '--quiet', '-m', `release: ${tag}`]);
-run('git', ['tag', '--annotate', tag, '-m', `Release ${tag}`]);
-run('git', ['push', '--atomic', 'origin', 'main', tag]);
+	run('git', ['add', ...releaseFiles]);
+	run('git', ['commit', '--quiet', '-m', `release: ${tag}`]);
+	committed = true;
+	run('git', ['tag', '--annotate', tag, '-m', `Release ${tag}`]);
+	tagged = true;
+	run('git', ['push', '--atomic', 'origin', 'main', tag]);
+} catch (error) {
+	if (tagged) run('git', ['tag', '--delete', tag]);
+	if (committed) run('git', ['reset', '--quiet', '--soft', sha]);
+	run('git', ['checkout', '--quiet', 'HEAD', '--', ...releaseFiles]);
+	// The notes drafted for this release were not committed before: keep them.
+	writeFileSync(changelogPath, changelog);
+	fail(
+		`${errorMessage(error)}\n  The release commit and its tag were undone; nothing was released.`,
+	);
+}
 
 console.log(green(`\n✓ Pushed ${tag}.`));
-
-// --- Watch the release workflow -------------------------------------------------------
-console.log(
-	dim('Watching the release workflow. It goes on without this script: Ctrl-C only stops watching.'),
-);
-const release = await waitForRun('release.yml', run('git', ['rev-parse', 'HEAD']), 'the release');
-if (release.conclusion !== 'success') {
-	fail(
-		`The release workflow ended with "${release.conclusion}". Fix the cause and choose "Re-run failed jobs"; do not move the tag.\n  ${release.url}`,
-	);
-}
-
-const packages = manifests
-	.map(
-		(manifest) => JSON.parse(readFileSync(manifest, 'utf8')) as { name: string; private?: boolean },
-	)
-	.filter((manifest) => !manifest.private);
-for (const { name } of packages) {
-	check(`${name}@${version} is on npm`, () =>
-		run('npm', ['view', `${name}@${version}`, 'version']) === version ? undefined : 'not found',
-	);
-}
-check(`GitHub release ${tag} is published`, () => {
-	const { isDraft } = JSON.parse(run('gh', ['release', 'view', tag, '--json', 'isDraft'])) as {
-		isDraft: boolean;
-	};
-	return isDraft ? 'still a draft' : undefined;
-});
-if (problems.length > 0)
-	fail(`The release workflow succeeded, but ${problems.join(' and ')} failed.`);
-
-console.log(green(`\n✓ Released ${tag}.`));
-console.log(`  https://github.com/versatiles-org/versatiles-svg-renderer/releases/tag/${tag}`);
+await watchRelease(tag, run('git', ['rev-parse', 'HEAD']));

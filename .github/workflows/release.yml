@@ -1,13 +1,16 @@
 name: Release
 
-# Started by pushing a version tag, which `npm run release <version>` does after bumping
+# Started by pushing a version tag, which `npm run release [version]` does after bumping
 # the versions and dating the changelog. This workflow never changes the repository: it
 # verifies the tag, builds and tests, publishes the exact tarballs it tested, and creates
 # the GitHub release.
 #
 # Re-running is safe. Packages already on npm are skipped, and an existing GitHub release
 # is updated, so after a failure (say, an npm outage) "Re-run failed jobs" finishes the
-# release. Never move or delete a release tag: fix mistakes in the next version.
+# release; `npm run release` offers that for an unfinished release. If the code has to be
+# fixed first, it moves the tag to the fixed commit, but only while nothing of the version
+# is on npm or in a GitHub release. After that, never move or delete a release tag: fix
+# mistakes in the next version.
 
 on:
   push:
