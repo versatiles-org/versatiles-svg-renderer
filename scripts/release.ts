@@ -459,6 +459,7 @@ Write the entries that this section lacks, for the changes that users of the pub
 - Group the entries under "### Added", "### Changed", "### Deprecated", "### Removed", "### Fixed" or "### Security".
 - Do not repeat what the section already says.
 - Leave out what users do not notice: refactorings, tests, CI, tooling, and updates of development dependencies.
+- Users do notice a change of what a published package depends on (\`dependencies\` and \`peerDependencies\` in packages/*/package.json): note it under "### Changed".
 - Do not change any file.
 
 Answer with the new entries only, as Markdown between <notes> and </notes>. If nothing is missing, answer <notes></notes>.`;
@@ -550,6 +551,22 @@ if (
 			info('added the notes to CHANGELOG.md; they go into the release commit');
 		}
 	}
+}
+
+// Without notes there is nothing to release, unless a stable version takes in the notes of
+// its prereleases. Say so before asking for a version, and let the notes be written here.
+if (interactive && unreleasedNotes(changelog) === '' && !isPrerelease(current)) {
+	console.log(`\nCHANGELOG.md has no notes, so there is nothing to release since ${lastTag}.`);
+	if (!(await confirm('Write the notes in your editor, to release anyway?'))) {
+		fail('Nothing to release; nothing was changed.');
+	}
+	const written = editNotes('### Changed\n\n- ');
+	if (written === '' || written === '### Changed\n\n-') {
+		fail('Nothing to release; nothing was changed.');
+	}
+	changelog = setUnreleasedNotes(changelog, written);
+	writeFileSync(changelogPath, changelog);
+	info('added the notes to CHANGELOG.md; they go into the release commit');
 }
 
 // --- Version ----------------------------------------------------------------------
