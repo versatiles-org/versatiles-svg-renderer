@@ -117,6 +117,8 @@ if (process.env.UPDATE_BASELINE) {
 	const path = writeBaseline(selectedIds ? { ...baseline, ...measured } : measured);
 	console.log(`Baseline updated: ${path}`);
 } else if (failed) {
-	console.log(red('\nE2E comparison failed — see ✗/▲ above (or bless with UPDATE_BASELINE=1).'));
+	console.log(
+		red('\nE2E comparison failed — see ✗/▲ above (or bless with `npm run test:e2e:bless`).'),
+	);
 	process.exitCode = 1;
 }

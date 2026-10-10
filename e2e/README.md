@@ -93,7 +93,7 @@ container, with Docker, so it measures what CI measures; the baseline is blessed
 ```sh
 npm run test:e2e:docker                                  # the screenshots
 E2E_REGIONS=parity-features npm run test:e2e:docker      # some regions
-UPDATE_BASELINE=1 npm run test:e2e:docker                # bless the baseline
+npm run test:e2e:bless                                   # bless the baseline
 npm run test:e2e:docker -- npm run test:e2e              # any command
 ```
 

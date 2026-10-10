@@ -5,7 +5,7 @@
  *
  *   npm run test:e2e:docker                          # the screenshots
  *   E2E_REGIONS=parity-features npm run test:e2e:docker
- *   UPDATE_BASELINE=1 npm run test:e2e:docker        # bless the baseline
+ *   npm run test:e2e:bless                           # bless the baseline
  *   npm run test:e2e:docker -- npm run test:e2e      # any command
  *   E2E_DOCKER_PLATFORM=linux/arm64 npm run test:e2e:docker   # native on Apple silicon
  *
