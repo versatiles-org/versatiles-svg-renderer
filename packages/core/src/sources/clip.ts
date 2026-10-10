@@ -81,29 +81,57 @@ export function clipPolygonOutline(rings: XY[][], min: number, max: number): XY[
 
 /** Clips a polyline to the square [min, max]², returning the parts inside of it. */
 export function clipLine(line: XY[], min: number, max: number): XY[][] {
-	const parts: XY[][] = [];
+	return clipLineMeasured(line, min, max).map(({ points }) => points);
+}
+
+/** A part of a clipped polyline, and how far along the whole polyline it starts. */
+export interface LinePart {
+	points: XY[];
+	start: number;
+}
+
+/**
+ * Clips a polyline to the square [min, max]², like `clipLine`, and measures where each part
+ * starts: its distance from the polyline's start, which is where MapLibre starts a dash
+ * pattern. MapLibre stores that distance in a few bits and starts again from zero at a
+ * vertex further along than `resetAfter` (`LineBucket.addCurrentVertex`).
+ */
+export function clipLineMeasured(
+	line: XY[],
+	min: number,
+	max: number,
+	resetAfter = Infinity,
+): LinePart[] {
+	const parts: LinePart[] = [];
 	let current: XY[] = [];
+	let start = 0;
+	let distance = 0;
+	const flush = (): void => {
+		if (current.length > 1) parts.push({ points: current, start });
+		current = [];
+	};
 	for (let i = 0; i + 1 < line.length; i++) {
-		const segment = clipSegment(line[i]!, line[i + 1]!, min, max);
-		if (!segment) {
-			if (current.length > 1) parts.push(current);
-			current = [];
-			continue;
+		const from = line[i]!;
+		const to = line[i + 1]!;
+		const segment = clipSegment(from, to, min, max);
+		if (segment) {
+			const [a, b] = segment;
+			const last = current[current.length - 1];
+			if (last?.x !== a.x || last.y !== a.y) {
+				flush();
+				current = [a];
+				start = distance + Math.hypot(a.x - from.x, a.y - from.y);
+			}
+			current.push(b);
+			// The segment left the square: the line continues elsewhere.
+			if (b !== to) flush();
+		} else {
+			flush();
 		}
-		const [a, b] = segment;
-		const last = current[current.length - 1];
-		if (last?.x !== a.x || last.y !== a.y) {
-			if (current.length > 1) parts.push(current);
-			current = [a];
-		}
-		current.push(b);
-		// The segment left the square: the line continues elsewhere.
-		if (b !== line[i + 1]) {
-			parts.push(current);
-			current = [];
-		}
+		distance += Math.hypot(to.x - from.x, to.y - from.y);
+		if (distance > resetAfter) distance = 0;
 	}
-	if (current.length > 1) parts.push(current);
+	flush();
 	return parts;
 }
 

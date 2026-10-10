@@ -50,8 +50,8 @@
 		"drift": 0.88
 	},
 	"berlin-rotated-satellite": {
-		"svg": 0.33,
-		"png": 0.33,
+		"svg": 0.22,
+		"png": 0.22,
 		"drift": 0
 	},
 	"parity-rotated-features": {
@@ -112,8 +112,8 @@
 		"drift": 0.38
 	},
 	"berlin-padded-satellite": {
-		"svg": 0.47,
-		"png": 0.4,
+		"svg": 0.32,
+		"png": 0.26,
 		"drift": 0
 	},
 	"europe-padded-vector-globe": {
@@ -127,8 +127,8 @@
 		"drift": 0.06
 	},
 	"berlin-satellite": {
-		"svg": 0.58,
-		"png": 0.49,
+		"svg": 0.4,
+		"png": 0.33,
 		"drift": 0
 	},
 	"berlin-geojson": {
@@ -261,18 +261,18 @@
 		"drift": 0.99
 	},
 	"tokyo-z11.5-vector-globe": {
-		"svg": 2.37,
-		"png": 1.71,
-		"drift": 1.38
+		"svg": 1.91,
+		"png": 1.3,
+		"drift": 1.05
 	},
 	"world-satellite-globe": {
-		"svg": 0.5,
-		"png": 0.61,
+		"svg": 0.59,
+		"png": 0.7,
 		"drift": 0.06
 	},
 	"europe-satellite-globe": {
-		"svg": 0.55,
-		"png": 0.55,
+		"svg": 0.7,
+		"png": 0.7,
 		"drift": 0
 	},
 	"parity-rotated-sources": {
@@ -583,6 +583,162 @@
 			"icon stays, not fitted": {
 				"svg": 0.07,
 				"png": 0.06,
+				"drift": 0
+			}
+		}
+	},
+	"parity-rotated-dashes": {
+		"svg": 0.04,
+		"png": 0.04,
+		"drift": 0.02,
+		"cells": {
+			"thin, short dashes": {
+				"svg": 0.1,
+				"png": 0.11,
+				"drift": 0.14
+			},
+			"butt caps, turns": {
+				"svg": 0.04,
+				"png": 0.03,
+				"drift": 0
+			},
+			"round caps and joins": {
+				"svg": 0.01,
+				"png": 0.01,
+				"drift": 0
+			},
+			"on a polygon": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"zoom-dependent width": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"translucent": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"odd number of values": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"going west, then south": {
+				"svg": 0,
+				"png": 0.01,
+				"drift": 0
+			},
+			"square caps": {
+				"svg": 0.17,
+				"png": 0.16,
+				"drift": 0
+			}
+		}
+	},
+	"parity-dashes": {
+		"svg": 0.06,
+		"png": 0.05,
+		"drift": 0.01,
+		"cells": {
+			"thin, short dashes": {
+				"svg": 0.2,
+				"png": 0.19,
+				"drift": 0.12
+			},
+			"butt caps, turns": {
+				"svg": 0.04,
+				"png": 0.04,
+				"drift": 0
+			},
+			"round caps and joins": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"on a polygon": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"zoom-dependent width": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"translucent": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"odd number of values": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"going west, then south": {
+				"svg": 0.01,
+				"png": 0.01,
+				"drift": 0
+			},
+			"square caps": {
+				"svg": 0.22,
+				"png": 0.18,
+				"drift": 0
+			}
+		}
+	},
+	"parity-dashes-z11.5": {
+		"svg": 0.06,
+		"png": 0.06,
+		"drift": 0,
+		"cells": {
+			"thin, short dashes": {
+				"svg": 0.11,
+				"png": 0.12,
+				"drift": 0
+			},
+			"butt caps, turns": {
+				"svg": 0.05,
+				"png": 0.05,
+				"drift": 0
+			},
+			"round caps and joins": {
+				"svg": 0.05,
+				"png": 0.05,
+				"drift": 0
+			},
+			"on a polygon": {
+				"svg": 0.07,
+				"png": 0.07,
+				"drift": 0
+			},
+			"zoom-dependent width": {
+				"svg": 0.05,
+				"png": 0.05,
+				"drift": 0
+			},
+			"translucent": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"odd number of values": {
+				"svg": 0.01,
+				"png": 0.01,
+				"drift": 0
+			},
+			"going west, then south": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"square caps": {
+				"svg": 0.09,
+				"png": 0.09,
 				"drift": 0
 			}
 		}

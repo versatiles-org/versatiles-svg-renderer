@@ -444,6 +444,36 @@ describe('renderMap', () => {
 			expect(result).toContain('<path');
 		});
 
+		test("measures dashes in the line's width at the zoom level's integer part", async () => {
+			const line = makeLineFeature([
+				[
+					[10, 10],
+					[200, 10],
+				],
+			]);
+			setLayerFeatures(new Map([['roads', makeFeatures({ linestrings: [line] })]]));
+			const style = makeStyle([
+				{
+					id: 'dashed',
+					type: 'line',
+					source: 'src',
+					'source-layer': 'roads',
+					paint: {
+						'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 11, 6],
+						'line-dasharray': [2, 1],
+					},
+					// MapLibre's dashes end flat, also with square caps.
+					layout: { 'line-cap': 'square' },
+				},
+			]);
+			// At zoom 10.5 the line is 4 wide, but its dashes are measured in its width at
+			// zoom 10, and scaled with the map from there: 2 · 2 · √2 and 1 · 2 · √2.
+			const result = await renderMap(makeJob(style, 10.5));
+			expect(result).toContain('stroke-width="4"');
+			expect(result).toContain('stroke-dasharray="5.65685,2.82843"');
+			expect(result).toContain('stroke-linecap="butt"');
+		});
+
 		test('draws a line with line-gap-width as two lines, one on each side', async () => {
 			const road = makeLineFeature(
 				[

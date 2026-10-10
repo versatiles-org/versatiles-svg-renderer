@@ -16,11 +16,19 @@ export interface View {
 /**
  * The styles regions draw (see `getStyle`):
  * - `vector`, `satellite`: the VersaTiles styles;
- * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `anchors`: hand-made scenes, in
- *   `scenes/`.
+ * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`: hand-made
+ *   scenes, in `scenes/`.
  */
 export type StyleName =
-	'vector' | 'satellite' | 'geojson' | 'features' | 'symbols' | 'sources' | 'patterns' | 'anchors';
+	| 'vector'
+	| 'satellite'
+	| 'geojson'
+	| 'features'
+	| 'symbols'
+	| 'sources'
+	| 'patterns'
+	| 'dashes'
+	| 'anchors';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -83,6 +91,7 @@ export const regions: Region[] = [
 	{ id: 'parity-rotated-features', style: 'features', view: { ...scene, bearing: 30 } },
 	{ id: 'parity-rotated-sources', style: 'sources', view: { ...scene, bearing: 30 } },
 	{ id: 'parity-rotated-patterns', style: 'patterns', view: { ...scene, bearing: 30 } },
+	{ id: 'parity-rotated-dashes', style: 'dashes', view: { ...scene, bearing: 30 } },
 
 	// Padding moves the map's center, also on a rotated map and on the globe.
 	{
@@ -119,6 +128,9 @@ export const regions: Region[] = [
 	{ id: 'parity-patterns', style: 'patterns', view: scene },
 	// Patterns are scaled with the map from the zoom level's integer part.
 	{ id: 'parity-patterns-z11.5', style: 'patterns', view: { ...scene, zoom: 11.5 } },
+	// So are dashes.
+	{ id: 'parity-dashes', style: 'dashes', view: scene },
+	{ id: 'parity-dashes-z11.5', style: 'dashes', view: { ...scene, zoom: 11.5 } },
 
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.

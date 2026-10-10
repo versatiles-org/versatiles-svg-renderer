@@ -3,9 +3,20 @@ import type { RenderJob } from '../types.js';
 import { calculateTileGrid, getTile, loadSourceTile, type TileLoader } from './tiles.js';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
-import { clipLine, clipPolygon, clipPolygonOutline, exceedsSquare, type XY } from './clip.js';
+import {
+	clipLineMeasured,
+	clipPolygon,
+	clipPolygonOutline,
+	exceedsSquare,
+	type XY,
+} from './clip.js';
 
 const TILE_EXTENT = 4096;
+/**
+ * How far along a line MapLibre measures before it starts again from zero: two tiles
+ * (`MAX_LINE_DISTANCE / 2` in its `line_bucket.ts`, for its tile extent of 8192).
+ */
+const MAX_LINE_DISTANCE = 2 * TILE_EXTENT;
 const VTFeatureType = { Unknown: 0, Point: 1, LineString: 2, Polygon: 3 } as const;
 
 interface VectorSourceSpec {
@@ -44,7 +55,7 @@ export async function loadVectorSource(
 /** Decodes one vector tile and adds its features, projected to the screen. */
 function addTileFeatures(
 	buffer: ArrayBuffer,
-	{ project, clipToTile }: TileProjection,
+	{ project, clipToTile, pixelsPerUnit }: TileProjection,
 	layerFeatures: LayerFeatures,
 	width: number,
 	height: number,
@@ -80,6 +91,7 @@ function addTileFeatures(
 
 			let rings: XY[][] = featureSrc.loadGeometry();
 			let outline: Point2D[][] | undefined;
+			let lineStarts: number[] | undefined;
 			// Clip polygons and lines to the tile, like MapLibre's stencil clipping: otherwise
 			// the parts in the tile buffer are drawn twice, which shows when translucent.
 			if (clipToTile && type !== 'Point' && exceedsSquare(rings, 0, TILE_EXTENT)) {
@@ -87,7 +99,13 @@ function addTileFeatures(
 					outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
 					rings = clipPolygon(rings, 0, TILE_EXTENT);
 				} else {
-					rings = rings.flatMap((line) => clipLine(line, 0, TILE_EXTENT));
+					const parts = rings.flatMap((line) =>
+						clipLineMeasured(line, 0, TILE_EXTENT, MAX_LINE_DISTANCE),
+					);
+					rings = parts.map(({ points }) => points);
+					if (pixelsPerUnit !== undefined) {
+						lineStarts = parts.map(({ start }) => start * pixelsPerUnit);
+					}
 				}
 			}
 			const geometry = project(type, rings);
@@ -109,6 +127,7 @@ function addTileFeatures(
 					type,
 					geometry,
 					outline,
+					lineStarts,
 					id: featureSrc.id,
 					properties: featureSrc.properties,
 				});
@@ -142,6 +161,8 @@ interface TileProjection {
 	 * horizon clipping, which relies on the polygon's interior always lying right of its rings.
 	 */
 	clipToTile: boolean;
+	/** Pixels per tile unit, where that is the same all over the tile: not on the globe. */
+	pixelsPerUnit?: number;
 	/** Converts geometry in tile coordinates (0..TILE_EXTENT) to screen pixels. */
 	project: (
 		type: 'LineString' | 'Point' | 'Polygon',
@@ -199,6 +220,7 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 			y,
 			z: zoomLevel,
 			clipToTile: true,
+			pixelsPerUnit: scale,
 			project: (_type, rings) =>
 				rings.map((ring) =>
 					ring.map((point) => {

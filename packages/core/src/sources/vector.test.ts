@@ -107,6 +107,44 @@ describe('loadVectorSource', () => {
 		expect(layerFeatures.size).toBe(0);
 	});
 
+	test('measures where a line clipped to its tile starts, in pixels', async () => {
+		vi.mocked(getTile).mockResolvedValueOnce({
+			buffer: new ArrayBuffer(0),
+			contentType: 'application/x-protobuf',
+		});
+		setMockLayers({
+			roads: [
+				{
+					type: 2, // LineString
+					geometry: [
+						[
+							{ x: -800, y: 2048 },
+							{ x: 2048, y: 2048 },
+						],
+						[
+							{ x: 1024, y: 1024 },
+							{ x: 2048, y: 1024 },
+						],
+					],
+					properties: {},
+					id: 1,
+				},
+			],
+		});
+
+		const layerFeatures: LayerFeatures = new Map();
+		await loadVectorSource(
+			{ type: 'vector', tiles: ['https://example.com/{z}/{x}/{y}.pbf'] },
+			makeJob(),
+			layerFeatures,
+		);
+
+		// The tile is 512 pixels wide: 800 of its 4096 units are 100 pixels.
+		const [line] = layerFeatures.get('roads')!.linestrings;
+		expect(line!.geometry).toHaveLength(2);
+		expect(line!.lineStarts).toEqual([100, 0]);
+	});
+
 	test('loads point features from vector tile', async () => {
 		vi.mocked(getTile).mockResolvedValueOnce({
 			buffer: new ArrayBuffer(0),

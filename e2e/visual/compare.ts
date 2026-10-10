@@ -26,21 +26,26 @@ export type MetricName = keyof Metrics;
 export const METRICS: MetricName[] = ['svg', 'png', 'drift'];
 
 /**
- * pixelmatch's per-pixel color tolerance (YIQ distance, 0..1). Its default of 0.1 is too
- * lenient for vector maps: it rates a missing light background (e.g. rgb(248,244,240)
- * vs. white) as identical, since that distance corresponds to a threshold of ~0.04.
- * Raster imagery keeps the default: the browser and MapLibre resample images slightly
- * differently, so a stricter threshold there only measures resampling noise.
+ * pixelmatch's per-pixel color tolerance (OKLab HyAB distance, 0..1; 1 is black vs. white).
+ * Its default of 0.1 is too lenient for vector maps: it rates a missing light background
+ * (e.g. rgb(248,244,240) vs. white) as identical, since that distance corresponds to a
+ * threshold of ~0.04. Raster imagery stays near the default: the browser and MapLibre
+ * resample images slightly differently, so a stricter threshold there only measures
+ * resampling noise.
+ *
+ * The values are those of pixelmatch 7 (0.03 and 0.1 in its YIQ metric), re-tuned so that
+ * pixelmatch 8 measures the same screenshots about as before.
  */
 const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
-	vector: 0.03,
-	geojson: 0.03,
-	features: 0.03,
-	symbols: 0.03,
-	sources: 0.03,
-	patterns: 0.03,
-	anchors: 0.03,
-	satellite: 0.1,
+	vector: 0.035,
+	geojson: 0.035,
+	features: 0.035,
+	symbols: 0.035,
+	sources: 0.035,
+	patterns: 0.035,
+	dashes: 0.035,
+	anchors: 0.035,
+	satellite: 0.11,
 };
 
 /** A region's metrics, and for a grid scene each cell's, by the cell's title. */

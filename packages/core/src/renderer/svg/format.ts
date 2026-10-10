@@ -71,6 +71,11 @@ export function formatScaled(v: number): string {
 	return formatNum(Math.round(v * 10));
 }
 
+/** How far into its dash pattern a line starts, in hundredths of a pixel. */
+export function formatDash(v: number): string {
+	return (Math.round(v * 100) / 100).toString();
+}
+
 export function formatUnit(v: number): string {
 	return (Math.round(v * 100000) / 100000).toString();
 }

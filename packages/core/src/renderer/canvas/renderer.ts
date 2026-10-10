@@ -3,6 +3,8 @@ import type { ClipCircle, Feature } from '../../geo/index.js';
 import { Color } from '../color.js';
 import {
 	chainSegments,
+	closingLength,
+	dashOffset,
 	iconQuads,
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
@@ -290,7 +292,23 @@ export class CanvasRenderer implements Renderer {
 				ctx.lineCap = style.cap;
 				ctx.lineJoin = style.join;
 				ctx.miterLimit = style.miterLimit;
-				if (style.dasharray) ctx.setLineDash(style.dasharray.map((v) => v * style.width));
+				const { dash } = style;
+				if (dash) {
+					// Every part has its dashes where MapLibre draws them: from the start of the
+					// line in its tile, and a ring from the start of its closing segment.
+					ctx.setLineDash(dash.lengths);
+					segments.forEach((segment, i) => {
+						ctx.lineDashOffset = dashOffset(dash, feature.lineStarts?.[i] ?? 0);
+						this.#trace(ctx, [segment], false);
+						ctx.stroke();
+					});
+					lines.closed.forEach((ring, i) => {
+						ctx.lineDashOffset = dashOffset(dash, closingLength(ring));
+						this.#trace(ctx, [rings[i]!], true);
+						ctx.stroke();
+					});
+					return;
+				}
 				if (translucent) {
 					for (const segment of segments) {
 						this.#trace(ctx, [segment], false);

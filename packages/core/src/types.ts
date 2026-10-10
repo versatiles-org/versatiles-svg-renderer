@@ -1,5 +1,6 @@
 import type { Color as MaplibreColor, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { ClipCircle, Feature, Padding, Projection, RasterTriangle } from './geo/index.js';
+import type { LineDash } from './layout/index.js';
 
 export interface View {
 	center: [number, number];
@@ -157,14 +158,15 @@ export interface LineStyle {
 	blur: number;
 	cap: 'butt' | 'round' | 'square';
 	color: MaplibreColor;
-	dasharray?: number[];
+	/** `line-dasharray`, in pixels (see `dashPattern`). */
+	dash?: LineDash;
 	join: 'bevel' | 'miter' | 'round';
 	miterLimit: number;
 	offset: number;
 	opacity: number;
 	translate: [number, number];
 	width: number;
-	/** `line-pattern`: drawn instead of `color` and `dasharray`. */
+	/** `line-pattern`: drawn instead of `color` and `dash`. */
 	pattern?: LinePattern;
 }
 

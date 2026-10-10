@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { clipLine, clipPolygon, clipPolygonOutline, exceedsSquare } from './clip.js';
+import {
+	clipLine,
+	clipLineMeasured,
+	clipPolygon,
+	clipPolygonOutline,
+	exceedsSquare,
+} from './clip.js';
 
 const xy = (points: [number, number][]): { x: number; y: number }[] =>
 	points.map(([x, y]) => ({ x, y }));
@@ -171,5 +177,59 @@ describe('clipLine', () => {
 				10,
 			),
 		).toEqual([]);
+	});
+});
+
+describe('clipLineMeasured', () => {
+	test('measures where each part starts along the line', () => {
+		const parts = clipLineMeasured(
+			xy([
+				[-4, 2],
+				[12, 2],
+				[12, 6],
+				[2, 6],
+			]),
+			0,
+			10,
+		);
+		expect(plain(parts.map(({ points }) => points))).toEqual([
+			[
+				[0, 2],
+				[10, 2],
+			],
+			[
+				[10, 6],
+				[2, 6],
+			],
+		]);
+		// 4 before the square; then 16 + 4 + 2 to where the line comes back.
+		expect(parts.map(({ start }) => start)).toEqual([4, 22]);
+	});
+
+	test('starts a line inside of the square at zero', () => {
+		const [part] = clipLineMeasured(
+			xy([
+				[1, 1],
+				[9, 1],
+			]),
+			0,
+			10,
+		);
+		expect(part!.start).toBe(0);
+	});
+
+	test('measures again from zero at a vertex further along than `resetAfter`', () => {
+		const parts = clipLineMeasured(
+			xy([
+				[-30, 5],
+				[-10, 5],
+				[20, 5],
+			]),
+			0,
+			10,
+			15,
+		);
+		// The distance is 20 at the second vertex, so it is measured from there again.
+		expect(parts.map(({ start }) => start)).toEqual([10]);
 	});
 });

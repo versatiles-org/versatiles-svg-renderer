@@ -323,9 +323,53 @@ describe('CanvasRenderer', () => {
 		test('applies stroke-dasharray', async () => {
 			const r = makeRenderer();
 			await r.drawLineStrings('line-test', [
-				[horizontal(), lineStyle({ width: 4, dasharray: [4, 2] })],
+				[horizontal(), lineStyle({ width: 4, dash: { lengths: [16, 8], offset: 0 } })],
 			]);
 			expect(runsAlongRow(r, 128, 256)).toBeGreaterThan(5);
+		});
+
+		test('starts the dashes of a line where it starts in its tile', async () => {
+			const dash = { lengths: [20, 20], offset: 0 };
+			const line = (lineStarts?: number[]): Feature =>
+				new Feature({
+					type: 'LineString',
+					properties: {},
+					lineStarts,
+					geometry: [[new Point2D(0, 128), new Point2D(256, 128)]],
+				});
+			const whole = makeRenderer();
+			await whole.drawLineStrings('line-test', [[line(), lineStyle({ width: 4, dash })]]);
+			expect(at(whole, 10, 128)[3]).toBe(255);
+			expect(at(whole, 30, 128)[3]).toBe(0);
+			// Clipped 20 pixels into the line: it starts with the gap.
+			const clipped = makeRenderer();
+			await clipped.drawLineStrings('line-test', [[line([20]), lineStyle({ width: 4, dash })]]);
+			expect(at(clipped, 10, 128)[3]).toBe(0);
+			expect(at(clipped, 30, 128)[3]).toBe(255);
+		});
+
+		test('starts the dashes of a ring at its last vertex', async () => {
+			const r = makeRenderer();
+			const ring = new Feature({
+				type: 'Polygon',
+				properties: {},
+				geometry: [
+					[
+						new Point2D(50, 50),
+						new Point2D(200, 50),
+						new Point2D(200, 200),
+						new Point2D(50, 200),
+						new Point2D(50, 50),
+					],
+				],
+			});
+			// The closing segment is 150 long: the first vertex is 150 into the pattern, 50
+			// before the dash that starts at 200.
+			await r.drawLineStrings('line-test', [
+				[ring, lineStyle({ width: 4, dash: { lengths: [100, 100], offset: 0 } })],
+			]);
+			expect(at(r, 75, 50)[3]).toBe(0);
+			expect(at(r, 125, 50)[3]).toBe(255);
 		});
 
 		test('line-cap square extends past the endpoint, butt does not', async () => {

@@ -1,6 +1,6 @@
 import type { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
 import { Feature as LayerFeature, Point2D } from '../../geo/index.js';
-import { patternPeriod } from '../../layout/index.js';
+import { dashPattern, patternPeriod } from '../../layout/index.js';
 import type { LineStyle, Renderer } from '../../types.js';
 import { gapBands } from './line_gap.js';
 import {
@@ -24,16 +24,27 @@ export async function renderLineLayer(layer: Layer): Promise<void> {
 	if (lineStringFeatures.length === 0) return;
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
-	// A pattern is scaled to the line's width at the zoom level's integer part, as in MapLibre.
+	// A pattern and the dashes are scaled to the line's width at the zoom level's integer
+	// part, as in MapLibre.
 	const { zoom } = layer.job.view;
-	const atFloorZoom = layer.layerStyle.usesPattern
-		? evaluateLayer(layer, Math.floor(zoom))
-		: undefined;
+	const atFloorZoom =
+		layer.layerStyle.usesPattern || getPaint('line-dasharray') !== undefined
+			? evaluateLayer(layer, Math.floor(zoom))
+			: undefined;
 	const sorted = sortByKey(lineStringFeatures, (feature) => getLayout('line-sort-key', feature));
 	const styled = sorted.flatMap((feature): Parameters<Renderer['drawLineStrings']>[1] => {
 		const found = resolvePattern(layer, getPaint('line-pattern', feature));
 		// A pattern whose image is not in the sprite draws nothing, as in MapLibre.
 		if (found === null) return [];
+		const width = getPaint('line-width', feature) as number;
+		const floorWidth =
+			(atFloorZoom?.getPaint('line-width', feature) as number | undefined) ?? width;
+		const dash = dashPattern(
+			getPaint('line-dasharray', feature) as number[] | undefined,
+			floorWidth,
+			zoom,
+		);
+		const cap = getLayout('line-cap', feature) as 'butt' | 'round' | 'square';
 		const style: LineStyle = {
 			blur: getPaint('line-blur', feature) as number,
 			color: getPaint('line-color', feature) as MaplibreColor,
@@ -42,18 +53,18 @@ export async function renderLineLayer(layer: Layer): Promise<void> {
 				getPaint('line-translate', feature),
 				getPaint('line-translate-anchor', feature),
 			),
-			cap: getLayout('line-cap', feature) as 'butt' | 'round' | 'square',
-			dasharray: getPaint('line-dasharray', feature) as number[] | undefined,
+			// MapLibre's dashes end flat unless the caps are round: with square caps, an SVG or
+			// a canvas would lengthen every dash. (That leaves out the caps at the line's ends.)
+			cap: dash && cap === 'square' ? 'butt' : cap,
+			dash,
 			join: getLayout('line-join', feature) as 'bevel' | 'miter' | 'round',
 			miterLimit: getLayout('line-miter-limit', feature) as number,
 			offset: getPaint('line-offset', feature) as number,
 			opacity: getPaint('line-opacity', feature) as number,
-			width: getPaint('line-width', feature) as number,
+			width,
 		};
 		if (found) {
 			const { sprite } = found;
-			const floorWidth =
-				(atFloorZoom?.getPaint('line-width', feature) as number | undefined) ?? style.width;
 			style.pattern = {
 				name: found.name,
 				sprite,

@@ -2,6 +2,8 @@ import type { ClipCircle, Feature, RasterTriangle } from '../../geo/index.js';
 import { Color } from '../color.js';
 import {
 	chainSegments,
+	closingLength,
+	dashOffset,
 	iconQuads,
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
@@ -17,6 +19,7 @@ import {
 	formatNum,
 	formatPoint,
 	formatScale,
+	formatDash,
 	formatScaled,
 	formatUnit,
 	opacityAttr,
@@ -221,6 +224,8 @@ export class SVGRenderer {
 			rings: Segment[];
 			attrs: string;
 			separate: boolean;
+			/** Dashed lines are not chained: every part has its dashes from its own start. */
+			dashed?: boolean;
 			/** A line drawn with a pattern, as it is. */
 			patterned?: string;
 		}[] = [];
@@ -243,9 +248,9 @@ export class SVGRenderer {
 					? ''
 					: ` transform="translate(${formatPoint(style.translate)})"`;
 			const roundedWidth = formatScaled(style.width);
-			const dasharrayStr = style.dasharray
-				? style.dasharray.map((v) => formatScaled(v * style.width)).join(',')
-				: '';
+			const { dash } = style;
+			// The lengths are written precisely: what is rounded off adds up along the line.
+			const dasharrayStr = dash ? dash.lengths.map(formatUnit).join(',') : '';
 			// MapLibre's line-blur fades the line as the blur approaches its width
 			// (the feather eats into the opaque core). A Gaussian conserves total ink,
 			// so approximate that fade with an extra opacity factor; it tends to 1 for
@@ -271,36 +276,57 @@ export class SVGRenderer {
 			].join('\0');
 
 			const translucent = effectiveOpacity < 1 || color.alpha < 255;
-			if (translucent || key !== currentKey) {
-				const attrs = [
-					'fill="none"',
-					strokeAttr(color, roundedWidth),
-					`stroke-linecap="${style.cap}"`,
-					`stroke-linejoin="${style.join}"`,
-					`stroke-miterlimit="${String(style.miterLimit)}"`,
-				];
-				if (dasharrayStr) attrs.push(`stroke-dasharray="${dasharrayStr}"`);
-				groups.push({
-					segments: [],
-					rings: [],
-					attrs: attrs.join(' ') + translate + opacityAttr + filterAttr,
-					separate: translucent,
-				});
-				currentKey = translucent ? undefined : key;
-			}
-			const group = groups[groups.length - 1]!;
+			// The group of paths with these attributes; `dashOffsetStr` is how far into the dash
+			// pattern they start.
+			const groupFor = (dashOffsetStr: string): (typeof groups)[number] => {
+				const groupKey = key + '\0' + dashOffsetStr;
+				if (translucent || groupKey !== currentKey) {
+					const attrs = [
+						'fill="none"',
+						strokeAttr(color, roundedWidth),
+						`stroke-linecap="${style.cap}"`,
+						`stroke-linejoin="${style.join}"`,
+						`stroke-miterlimit="${String(style.miterLimit)}"`,
+					];
+					if (dasharrayStr) attrs.push(`stroke-dasharray="${dasharrayStr}"`);
+					if (dashOffsetStr !== '0') attrs.push(`stroke-dashoffset="${dashOffsetStr}"`);
+					groups.push({
+						segments: [],
+						rings: [],
+						attrs: attrs.join(' ') + translate + opacityAttr + filterAttr,
+						separate: translucent,
+						dashed: dash !== undefined,
+					});
+					currentKey = translucent ? undefined : groupKey;
+				}
+				return groups[groups.length - 1]!;
+			};
 
 			const { open, closed } = strokeLines(
 				feature.geometry,
 				feature.type === 'Polygon',
 				style.offset,
 			);
+			if (dash) {
+				// Every part has its dashes where MapLibre draws them: from the start of the line
+				// in its tile, and a ring from the start of its closing segment.
+				open.forEach((line, i) => {
+					const offset = formatDash(dashOffset(dash, feature.lineStarts?.[i] ?? 0));
+					groupFor(offset).segments.push(line.map((p) => roundXY(p.x, p.y)));
+				});
+				for (const ring of closed) {
+					const offset = formatDash(dashOffset(dash, closingLength(ring)));
+					groupFor(offset).rings.push(ring.map((p) => roundXY(p.x, p.y)));
+				}
+				return;
+			}
+			const group = groupFor('0');
 			for (const line of open) group.segments.push(line.map((p) => roundXY(p.x, p.y)));
 			for (const ring of closed) group.rings.push(ring.map((p) => roundXY(p.x, p.y)));
 		});
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const { segments, rings, attrs, separate, patterned } of groups) {
+		for (const { segments, rings, attrs, separate, dashed, patterned } of groups) {
 			if (patterned) {
 				this.#svg.push(patterned);
 				continue;
@@ -314,7 +340,7 @@ export class SVGRenderer {
 				}
 				continue;
 			}
-			const chains = chainSegments(segments);
+			const chains = dashed ? segments : chainSegments(segments);
 			const d = segmentsToPath(chains) + segmentsToPath(rings, true);
 			this.#svg.push(`<path d="${d}" ${attrs} />`);
 		}

@@ -9,6 +9,7 @@ import { cells as featureCells, featuresStyle } from './scenes/features.js';
 import { geojsonStyle } from './scenes/geojson.js';
 import type { Cell } from './scenes/grid.js';
 import { anchorsStyle, cells as anchorCells } from './scenes/anchors.js';
+import { cells as dashCells, dashesStyle } from './scenes/dashes.js';
 import { cells as patternCells, patternsStyle } from './scenes/patterns.js';
 import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
@@ -69,6 +70,8 @@ async function buildStyle(
 			return sourcesStyle();
 		case 'patterns':
 			return patternsStyle();
+		case 'dashes':
+			return dashesStyle();
 		case 'anchors':
 			return anchorsStyle();
 	}
@@ -80,6 +83,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'symbols') return symbolCells;
 	if (name === 'sources') return sourceCells;
 	if (name === 'patterns') return patternCells;
+	if (name === 'dashes') return dashCells;
 	if (name === 'anchors') return anchorCells;
 	return undefined;
 }

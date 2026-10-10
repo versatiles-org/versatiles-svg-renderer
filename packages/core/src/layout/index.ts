@@ -10,5 +10,6 @@ export {
 	type TextBaseline,
 } from './anchors.js';
 export { fitIconToText, iconQuads, quadsBox, type IconQuad } from './icon_quads.js';
+export { closingLength, dashOffset, dashPattern, type LineDash } from './line_dash.js';
 export { linePatternStrips, patternPeriod, type PatternStrip } from './line_pattern.js';
 export { chainSegments, offsetSegmentPoints, strokeLines, type Segment } from './segments.js';

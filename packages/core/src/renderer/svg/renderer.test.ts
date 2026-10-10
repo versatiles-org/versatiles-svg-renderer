@@ -489,6 +489,68 @@ describe('SVGRenderer', () => {
 			expect(paths[1]).not.toMatch(/z"$/);
 		});
 
+		test('draws dashes in pixels, every part from where it starts in its tile', () => {
+			const style: LineStyle = {
+				blur: 0,
+				cap: 'butt',
+				color: mc('#000000'),
+				dash: { lengths: [3, 1.5], offset: 0 },
+				join: 'miter',
+				miterLimit: 2,
+				offset: 0,
+				opacity: 1,
+				translate: [0, 0],
+				width: 2,
+			};
+			// Two parts that share an endpoint: the second starts 10 pixels into its line.
+			const feature = new Feature({
+				type: 'LineString',
+				properties: {},
+				lineStarts: [0, 10],
+				geometry: [
+					[new Point2D(0, 0), new Point2D(20, 0)],
+					[new Point2D(20, 0), new Point2D(40, 0)],
+				],
+			});
+			const r = makeRenderer();
+			r.drawLineStrings('dashed', [[feature, style]]);
+			const paths = r.getString().match(/<path [^>]*>/g)!;
+			// Not chained to one line, and the second 10 mod 4.5 = 1 into the pattern.
+			expect(paths).toHaveLength(2);
+			expect(paths[0]).toContain('stroke-dasharray="3,1.5"');
+			expect(paths[0]).not.toContain('stroke-dashoffset');
+			expect(paths[1]).toContain('stroke-dasharray="3,1.5"');
+			expect(paths[1]).toContain('stroke-dashoffset="1"');
+		});
+
+		test('starts the dashes of a ring at its last vertex', () => {
+			const ring = new Feature({
+				type: 'Polygon',
+				properties: {},
+				geometry: [[new Point2D(0, 0), new Point2D(40, 0), new Point2D(40, 30), new Point2D(0, 0)]],
+			});
+			const r = makeRenderer();
+			r.drawLineStrings('dashed', [
+				[
+					ring,
+					{
+						blur: 0,
+						cap: 'butt',
+						color: mc('#000000'),
+						dash: { lengths: [20, 20], offset: 0 },
+						join: 'miter',
+						miterLimit: 2,
+						offset: 0,
+						opacity: 1,
+						translate: [0, 0],
+						width: 2,
+					},
+				],
+			]);
+			// The closing segment is 50 long: 50 mod 40.
+			expect(r.getString()).toContain('stroke-dashoffset="10"');
+		});
+
 		test('generates path elements with stroke attributes', () => {
 			const r = makeRenderer();
 			const feature = makeLineFeature([

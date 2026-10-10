@@ -19,17 +19,17 @@ helpers), then `plugin/`, then `visual/`.
 
 In `visual/`:
 
-| File                 | What it does                                                                                                                                                                                                               |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                                                                                             |
-| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                 |
-| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                                                                                        |
-| `scenes/`            | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts`, `symbols.ts`, `sources.ts`, `patterns.ts` and `anchors.ts`, built with `grid.ts`; `test-sprite.ts` and `test-image.ts` are fixtures. |
-| `capture.ts`         | Renders a region three ways.                                                                                                                                                                                               |
-| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                                                                                           |
-| `report.ts`          | Writes the HTML report.                                                                                                                                                                                                    |
-| `output.ts`          | The image size and the output folders.                                                                                                                                                                                     |
-| `diff-baseline.json` | The blessed metrics per region.                                                                                                                                                                                            |
+| File                 | What it does                                                                                                                                                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                                                                                                          |
+| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                              |
+| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                                                                                                     |
+| `scenes/`            | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts`, `symbols.ts`, `sources.ts`, `patterns.ts`, `dashes.ts` and `anchors.ts`, built with `grid.ts`; `test-sprite.ts` and `test-image.ts` are fixtures. |
+| `capture.ts`         | Renders a region three ways.                                                                                                                                                                                                            |
+| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                                                                                                        |
+| `report.ts`          | Writes the HTML report.                                                                                                                                                                                                                 |
+| `output.ts`          | The image size and the output folders.                                                                                                                                                                                                  |
+| `diff-baseline.json` | The blessed metrics per region.                                                                                                                                                                                                         |
 
 The request cache (`.cache/`) and the generated screenshots, diffs and report (`output/`)
 stay in this folder, gitignored.
@@ -60,7 +60,9 @@ rectangle, a parallelogram, in perspective, strongly foreshortened, mirrored, tr
 GeoJSON sources' `filter`, `promoteId` and `generateId`), `visual/scenes/patterns.ts`
 (`line-pattern` along straight lines, turns, round joins, a polygon's outline, a
 zoom-dependent width; a `fill-pattern`), also drawn at zoom 11.5 (`parity-patterns-z11.5`),
-where patterns are scaled with the map, and `visual/scenes/anchors.ts` (labels with
+where patterns are scaled with the map, `visual/scenes/dashes.ts` (`line-dasharray`: short
+dashes on thin lines, caps, turns, a polygon's outline, an odd number of values, a
+zoom-dependent width), also drawn at zoom 11.5 and turned, and `visual/scenes/anchors.ts` (labels with
 variable anchors, moved on by translucent blockers placed first; `text-radial-offset`).
 Each cell is one object: a title, and a function that builds its sources and layers around
 the cell's center. When a renderer gains a feature MapLibre has, give it a cell in a scene

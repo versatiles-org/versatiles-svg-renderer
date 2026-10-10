@@ -104,6 +104,13 @@ export class Feature implements MapLibreFeature {
 	 */
 	public readonly outline?: Geometry;
 
+	/**
+	 * For each line of the geometry, how far along the line in its tile it starts, in pixels
+	 * — where the line was clipped to its tile, which cut off its start. A dash pattern
+	 * starts where the line in the tile does.
+	 */
+	public readonly lineStarts?: number[];
+
 	#bbox: Bbox | undefined;
 
 	public constructor(opt: {
@@ -113,6 +120,7 @@ export class Feature implements MapLibreFeature {
 		patterns?: Patterns;
 		geometry: Geometry;
 		outline?: Geometry;
+		lineStarts?: number[];
 	}) {
 		this.type = opt.type;
 		this.id = opt.id;
@@ -120,6 +128,7 @@ export class Feature implements MapLibreFeature {
 		this.patterns = opt.patterns;
 		this.geometry = opt.geometry;
 		this.outline = opt.outline;
+		this.lineStarts = opt.lineStarts;
 	}
 
 	public getBbox(): Bbox {
