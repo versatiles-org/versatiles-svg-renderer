@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-10
+
 ### Fixed
 
 - **Dashed lines (`line-dasharray`) are where MapLibre GL JS draws them.** Dashes were measured in the line's width at the current zoom, and started anew wherever lines were joined. As in MapLibre, they are now measured in the line's width at the zoom level's integer part, scaled with the map from there up to the fractional zoom, and every line starts its dashes where it starts in its vector tile, a polygon's outline at its last vertex. A dash array with an odd number of values joins its last dash to the first, and dashes end flat unless the caps are round. On the globe, and on GeoJSON lines longer than a tile, the dashes can still start elsewhere than in MapLibre. The VersaTiles styles draw paths and footways with short dashes since `@versatiles/style` 6.2.
