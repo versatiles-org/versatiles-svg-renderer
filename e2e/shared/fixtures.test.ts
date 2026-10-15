@@ -20,6 +20,14 @@ describe('fixtures', () => {
 		expect(made).toBe(1);
 	});
 
+	test('serves part of a fixture for a range request', () => {
+		const url = addFixture('test/range.bin', 'application/octet-stream', Buffer.from('0123456789'));
+		const answer = readFixture(url, 'bytes=2-4')!;
+		expect([answer.status, answer.body.toString()]).toEqual([206, '234']);
+		expect(readFixture(url, 'bytes=8-20')!.body.toString()).toBe('89');
+		expect(readFixture(url)!.status).toBe(200);
+	});
+
 	test('answers 404 for an unknown path under the fixtures, and leaves other URLs alone', () => {
 		expect(readFixture(`${FIXTURES_URL}nothing-here`)?.status).toBe(404);
 		expect(readFixture('https://tiles.versatiles.org/tiles/osm/0/0/0')).toBeUndefined();

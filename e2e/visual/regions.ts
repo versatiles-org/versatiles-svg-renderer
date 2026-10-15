@@ -16,12 +16,14 @@ export interface View {
 /**
  * The styles regions draw (see `getStyle`):
  * - `vector`, `satellite`: the VersaTiles styles;
+ * - `pmtiles`: the VersaTiles vector style, with its tiles read from a PMTiles archive;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`: hand-made
  *   scenes, in `scenes/`.
  */
 export type StyleName =
 	| 'vector'
 	| 'satellite'
+	| 'pmtiles'
 	| 'geojson'
 	| 'features'
 	| 'symbols'
@@ -50,7 +52,7 @@ export interface Region {
 	outlines?: boolean;
 }
 
-const berlin: View = { lon: 13.357, lat: 52.515, zoom: 14.2 };
+export const berlin: View = { lon: 13.357, lat: 52.515, zoom: 14.2 };
 const berlinSatellite: View = { lon: 13.376, lat: 52.518, zoom: 15 };
 const europe: View = { lon: 12, lat: 50, zoom: 3.5 };
 const world: View = { lon: 10, lat: 20, zoom: 2 };
@@ -67,6 +69,8 @@ export const regions: Region[] = [
 	{ id: 'sao-paulo-vector', style: 'vector', view: { lon: -46.635, lat: -23.548, zoom: 14 } },
 
 	{ id: 'berlin-labels-vector', style: 'vector', view: berlin, labels: true },
+	// The same tiles, read from a PMTiles archive: should measure as `berlin-vector` does.
+	{ id: 'berlin-pmtiles-vector', style: 'pmtiles', view: berlin },
 	{
 		id: 'berlin-outlines-vector',
 		style: 'vector',

@@ -17,20 +17,42 @@ interface Fixture {
 
 const fixtures = new Map<string, Fixture>();
 
-/** Adds a fixture at `path` (relative to {@link FIXTURES_URL}). Returns its URL. */
-export function addFixture(path: string, contentType: string, make: () => Buffer): string {
+/**
+ * Adds a fixture at `path` (relative to {@link FIXTURES_URL}), made by `make` or given as
+ * it is. Returns its URL.
+ */
+export function addFixture(
+	path: string,
+	contentType: string,
+	make: (() => Buffer) | Buffer,
+): string {
 	const url = new URL(path, FIXTURES_URL).href;
-	fixtures.set(url, { contentType, make });
+	fixtures.set(
+		url,
+		Buffer.isBuffer(make) ? { contentType, make: () => make, body: make } : { contentType, make },
+	);
 	return url;
 }
 
-/** The answer to a request of `url` if it is under {@link FIXTURES_URL}, else `undefined`. */
+/**
+ * The answer to a request of `url` if it is under {@link FIXTURES_URL}, else `undefined`.
+ * With a `range` header (`bytes=<first>-<last>`, as a PMTiles reader sends it), only that
+ * part of the file.
+ */
 export function readFixture(
 	url: string,
+	range?: string | null,
 ): { status: number; contentType: string; body: Buffer } | undefined {
 	if (!url.startsWith(FIXTURES_URL)) return undefined;
 	const fixture = fixtures.get(url);
 	if (!fixture) return { status: 404, contentType: 'text/plain', body: Buffer.from('not found') };
 	fixture.body ??= fixture.make();
-	return { status: 200, contentType: fixture.contentType, body: fixture.body };
+	const match = range ? /^bytes=(\d+)-(\d+)$/.exec(range) : null;
+	if (!match) return { status: 200, contentType: fixture.contentType, body: fixture.body };
+	const [first, last] = [Number(match[1]), Number(match[2])];
+	return {
+		status: 206,
+		contentType: fixture.contentType,
+		body: fixture.body.subarray(first, last + 1),
+	};
 }

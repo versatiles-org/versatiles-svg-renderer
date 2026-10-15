@@ -15,6 +15,17 @@ const maplibreDistDir = resolve(
 	'dist',
 );
 
+/** The `pmtiles` package's browser build, which defines the global `pmtiles`. */
+const pmtilesScript = resolve(
+	import.meta.dirname,
+	'..',
+	'..',
+	'node_modules',
+	'pmtiles',
+	'dist',
+	'pmtiles.js',
+);
+
 const CONTENT_TYPES: Record<string, string> = {
 	'.mjs': 'text/javascript',
 	'.css': 'text/css',
@@ -60,7 +71,8 @@ function readPatchedMapLibre(file: string): string {
 }
 
 // Serve the host page and the MapLibre dist files from one local origin, and expose the
-// module as `window.maplibregl`. Same-origin matters: MapLibre resolves its worker
+// module as `window.maplibregl`, with the `pmtiles://` protocol registered, as a page
+// showing PMTiles archives does. Same-origin matters: MapLibre resolves its worker
 // relative to `import.meta.url` and starts it as a module worker, which only works when
 // the whole bundle comes from a single http(s) origin.
 //
@@ -83,6 +95,14 @@ export async function installMapLibrePage(
 		});
 	});
 
+	await page.route('http://localhost/pmtiles.js', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'text/javascript',
+			body: readFileSync(pmtilesScript),
+		});
+	});
+
 	await page.route(MAPLIBRE_PAGE_URL, async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -90,8 +110,10 @@ export async function installMapLibrePage(
 			body: `<!DOCTYPE html>
 <html><head>
 <link rel="stylesheet" href="/maplibre/maplibre-gl.css">
+<script src="/pmtiles.js"></script>
 <script type="module">
 import * as maplibregl from '/maplibre/maplibre-gl.mjs';
+maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
 window.maplibregl = maplibregl;
 </script>
 <style>* { margin: 0; padding: 0; } #map { width: ${width}px; height: ${height}px; }</style>

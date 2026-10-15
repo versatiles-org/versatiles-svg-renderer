@@ -106,6 +106,11 @@ Docker volume, and again when `package-lock.json` changes.
 `npm run test:e2e:screenshots` on the host measures differently: macOS draws text and
 edges differently, and some regions move by whole percentage points.
 
+`berlin-pmtiles-vector` draws `berlin-vector` from a PMTiles archive (`pmtiles://…`): the
+tiles around Berlin, written into an archive (`shared/pmtiles-writer.ts`) that is served as
+a fixture, with range requests. MapLibre reads it with the `pmtiles` protocol, which
+`shared/maplibre-page.ts` registers. Both regions should measure the same.
+
 `berlin-outlines-vector` adds line layers on polygons (building and translucent water
 outlines) to the VersaTiles style, which has none.
 

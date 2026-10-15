@@ -4,9 +4,10 @@
 import { resolve } from 'node:path';
 import { inlineSources, osm, satellite } from '@versatiles/style';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import type { Region, StyleName } from './regions.js';
+import { berlin, type Region, type StyleName } from './regions.js';
 import { cells as featureCells, featuresStyle } from './scenes/features.js';
 import { geojsonStyle } from './scenes/geojson.js';
+import { pmtilesStyle } from './scenes/pmtiles.js';
 import type { Cell } from './scenes/grid.js';
 import { anchorsStyle, cells as anchorCells } from './scenes/anchors.js';
 import { cells as dashCells, dashesStyle } from './scenes/dashes.js';
@@ -60,6 +61,9 @@ async function buildStyle(
 		}
 		case 'satellite':
 			return inlineSources(satellite({ projection, osmOverlay: false }));
+		case 'pmtiles':
+			// Berlin's tiles: the archive holds only those around the one region drawing it.
+			return pmtilesStyle(await buildStyle('vector', projection, labels, outlines), berlin);
 		case 'geojson':
 			return geojsonStyle();
 		case 'features':

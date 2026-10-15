@@ -218,7 +218,7 @@ function renderView(region: Region) {
 async function installPageCache(page: Page): Promise<void> {
 	await page.route('**/*', async (route) => {
 		const url = route.request().url();
-		const fixture = readFixture(url);
+		const fixture = readFixture(url, await route.request().headerValue('range'));
 		if (fixture) {
 			await route.fulfill(fixture);
 			return;

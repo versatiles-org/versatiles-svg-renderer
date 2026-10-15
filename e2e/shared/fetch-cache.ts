@@ -39,7 +39,7 @@ function cachedFetch(input: string | URL | Request, init?: RequestInit): Promise
 	const url =
 		typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
-	const fixture = readFixture(url);
+	const fixture = readFixture(url, new Headers(init?.headers).get('range'));
 	if (fixture) {
 		return Promise.resolve(
 			new Response(new Uint8Array(fixture.body), {
