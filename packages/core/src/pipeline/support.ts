@@ -2,7 +2,7 @@
  * Which parts of a style the renderer draws, and warnings about the parts it does not, so
  * that a gap of the renderer is not mistaken for a bug of the style.
  */
-import { compileSourceFilter } from '../sources/index.js';
+import { compileSourceFilter, isPMTilesUrl } from '../sources/index.js';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 /**
@@ -218,9 +218,11 @@ export function checkSources(sources: StyleSpecification['sources']): string[] {
 		if (spec.type === 'image') continue;
 		if (!Array.isArray(spec.tiles)) {
 			warnings.push(
-				typeof spec.url === 'string'
-					? `Source "${name}": the TileJSON document could not be loaded from ${spec.url}; the source is empty.`
-					: `Source "${name}": it has neither "tiles" nor "url"; the source is empty.`,
+				typeof spec.url !== 'string'
+					? `Source "${name}": it has neither "tiles" nor "url"; the source is empty.`
+					: isPMTilesUrl(spec.url)
+						? `Source "${name}": the PMTiles archive could not be loaded from ${spec.url.slice('pmtiles://'.length)}; the source is empty.`
+						: `Source "${name}": the TileJSON document could not be loaded from ${spec.url}; the source is empty.`,
 			);
 		}
 	}

@@ -7,6 +7,7 @@ import {
 	type GlyphRange,
 	loadGlyphRange,
 	loadSpriteAtlas,
+	PMTilesProtocol,
 	resolveSources,
 	type TileLoader,
 } from '../sources/index.js';
@@ -37,8 +38,9 @@ export interface RenderContext {
 /** A context without any caching, for rendering a single view. */
 export function createRenderContext(
 	style: StyleSpecification,
-	fetchFn: FetchFunction = defaultFetch,
+	baseFetch: FetchFunction = defaultFetch,
 ): RenderContext {
+	const fetchFn = new PMTilesProtocol(baseFetch).fetch;
 	return {
 		layers: getLayerStyles(style.layers, getGlobalState(style)),
 		getSprite: () => loadSpriteAtlas(style, fetchFn),

@@ -9,6 +9,7 @@ import {
 	type GlyphRange,
 	loadGlyphRange,
 	loadSprite,
+	PMTilesProtocol,
 	resolveSources,
 	TileCache,
 	toFetchFunction,
@@ -25,7 +26,9 @@ export interface SVGMapRendererOptions {
 	 * (`url: '.../tiles.json'`), which is fetched once, like the sprite, with
 	 * {@link SVGMapRendererOptions.fetch}. As in MapLibre GL JS, `tiles`, `minzoom`,
 	 * `maxzoom` and the like come from the document unless the style sets them, and
-	 * relative tile URLs are resolved against the document's URL. A GeoJSON source's `data`
+	 * relative tile URLs are resolved against the document's URL. A PMTiles archive
+	 * (`url: 'pmtiles://https://.../tiles.pmtiles'`) is read as with the `pmtiles` protocol in
+	 * MapLibre GL JS, which needs no setup here. A GeoJSON source's `data`
 	 * may be a URL too. A source whose TileJSON or GeoJSON cannot be loaded is left out, and
 	 * the next render tries again.
 	 */
@@ -227,6 +230,7 @@ export class SVGMapRenderer {
 	readonly #labels: LabelMode;
 	readonly #context: RenderContext;
 	readonly #tiles: TileCache;
+	readonly #pmtiles: PMTilesProtocol;
 	readonly #fetch: FetchFunction;
 	#sprite: Promise<SpriteAtlas> | undefined;
 	#sources: Promise<StyleSpecification['sources']> | undefined;
@@ -253,7 +257,8 @@ export class SVGMapRenderer {
 			labels = 'text';
 		}
 		this.#labels = labels;
-		this.#fetch = toFetchFunction(options.fetch);
+		this.#pmtiles = new PMTilesProtocol(toFetchFunction(options.fetch));
+		this.#fetch = this.#pmtiles.fetch;
 		this.#tiles = new TileCache(options.tileCacheSize ?? DEFAULT_TILE_CACHE_SIZE, this.#fetch);
 		this.#context = {
 			layers: getLayerStyles(
@@ -283,11 +288,12 @@ export class SVGMapRenderer {
 	}
 
 	/**
-	 * Forgets the fetched tiles, sprite, TileJSON documents and GeoJSON data, so the next render fetches them again, e.g.
+	 * Forgets the fetched tiles, sprite, TileJSON documents, PMTiles directories and GeoJSON data, so the next render fetches them again, e.g.
 	 * after they were updated on the server, or to free their memory.
 	 */
 	public clearCache(): void {
 		this.#tiles.clear();
+		this.#pmtiles.clear();
 		this.#sprite = undefined;
 		this.#sources = undefined;
 		this.#glyphRanges.clear();

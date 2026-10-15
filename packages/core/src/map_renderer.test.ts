@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from 'geojson';
 import { SVGMapRenderer, viewSize } from './map_renderer.js';
 import { renderToSVG } from './render_svg.js';
 import { glyphFile } from './sources/__fixtures__/glyphs.js';
+import type { FetchFunction } from './sources/index.js';
 
 const SPRITE_URL = 'https://example.com/sprite';
 const TILE_URL = 'https://example.com/tiles/{z}/{x}/{y}.png';
@@ -597,6 +599,85 @@ describe('SVGMapRenderer', () => {
 		const map = new SVGMapRenderer({ style: makeStyle() });
 		await expect(map.renderSVG({ width: 0 })).rejects.toThrow('width must be positive');
 		await expect(map.renderSVG({ height: -1 })).rejects.toThrow('height must be positive');
+	});
+});
+
+describe('SVGMapRenderer with a PMTiles source', () => {
+	/** An archive of one square (10°–20° E, 10°–20° N) in layer "square", zoom levels 0–2. */
+	const ARCHIVE = readFileSync(new URL('./sources/__fixtures__/square.pmtiles', import.meta.url));
+	const ARCHIVE_URL = 'https://example.com/square.pmtiles';
+	const VIEW = { width: 256, height: 256, lon: 15, lat: 15, zoom: 2 };
+
+	function pmtilesStyle(): StyleSpecification {
+		return {
+			version: 8,
+			sources: { square: { type: 'vector', url: `pmtiles://${ARCHIVE_URL}` } },
+			layers: [
+				{
+					id: 'square',
+					type: 'fill',
+					source: 'square',
+					'source-layer': 'square',
+					paint: { 'fill-color': '#ff0000' },
+				},
+			],
+		};
+	}
+
+	/** Serves {@link ARCHIVE} with range requests, or fails with `status`. */
+	function serveArchive(status?: number): Mock<FetchFunction> {
+		return vi.fn<FetchFunction>((url, init) => {
+			if (status !== undefined || url !== ARCHIVE_URL) {
+				return Promise.resolve(new Response(null, { status: status ?? 404 }));
+			}
+			const [start, end] = /^bytes=(\d+)-(\d+)$/
+				.exec(init?.headers?.Range ?? '')!
+				.slice(1)
+				.map(Number) as [number, number];
+			return Promise.resolve(new Response(ARCHIVE.subarray(start, end + 1), { status: 206 }));
+		});
+	}
+
+	function headerReads(fetchFn: Mock<FetchFunction>): number {
+		return fetchFn.mock.calls.filter(([, init]) => init?.headers?.Range?.startsWith('bytes=0-'))
+			.length;
+	}
+
+	test('draws the tiles of the archive', async () => {
+		const svg = await new SVGMapRenderer({
+			style: pmtilesStyle(),
+			fetch: serveArchive(),
+		}).renderSVG(VIEW);
+		expect(svg).toContain('fill="#FF0000"');
+	});
+
+	test('draws it with renderToSVG, too', async () => {
+		const svg = await renderToSVG({ style: pmtilesStyle(), fetch: serveArchive(), ...VIEW });
+		expect(svg).toContain('fill="#FF0000"');
+	});
+
+	test('reads the header of the archive once, until clearCache', async () => {
+		const fetchFn = serveArchive();
+		const map = new SVGMapRenderer({ style: pmtilesStyle(), fetch: fetchFn });
+		await Promise.all([map.renderSVG(VIEW), map.renderSVG({ ...VIEW, zoom: 1 })]);
+		expect(headerReads(fetchFn)).toBe(1);
+		map.clearCache();
+		await map.renderSVG(VIEW);
+		expect(headerReads(fetchFn)).toBe(2);
+	});
+
+	test('reports an archive that could not be loaded, and loads it next time', async () => {
+		const fetchFn = serveArchive(500);
+		const onWarning = vi.fn();
+		const map = new SVGMapRenderer({ style: pmtilesStyle(), fetch: fetchFn, onWarning });
+		expect(await map.renderSVG(VIEW)).not.toContain('fill="#FF0000"');
+		expect(onWarning.mock.calls).toEqual([
+			[
+				`Source "square": the PMTiles archive could not be loaded from ${ARCHIVE_URL}; the source is empty.`,
+			],
+		]);
+		fetchFn.mockImplementation(serveArchive());
+		expect(await map.renderSVG(VIEW)).toContain('fill="#FF0000"');
 	});
 });
 

@@ -201,6 +201,16 @@ describe('checkSources', () => {
 		]);
 	});
 
+	test('reports a PMTiles archive that was not loaded', () => {
+		expect(
+			checkSources({
+				p: { type: 'vector', url: 'pmtiles://https://a/tiles.pmtiles' },
+			}),
+		).toEqual([
+			'Source "p": the PMTiles archive could not be loaded from https://a/tiles.pmtiles; the source is empty.',
+		]);
+	});
+
 	test('reports GeoJSON data that was not loaded', () => {
 		expect(
 			checkSources({
