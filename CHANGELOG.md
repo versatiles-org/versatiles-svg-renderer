@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-15
+
+### Added
+
+- **PMTiles sources.** A source whose `url` is a PMTiles archive (`pmtiles://https://…/tiles.pmtiles`) rendered as an empty map. The renderers now read the archive the way the `pmtiles` protocol does in MapLibre GL JS, and need no setup for it. Tile type, zoom levels and bounds come from the archive's header, and only the parts needed are loaded, with HTTP range requests through the `fetch` option. Each `SVGMapRenderer` or `PNGMapRenderer` keeps the archive's header and directories until `clearCache()`. If an archive cannot be loaded, its source stays empty, `onWarning` reports it, and the next render tries again. ([#63](https://github.com/versatiles-org/versatiles-svg-renderer/issues/63))
+- **MLT vector tiles.** Vector sources with `encoding: "mlt"` (MapLibre Tiles) were decoded as MVT. They are now decoded as MLT, as in MapLibre GL JS. A PMTiles archive of MLT tiles sets this encoding itself. ([#63](https://github.com/versatiles-org/versatiles-svg-renderer/issues/63))
+- **Request headers for the `fetch` option.** A `FetchFunction` was called with the URL only. To read part of a PMTiles archive, it is now also called with a second argument, `{ headers: { Range: 'bytes=…' } }`, which it should pass on. For all other requests it still gets the URL only. The new type `FetchRequestInit` is exported. ([#63](https://github.com/versatiles-org/versatiles-svg-renderer/issues/63))
+
+### Changed
+
+- **`@versatiles/png-renderer` requires `@napi-rs/canvas` 1.0.11.** The package depended on `@napi-rs/canvas` `^1.0.10`; it now depends on `^1.0.11`.
+
+### Fixed
+
+- **Vector tiles with an extent other than 4096.** Geometry was always read as if the tile layer's extent were 4096, so layers with another `extent` were drawn at the wrong size. As in MapLibre GL JS, coordinates are now scaled by the extent of their layer.
+
 ## [2.3.0] - 2026-10-10
 
 ### Fixed
