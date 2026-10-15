@@ -26,7 +26,8 @@ export function isPMTilesUrl(url: string): boolean {
  * answers like a tile server, so the renderer loads them as any other source:
  *
  * - `pmtiles://<archive URL>` is the archive's TileJSON document: its tiles, zoom levels
- *   and bounds, from the archive's header.
+ *   and bounds, from the archive's header. For an archive of MLT tiles also
+ *   `encoding: "mlt"`, which MapLibre GL JS needs set in the style.
  * - `pmtiles://<archive URL>/<z>/<x>/<y>` is a tile; one the archive does not have is a 404.
  *
  * Every other URL goes to the wrapped `fetch`, which also reads the archives, with HTTP
@@ -61,6 +62,7 @@ export class PMTilesProtocol {
 			minzoom: header.minZoom,
 			maxzoom: header.maxZoom,
 			bounds: [header.minLon, header.minLat, header.maxLon, header.maxLat],
+			...(header.tileType === TileType.Mlt ? { encoding: 'mlt' } : {}),
 		});
 	}
 

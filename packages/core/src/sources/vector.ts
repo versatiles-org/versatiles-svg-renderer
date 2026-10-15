@@ -10,6 +10,7 @@ import {
 	exceedsSquare,
 	type XY,
 } from './clip.js';
+import { decodeMLT, type TileLayer } from './mlt.js';
 
 const TILE_EXTENT = 4096;
 /**
@@ -26,6 +27,8 @@ interface VectorSourceSpec {
 	maxzoom?: number;
 	scheme?: string;
 	bounds?: number[];
+	/** How the tiles are encoded: `"mvt"` (the default) or `"mlt"`. */
+	encoding?: string;
 }
 
 export async function loadVectorSource(
@@ -48,20 +51,29 @@ export async function loadVectorSource(
 	);
 	projections.forEach((projection, i) => {
 		const tile = loaded[i];
-		if (tile) addTileFeatures(tile.buffer, projection, layerFeatures, width, height);
+		if (!tile) return;
+		const layers = decodeVectorTile(tile.buffer, source.encoding);
+		addTileFeatures(layers, projection, layerFeatures, width, height);
 	});
 }
 
-/** Decodes one vector tile and adds its features, projected to the screen. */
+/** The layers of a vector tile, decoded as MVT or, with `encoding: "mlt"`, as MLT. */
+function decodeVectorTile(buffer: ArrayBuffer, encoding?: string): Record<string, TileLayer> {
+	if (encoding === 'mlt') return decodeMLT(buffer);
+	return new VectorTile(new PbfReader(buffer)).layers;
+}
+
+/** Adds the features of one vector tile's layers, projected to the screen. */
 function addTileFeatures(
-	buffer: ArrayBuffer,
+	layers: Record<string, TileLayer>,
 	{ project, clipToTile, pixelsPerUnit }: TileProjection,
 	layerFeatures: LayerFeatures,
 	width: number,
 	height: number,
 ): void {
-	const vectorTile = new VectorTile(new PbfReader(buffer));
-	for (const [name, layer] of Object.entries(vectorTile.layers)) {
+	for (const [name, layer] of Object.entries(layers)) {
+		// Geometry is in units of the layer's extent, which MapLibre scales to its own.
+		const scale = layer.extent > 0 ? TILE_EXTENT / layer.extent : 1;
 		let features = layerFeatures.get(name);
 		if (!features) {
 			features = { points: [], linestrings: [], polygons: [], polygonOutlines: [] };
@@ -90,6 +102,8 @@ function addTileFeatures(
 			}
 
 			let rings: XY[][] = featureSrc.loadGeometry();
+			if (scale !== 1)
+				rings = rings.map((ring) => ring.map((p) => ({ x: p.x * scale, y: p.y * scale })));
 			let outline: Point2D[][] | undefined;
 			let lineStarts: number[] | undefined;
 			// Clip polygons and lines to the tile, like MapLibre's stencil clipping: otherwise

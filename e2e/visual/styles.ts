@@ -64,6 +64,8 @@ async function buildStyle(
 		case 'pmtiles':
 			// Berlin's tiles: the archive holds only those around the one region drawing it.
 			return pmtilesStyle(await buildStyle('vector', projection, labels, outlines), berlin);
+		case 'mlt':
+			return pmtilesStyle(await buildStyle('vector', projection, labels, outlines), berlin, 'mlt');
 		case 'geojson':
 			return geojsonStyle();
 		case 'features':

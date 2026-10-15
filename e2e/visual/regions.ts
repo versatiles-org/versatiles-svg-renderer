@@ -16,7 +16,8 @@ export interface View {
 /**
  * The styles regions draw (see `getStyle`):
  * - `vector`, `satellite`: the VersaTiles styles;
- * - `pmtiles`: the VersaTiles vector style, with its tiles read from a PMTiles archive;
+ * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
+ *   archive, as they are or converted to MLT;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`: hand-made
  *   scenes, in `scenes/`.
  */
@@ -24,6 +25,7 @@ export type StyleName =
 	| 'vector'
 	| 'satellite'
 	| 'pmtiles'
+	| 'mlt'
 	| 'geojson'
 	| 'features'
 	| 'symbols'
@@ -71,6 +73,8 @@ export const regions: Region[] = [
 	{ id: 'berlin-labels-vector', style: 'vector', view: berlin, labels: true },
 	// The same tiles, read from a PMTiles archive: should measure as `berlin-vector` does.
 	{ id: 'berlin-pmtiles-vector', style: 'pmtiles', view: berlin },
+	// And converted to MLT: also the same as `berlin-vector`.
+	{ id: 'berlin-mlt-vector', style: 'mlt', view: berlin },
 	{
 		id: 'berlin-outlines-vector',
 		style: 'vector',

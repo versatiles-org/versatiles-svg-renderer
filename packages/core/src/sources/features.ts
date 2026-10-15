@@ -26,7 +26,12 @@ export async function getLayerFeatures(
 				sourceFeatures.set(sourceName, layerFeatures);
 				loadPromises.push(
 					loadVectorSource(
-						source as unknown as { type: 'vector'; tiles?: string[]; maxzoom?: number },
+						source as unknown as {
+							type: 'vector';
+							tiles?: string[];
+							maxzoom?: number;
+							encoding?: string;
+						},
 						job,
 						layerFeatures,
 						loadTile,

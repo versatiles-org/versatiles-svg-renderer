@@ -16,13 +16,13 @@ const HEADER_LENGTH = 127;
 /** A reader fetches the header and the root directory in one request of this many bytes. */
 const FIRST_REQUEST_LENGTH = 16384;
 const COMPRESSION_NONE = 1;
-const TILE_TYPE_MVT = 1;
+const TILE_TYPES = { mvt: 1, mlt: 6 } as const;
 
 /**
- * An archive of `tiles`, uncompressed vector tiles. Its zoom levels and bounds are those of
- * the tiles, as a reader passes them on to the map.
+ * An archive of `tiles`, uncompressed vector tiles encoded as `encoding`. Its zoom levels
+ * and bounds are those of the tiles, as a reader passes them on to the map.
  */
-export function writePMTiles(tiles: ArchiveTile[]): Buffer {
+export function writePMTiles(tiles: ArchiveTile[], encoding: 'mvt' | 'mlt' = 'mvt'): Buffer {
 	if (tiles.length === 0) throw new Error('An archive needs at least one tile');
 	const entries = tiles
 		.map((tile) => ({ tile, tileId: zxyToTileId(tile.z, tile.x, tile.y) }))
@@ -70,7 +70,7 @@ export function writePMTiles(tiles: ArchiveTile[]): Buffer {
 	header.writeUInt8(1, 96); // clustered: the tiles are in the order of their IDs
 	header.writeUInt8(COMPRESSION_NONE, 97);
 	header.writeUInt8(COMPRESSION_NONE, 98);
-	header.writeUInt8(TILE_TYPE_MVT, 99);
+	header.writeUInt8(TILE_TYPES[encoding], 99);
 	header.writeUInt8(minZoom, 100);
 	header.writeUInt8(maxZoom, 101);
 	header.writeInt32LE(Math.round(west * 1e7), 102);

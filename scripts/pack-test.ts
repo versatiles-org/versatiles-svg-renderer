@@ -445,7 +445,8 @@ try {
 		);
 
 		check('the UMD bundle sets the VersaTilesSVG global', () => {
-			const context: Record<string, unknown> = {};
+			// A bare global, but with what every browser has and the decoders use when loaded.
+			const context: Record<string, unknown> = { TextDecoder, TextEncoder };
 			context.self = context;
 			context.globalThis = context;
 			createContext(context);

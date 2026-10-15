@@ -39,6 +39,7 @@ export const METRICS: MetricName[] = ['svg', 'png', 'drift'];
 const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	vector: 0.035,
 	pmtiles: 0.035,
+	mlt: 0.035,
 	geojson: 0.035,
 	features: 0.035,
 	symbols: 0.035,

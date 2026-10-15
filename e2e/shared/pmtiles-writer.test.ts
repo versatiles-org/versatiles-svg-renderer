@@ -53,6 +53,11 @@ describe('writePMTiles', () => {
 		expect(await archive.getMetadata()).toEqual({});
 	});
 
+	test('writes the tile type of MLT tiles', async () => {
+		const mlt = new PMTiles(new BufferSource(writePMTiles(tiles, 'mlt')));
+		expect((await mlt.getHeader()).tileType).toBe(6);
+	});
+
 	test('refuses to write an empty archive', () => {
 		expect(() => writePMTiles([])).toThrow();
 	});

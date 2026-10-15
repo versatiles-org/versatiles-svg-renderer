@@ -42,6 +42,20 @@ describe('PMTilesProtocol', () => {
 		});
 	});
 
+	test('gives an archive of MLT tiles the encoding "mlt"', async () => {
+		const mltArchive = Buffer.from(ARCHIVE);
+		mltArchive.writeUInt8(6, 99); // the header's tile type: MLT
+		const protocol = new PMTilesProtocol((_url, init) => {
+			const [start, end] = /^bytes=(\d+)-(\d+)$/
+				.exec(init!.headers!.Range!)!
+				.slice(1)
+				.map(Number) as [number, number];
+			return Promise.resolve(new Response(mltArchive.subarray(start, end + 1), { status: 206 }));
+		});
+		const tileJSON = await (await protocol.fetch(`pmtiles://${ARCHIVE_URL}`)).json();
+		expect(tileJSON).toMatchObject({ encoding: 'mlt' });
+	});
+
 	test('reads the archive with range requests', async () => {
 		const fetchFn = serveArchive();
 		await new PMTilesProtocol(fetchFn).fetch(`pmtiles://${ARCHIVE_URL}`);

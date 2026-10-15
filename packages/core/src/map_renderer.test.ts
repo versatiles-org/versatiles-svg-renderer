@@ -5,7 +5,10 @@ import type { Feature } from 'geojson';
 import { SVGMapRenderer, viewSize } from './map_renderer.js';
 import { renderToSVG } from './render_svg.js';
 import { glyphFile } from './sources/__fixtures__/glyphs.js';
-import type { FetchFunction } from './sources/index.js';
+import { type FetchFunction, PMTilesProtocol } from './sources/index.js';
+import { VectorTile } from '@mapbox/vector-tile';
+import { encodeTile, type FeatureInput as MLTFeature, type Layer as MLTLayer } from '@maplibre/mlt';
+import { PbfReader } from 'pbf';
 
 const SPRITE_URL = 'https://example.com/sprite';
 const TILE_URL = 'https://example.com/tiles/{z}/{x}/{y}.png';
@@ -602,6 +605,33 @@ describe('SVGMapRenderer', () => {
 	});
 });
 
+/**
+ * An MVT converted to MLT, with its geometry scaled to `extent`. Enough for the fixtures: a
+ * polygon's rings all belong to one polygon.
+ */
+function mvtToMLT(buffer: ArrayBuffer, extent: number): Uint8Array {
+	const layers: MLTLayer[] = Object.values(new VectorTile(new PbfReader(buffer)).layers).map(
+		(layer) => {
+			const scale = extent / layer.extent;
+			const features = Array.from({ length: layer.length }, (_, i): MLTFeature => {
+				const feature = layer.feature(i);
+				const rings = feature
+					.loadGeometry()
+					.map((ring) => ring.map(({ x, y }): [number, number] => [x * scale, y * scale]));
+				const geometry: MLTFeature['geometry'] =
+					feature.type === 1
+						? { type: 'MultiPoint', coordinates: rings.flat() }
+						: feature.type === 2
+							? { type: 'MultiLineString', coordinates: rings }
+							: { type: 'Polygon', coordinates: rings.map((ring) => ring.slice(0, -1)) };
+				return { id: feature.id, geometry, properties: feature.properties };
+			});
+			return { name: layer.name, extent, features };
+		},
+	);
+	return encodeTile(layers);
+}
+
 describe('SVGMapRenderer with a PMTiles source', () => {
 	/** An archive of one square (10°–20° E, 10°–20° N) in layer "square", zoom levels 0–2. */
 	const ARCHIVE = readFileSync(new URL('./sources/__fixtures__/square.pmtiles', import.meta.url));
@@ -650,6 +680,41 @@ describe('SVGMapRenderer with a PMTiles source', () => {
 		}).renderSVG(VIEW);
 		expect(svg).toContain('fill="#FF0000"');
 	});
+
+	/**
+	 * A fetch serving the archive's tiles at `https://example.com/mlt/{z}/{x}/{y}`, converted
+	 * to MLT with layers of `extent`.
+	 */
+	function serveMLT(extent: number): FetchFunction {
+		const archive = new PMTilesProtocol(serveArchive());
+		return async (url) => {
+			const match = /^https:\/\/example\.com\/mlt\/(\d+\/\d+\/\d+)$/.exec(url);
+			const response = await archive.fetch(`pmtiles://${ARCHIVE_URL}/${match?.[1] ?? 'none'}`);
+			if (!response.ok) return new Response(null, { status: 404 });
+			const mlt = mvtToMLT(await response.arrayBuffer(), extent);
+			return new Response(new Uint8Array(mlt));
+		};
+	}
+
+	test.each([4096, 8192])(
+		'draws MLT tiles (extent %i) like the MVT tiles they were made from',
+		async (extent) => {
+			const expected = await new SVGMapRenderer({
+				style: pmtilesStyle(),
+				fetch: serveArchive(),
+			}).renderSVG(VIEW);
+			const style = pmtilesStyle();
+			style.sources.square = {
+				type: 'vector',
+				tiles: ['https://example.com/mlt/{z}/{x}/{y}'],
+				maxzoom: 2,
+				encoding: 'mlt',
+			};
+			const svg = await new SVGMapRenderer({ style, fetch: serveMLT(extent) }).renderSVG(VIEW);
+			expect(svg).toContain('fill="#FF0000"');
+			expect(svg).toBe(expected);
+		},
+	);
 
 	test('draws it with renderToSVG, too', async () => {
 		const svg = await renderToSVG({ style: pmtilesStyle(), fetch: serveArchive(), ...VIEW });
