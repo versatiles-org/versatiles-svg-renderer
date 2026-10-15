@@ -12,4 +12,4 @@ export {
 export type { GlobalState } from './pipeline/style_layer.js';
 export { renderToSVG, type RenderToSVGOptions } from './render_svg.js';
 export { CanvasRenderer } from './renderer/canvas/index.js';
-export type { FetchFunction, FetchResponse } from './sources/index.js';
+export type { FetchFunction, FetchRequestInit, FetchResponse } from './sources/index.js';

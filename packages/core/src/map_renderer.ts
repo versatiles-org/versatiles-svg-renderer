@@ -72,6 +72,9 @@ export interface SVGMapRendererOptions {
 	 * Loads tiles, sprites, TileJSON documents and GeoJSON data, like `fetch`, which is the default. Pass your own to send
 	 * headers, go through a proxy, or keep tiles in a cache on disk.
 	 *
+	 * It is called with the URL only, except to read part of a file, a PMTiles archive: then
+	 * also with `{ headers: { Range: 'bytes=…' } }`, which it should pass on.
+	 *
 	 * It must return a real `Response`, and its status matters: a 404 or 204 means the
 	 * server has no such tile, which is remembered (see {@link SVGMapRendererOptions.tileCacheSize}); any other
 	 * error status, or a rejected promise, counts as failed, and the next render tries

@@ -14,6 +14,13 @@ describe('defaultFetch', () => {
 		expect(await defaultFetch('https://example.com/a')).toBe(response);
 		expect(globalThis.fetch).toHaveBeenCalledWith('https://example.com/a');
 	});
+
+	test('passes request headers on', async () => {
+		globalThis.fetch = vi.fn(() => Promise.resolve(new Response('ok')));
+		const init = { headers: { Range: 'bytes=0-9' } };
+		await defaultFetch('https://example.com/a', init);
+		expect(globalThis.fetch).toHaveBeenCalledWith('https://example.com/a', init);
+	});
 });
 
 describe('toFetchFunction', () => {
@@ -30,5 +37,14 @@ describe('toFetchFunction', () => {
 		const holder = { fetch: toFetchFunction(fn) };
 		await holder.fetch('https://example.com/a');
 		expect(seen).toEqual([undefined]);
+	});
+
+	test('passes request headers on, and calls with the URL only without them', async () => {
+		const fn = vi.fn(() => Promise.resolve(new Response('ok')));
+		const fetchFn = toFetchFunction(fn);
+		await fetchFn('https://example.com/a');
+		const init = { headers: { Range: 'bytes=0-9' } };
+		await fetchFn('https://example.com/b', init);
+		expect(fn.mock.calls).toEqual([['https://example.com/a'], ['https://example.com/b', init]]);
 	});
 });

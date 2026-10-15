@@ -3,7 +3,13 @@
  * folder imports it from here.
  */
 export { getLayerFeatures } from './features.js';
-export { defaultFetch, toFetchFunction, type FetchFunction, type FetchResponse } from './fetch.js';
+export {
+	defaultFetch,
+	toFetchFunction,
+	type FetchFunction,
+	type FetchRequestInit,
+	type FetchResponse,
+} from './fetch.js';
 export { compileSourceFilter } from './geojson.js';
 export {
 	GLYPH_BORDER,

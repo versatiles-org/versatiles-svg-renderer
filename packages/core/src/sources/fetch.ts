@@ -12,13 +12,23 @@ export interface FetchResponse {
 }
 
 /**
- * Loads a URL, like `fetch`: the renderer loads tiles, sprites, TileJSON documents and GeoJSON data through it. It is called
- * with the URL only, and should resolve to a `Response`.
+ * The part of `fetch`'s `RequestInit` the renderer passes. It sends request headers only
+ * to read part of a file: a `Range` header for a PMTiles archive.
  */
-export type FetchFunction = (url: string) => Promise<FetchResponse>;
+export interface FetchRequestInit {
+	headers?: Record<string, string>;
+}
+
+/**
+ * Loads a URL, like `fetch`: the renderer loads tiles, sprites, TileJSON documents and GeoJSON data through it. It is called
+ * with the URL, and for part of a file with request headers as well, and should resolve to
+ * a `Response`.
+ */
+export type FetchFunction = (url: string, init?: FetchRequestInit) => Promise<FetchResponse>;
 
 /** The global `fetch`, looked up on every call, so that replacing it later takes effect. */
-export const defaultFetch: FetchFunction = (url) => globalThis.fetch(url);
+export const defaultFetch: FetchFunction = (url, init) =>
+	init ? globalThis.fetch(url, init) : globalThis.fetch(url);
 
 /**
  * `fn` in a form that is safe to store and pass around: it is always called as a plain
@@ -26,5 +36,5 @@ export const defaultFetch: FetchFunction = (url) => globalThis.fetch(url);
  * invocation".
  */
 export function toFetchFunction(fn: FetchFunction | undefined): FetchFunction {
-	return fn ? (url) => fn(url) : defaultFetch;
+	return fn ? (url, init) => (init ? fn(url, init) : fn(url)) : defaultFetch;
 }

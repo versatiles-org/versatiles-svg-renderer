@@ -10,6 +10,7 @@ export {
 	renderToSVG,
 	SVGMapRenderer,
 	type FetchFunction,
+	type FetchRequestInit,
 	type FetchResponse,
 	type GlobalState,
 	type RenderToSVGOptions,
