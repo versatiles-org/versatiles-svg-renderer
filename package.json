@@ -58,7 +58,7 @@
     "@types/pbf": "^3.0.5",
     "@types/pngjs": "^6.0.5",
     "@versatiles/release-tool": "^2.20.0",
-    "@versatiles/style": "^7.0.0",
+    "@versatiles/style": "^7.0.1",
     "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.12.0",
     "geojson": "^0.5.0",
