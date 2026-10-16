@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-10-16
+
+### Fixed
+
+- **No seams between tiles in opaque fills at fractional zoom levels.** Where a polygon continues into the next vector tile, each tile's part was clipped exactly at the tile border. At fractional zoom levels that border falls in the middle of a pixel, so each fill only partly covered that pixel and was antialiased there. What lay below showed through as a faint line along the tile border, for example where land polygons are stacked over a sea polygon on a dark background. MapLibre GL JS draws no such line. Opaque fills are now clipped a little past the tile, out to the next whole pixel, so they overlap their continuation in the next tile and leave no seam, in both SVG and PNG output. Translucent fills and fills with a pattern are still clipped at the tile border, so the overlap is not drawn twice. Maps turned by a bearing and maps on the globe keep the old clipping. ([#63](https://github.com/versatiles-org/versatiles-svg-renderer/issues/63))
+
 ## [2.4.0] - 2026-10-15
 
 ### Added
