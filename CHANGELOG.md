@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-10-16
+
+### Changed
+
+fix: upgrade versatiles-style fo v7.0.1
+
 ## [2.4.1] - 2026-10-16
 
 ### Fixed
