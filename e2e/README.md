@@ -19,17 +19,17 @@ helpers), then `plugin/`, then `visual/`.
 
 In `visual/`:
 
-| File                 | What it does                                                                                                                                                                                                                            |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                                                                                                          |
-| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                              |
-| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                                                                                                     |
-| `scenes/`            | Hand-made styles: `geojson.ts`, and the grids of single-feature checks `features.ts`, `symbols.ts`, `sources.ts`, `patterns.ts`, `dashes.ts` and `anchors.ts`, built with `grid.ts`; `test-sprite.ts` and `test-image.ts` are fixtures. |
-| `capture.ts`         | Renders a region three ways.                                                                                                                                                                                                            |
-| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                                                                                                        |
-| `report.ts`          | Writes the HTML report.                                                                                                                                                                                                                 |
-| `output.ts`          | The image size and the output folders.                                                                                                                                                                                                  |
-| `diff-baseline.json` | The blessed metrics per region.                                                                                                                                                                                                         |
+| File                 | What it does                                                                                                                                                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run.ts`             | The run: selects regions, renders, measures, prints one line per region, writes the report, and blesses the baseline or fails.                                                                                                                      |
+| `regions.ts`         | The regions under test: each an `id` (its key in `diff-baseline.json`), the style it draws and its `view`.                                                                                                                                          |
+| `styles.ts`          | `getStyle()`, the style of a region, and the fonts the styles name.                                                                                                                                                                                 |
+| `scenes/`            | Hand-made styles: `geojson.ts`, `seams.ts`, and the grids of single-feature checks `features.ts`, `symbols.ts`, `sources.ts`, `patterns.ts`, `dashes.ts` and `anchors.ts`, built with `grid.ts`; `test-sprite.ts` and `test-image.ts` are fixtures. |
+| `capture.ts`         | Renders a region three ways.                                                                                                                                                                                                                        |
+| `compare.ts`         | Measures the diffs, per region and per cell of a grid scene (`cells.ts`), and grades them against the baseline (with its tests).                                                                                                                    |
+| `report.ts`          | Writes the HTML report.                                                                                                                                                                                                                             |
+| `output.ts`          | The image size and the output folders.                                                                                                                                                                                                              |
+| `diff-baseline.json` | The blessed metrics per region.                                                                                                                                                                                                                     |
 
 The request cache (`.cache/`) and the generated screenshots, diffs and report (`output/`)
 stay in this folder, gitignored.
@@ -110,6 +110,11 @@ edges differently, and some regions move by whole percentage points.
 tiles around Berlin, written into an archive (`shared/pmtiles-writer.ts`) that is served as
 a fixture, with range requests. MapLibre reads it with the `pmtiles` protocol, which
 `shared/maplibre-page.ts` registers. Both regions should measure the same.
+
+`parity-tile-seams` (`visual/scenes/seams.ts`) draws vector tiles it writes itself
+(`shared/mvt-writer.ts`): in each, land over sea over all of the tile, on a dark background,
+at a zoom level where the tile borders run through the middle of pixels. MapLibre draws no
+line along the tile borders, and neither may the renderers.
 
 `berlin-outlines-vector` adds line layers on polygons (building and translucent water
 outlines) to the VersaTiles style, which has none.

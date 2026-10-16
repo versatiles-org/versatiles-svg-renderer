@@ -18,8 +18,8 @@ export interface View {
  * - `vector`, `satellite`: the VersaTiles styles;
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
- * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`: hand-made
- *   scenes, in `scenes/`.
+ * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`:
+ *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
 	| 'vector'
@@ -32,7 +32,8 @@ export type StyleName =
 	| 'sources'
 	| 'patterns'
 	| 'dashes'
-	| 'anchors';
+	| 'anchors'
+	| 'seams';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -139,6 +140,9 @@ export const regions: Region[] = [
 	// So are dashes.
 	{ id: 'parity-dashes', style: 'dashes', view: scene },
 	{ id: 'parity-dashes-z11.5', style: 'dashes', view: { ...scene, zoom: 11.5 } },
+	// Polygons going on from tile to tile, at a zoom level where the tile borders run through
+	// the middle of pixels: no line may show along them.
+	{ id: 'parity-tile-seams', style: 'seams', view: { lon: 0.01, lat: 0.007, zoom: 12.5 } },
 
 	// Globe projection: a full globe at low zoom, a high latitude (the globe is scaled by
 	// 1/cos(lat)) and the globe->mercator transition between zoom 11 and 12.

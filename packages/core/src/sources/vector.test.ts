@@ -289,6 +289,69 @@ describe('loadVectorSource', () => {
 		expect(line[0]!.y).not.toBeCloseTo(line[3]!.y);
 	});
 
+	describe('the geometry of opaque fills', () => {
+		/** A polygon covering the tile and reaching 200 units into its buffer on every side. */
+		function setTileCoveringPolygon(): void {
+			vi.mocked(getTile).mockResolvedValueOnce({
+				buffer: new ArrayBuffer(0),
+				contentType: 'application/x-protobuf',
+			});
+			setMockLayers({
+				land: [
+					{
+						type: 3,
+						geometry: [
+							[
+								{ x: -200, y: -200 },
+								{ x: 4296, y: -200 },
+								{ x: 4296, y: 4296 },
+								{ x: -200, y: 4296 },
+								{ x: -200, y: -200 },
+							],
+						],
+						properties: {},
+					},
+				],
+			});
+		}
+
+		function bounds(rings: { x: number; y: number }[][]): number[] {
+			const points = rings.flat();
+			const xs = points.map((p) => p.x);
+			const ys = points.map((p) => p.y);
+			return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+		}
+
+		test('reaches beyond the tile to the next whole pixel', async () => {
+			setTileCoveringPolygon();
+			const layerFeatures: LayerFeatures = new Map();
+			// An image of 511 pixels puts the 512 pixel tile from -0.5 to 511.5.
+			await loadVectorSource(
+				{ type: 'vector', tiles: ['https://example.com/{z}/{x}/{y}.pbf'] },
+				makeJob(511, 511),
+				layerFeatures,
+			);
+			const [polygon] = layerFeatures.get('land')!.polygons;
+			expect(bounds(polygon!.geometry)).toEqual([-0.5, -0.5, 511.5, 511.5]);
+			bounds(polygon!.fillGeometry!).forEach((value, i) => {
+				expect(value).toBeCloseTo([-1, -1, 512, 512][i]!, 9);
+			});
+		});
+
+		test('is the polygon itself where the tile ends on whole pixels', async () => {
+			setTileCoveringPolygon();
+			const layerFeatures: LayerFeatures = new Map();
+			await loadVectorSource(
+				{ type: 'vector', tiles: ['https://example.com/{z}/{x}/{y}.pbf'] },
+				makeJob(),
+				layerFeatures,
+			);
+			const [polygon] = layerFeatures.get('land')!.polygons;
+			expect(bounds(polygon!.geometry)).toEqual([0, 0, 512, 512]);
+			expect(polygon!.fillGeometry).toBeUndefined();
+		});
+	});
+
 	test('throws on unknown feature type', async () => {
 		vi.mocked(getTile).mockResolvedValueOnce({
 			buffer: new ArrayBuffer(0),

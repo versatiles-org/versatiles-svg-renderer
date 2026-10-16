@@ -12,9 +12,19 @@ export interface XY {
 	y: number;
 }
 
+/** A rectangle `[minX, minY, maxX, maxY]`. */
+export type Box = [number, number, number, number];
+
 /** Whether any point lies outside of the square [min, max]². */
 export function exceedsSquare(rings: XY[][], min: number, max: number): boolean {
-	return rings.some((ring) => ring.some(({ x, y }) => x < min || x > max || y < min || y > max));
+	return exceedsBox(rings, [min, min, max, max]);
+}
+
+/** Whether any point lies outside of the box. */
+export function exceedsBox(rings: XY[][], [minX, minY, maxX, maxY]: Box): boolean {
+	return rings.some((ring) =>
+		ring.some(({ x, y }) => x < minX || x > maxX || y < minY || y > maxY),
+	);
 }
 
 /**
@@ -22,28 +32,33 @@ export function exceedsSquare(rings: XY[][], min: number, max: number): boolean 
  * vanish are dropped.
  */
 export function clipPolygon(rings: XY[][], min: number, max: number): XY[][] {
+	return clipPolygonToBox(rings, [min, min, max, max]);
+}
+
+/** Clips the rings of a polygon to the box, like `clipPolygon`. */
+export function clipPolygonToBox(rings: XY[][], [minX, minY, maxX, maxY]: Box): XY[][] {
 	const result: XY[][] = [];
 	for (const ring of rings) {
 		let points = ring;
 		points = clipAgainst(
 			points,
-			(p) => p.x >= min,
-			(a, b) => lerpAtX(a, b, min),
+			(p) => p.x >= minX,
+			(a, b) => lerpAtX(a, b, minX),
 		);
 		points = clipAgainst(
 			points,
-			(p) => p.x <= max,
-			(a, b) => lerpAtX(a, b, max),
+			(p) => p.x <= maxX,
+			(a, b) => lerpAtX(a, b, maxX),
 		);
 		points = clipAgainst(
 			points,
-			(p) => p.y >= min,
-			(a, b) => lerpAtY(a, b, min),
+			(p) => p.y >= minY,
+			(a, b) => lerpAtY(a, b, minY),
 		);
 		points = clipAgainst(
 			points,
-			(p) => p.y <= max,
-			(a, b) => lerpAtY(a, b, max),
+			(p) => p.y <= maxY,
+			(a, b) => lerpAtY(a, b, maxY),
 		);
 		if (points.length >= 3) result.push(points);
 	}

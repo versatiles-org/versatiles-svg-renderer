@@ -4,6 +4,8 @@ import {
 	clipLineMeasured,
 	clipPolygon,
 	clipPolygonOutline,
+	clipPolygonToBox,
+	exceedsBox,
 	exceedsSquare,
 } from './clip.js';
 
@@ -89,6 +91,44 @@ describe('clipPolygon', () => {
 			[9, 9],
 		]);
 		expect(plain(clipPolygon([ring], 0, 10))).toEqual(plain([ring]));
+	});
+});
+
+describe('exceedsBox', () => {
+	test('detects points outside of the box', () => {
+		const rings = [
+			xy([
+				[-1, 0],
+				[10, 20],
+			]),
+		];
+		expect(exceedsBox(rings, [-1, 0, 10, 20])).toBe(false);
+		expect(exceedsBox(rings, [0, 0, 10, 20])).toBe(true);
+		expect(exceedsBox(rings, [-1, 0, 10, 19])).toBe(true);
+	});
+});
+
+describe('clipPolygonToBox', () => {
+	test('clips a ring to a box that is no square', () => {
+		const rings = clipPolygonToBox(
+			[
+				xy([
+					[-5, -5],
+					[15, -5],
+					[15, 25],
+					[-5, 25],
+				]),
+			],
+			[-1, 0, 10, 20],
+		);
+		expect(plain(rings)).toEqual([
+			[
+				[-1, 20],
+				[-1, 0],
+				[10, 0],
+				[10, 20],
+			],
+		]);
 	});
 });
 

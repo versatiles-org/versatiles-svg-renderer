@@ -7,7 +7,10 @@ import {
 	clipLineMeasured,
 	clipPolygon,
 	clipPolygonOutline,
+	clipPolygonToBox,
+	exceedsBox,
 	exceedsSquare,
+	type Box,
 	type XY,
 } from './clip.js';
 import { decodeMLT, type TileLayer } from './mlt.js';
@@ -66,7 +69,7 @@ function decodeVectorTile(buffer: ArrayBuffer, encoding?: string): Record<string
 /** Adds the features of one vector tile's layers, projected to the screen. */
 function addTileFeatures(
 	layers: Record<string, TileLayer>,
-	{ project, clipToTile, pixelsPerUnit }: TileProjection,
+	{ project, clipToTile, pixelsPerUnit, fillBox }: TileProjection,
 	layerFeatures: LayerFeatures,
 	width: number,
 	height: number,
@@ -105,12 +108,19 @@ function addTileFeatures(
 			if (scale !== 1)
 				rings = rings.map((ring) => ring.map((p) => ({ x: p.x * scale, y: p.y * scale })));
 			let outline: Point2D[][] | undefined;
+			let fillGeometry: Point2D[][] | undefined;
 			let lineStarts: number[] | undefined;
 			// Clip polygons and lines to the tile, like MapLibre's stencil clipping: otherwise
 			// the parts in the tile buffer are drawn twice, which shows when translucent.
 			if (clipToTile && type !== 'Point' && exceedsSquare(rings, 0, TILE_EXTENT)) {
 				if (type === 'Polygon') {
 					outline = project('LineString', clipPolygonOutline(rings, 0, TILE_EXTENT));
+					if (fillBox) {
+						fillGeometry = project(
+							'Polygon',
+							exceedsBox(rings, fillBox) ? clipPolygonToBox(rings, fillBox) : rings,
+						);
+					}
 					rings = clipPolygon(rings, 0, TILE_EXTENT);
 				} else {
 					const parts = rings.flatMap((line) =>
@@ -141,6 +151,7 @@ function addTileFeatures(
 					type,
 					geometry,
 					outline,
+					fillGeometry,
 					lineStarts,
 					id: featureSrc.id,
 					properties: featureSrc.properties,
@@ -177,6 +188,12 @@ interface TileProjection {
 	clipToTile: boolean;
 	/** Pixels per tile unit, where that is the same all over the tile: not on the globe. */
 	pixelsPerUnit?: number;
+	/**
+	 * Where opaque fills are clipped instead of the tile, in tile units: the tile, widened to
+	 * whole pixels (see `pixelAlignedBox`). Undefined where that is the tile itself, or where
+	 * the tile's borders are no straight lines along the pixel grid.
+	 */
+	fillBox?: Box;
 	/** Converts geometry in tile coordinates (0..TILE_EXTENT) to screen pixels. */
 	project: (
 		type: 'LineString' | 'Point' | 'Polygon',
@@ -229,19 +246,60 @@ function getTileProjections(source: VectorSourceSpec, job: RenderJob): TileProje
 			offsetY + (height - covered.height) / 2,
 		);
 		const scale = tileSize / TILE_EXTENT;
+		const project: TileProjection['project'] = (_type, rings) =>
+			rings.map((ring) =>
+				ring.map((point) => {
+					const p = new Point2D(point.x, point.y).scale(scale).translate(offset);
+					return moved ? moved.fromNorthUp(p.x, p.y) : p;
+				}),
+			);
 		return {
 			x,
 			y,
 			z: zoomLevel,
 			clipToTile: true,
 			pixelsPerUnit: scale,
-			project: (_type, rings) =>
-				rings.map((ring) =>
-					ring.map((point) => {
-						const p = new Point2D(point.x, point.y).scale(scale).translate(offset);
-						return moved ? moved.fromNorthUp(p.x, p.y) : p;
-					}),
-				),
+			fillBox: pixelAlignedBox(project),
+			project,
 		};
 	});
+}
+
+/**
+ * The tile, widened to whole pixels on the screen, in tile units, or undefined where that is
+ * the tile itself, or where the tile is turned on the screen.
+ *
+ * Opaque fills are clipped to this box instead of the tile. Where a polygon goes on in the
+ * next tile, a fill clipped to the tile ends within a pixel: it covers part of the pixel,
+ * and so does every other fill ending there, e.g. a land polygon over a sea polygon, both
+ * covering the whole tile. Each is antialiased, so what is below shows through a little, and
+ * the tile border shows as a faint line. MapLibre fills the inside of a polygon without
+ * antialiasing, so it shows none. Ending on a pixel border, a fill covers each pixel entirely
+ * or not at all; the next tile, drawn later, covers the pixels the two tiles share.
+ */
+function pixelAlignedBox(project: TileProjection['project']): Box | undefined {
+	const [corners] = project('LineString', [
+		[
+			{ x: 0, y: 0 },
+			{ x: TILE_EXTENT, y: 0 },
+			{ x: 0, y: TILE_EXTENT },
+		],
+	]);
+	const [origin, right, down] = corners!;
+	// The tile's x axis must be the screen's, and its y axis the screen's.
+	const epsilon = 1e-6;
+	if (Math.abs(right!.y - origin!.y) > epsilon || Math.abs(down!.x - origin!.x) > epsilon) {
+		return undefined;
+	}
+	const toTile = (screen: number, start: number, end: number): number =>
+		((screen - start) / (end - start)) * TILE_EXTENT;
+	const widen = (start: number, end: number): [number, number] => {
+		const a = toTile(Math.floor(Math.min(start, end)), start, end);
+		const b = toTile(Math.ceil(Math.max(start, end)), start, end);
+		return [Math.min(a, b), Math.max(a, b)];
+	};
+	const [minX, maxX] = widen(origin!.x, right!.x);
+	const [minY, maxY] = widen(origin!.y, down!.y);
+	if (minX === 0 && minY === 0 && maxX === TILE_EXTENT && maxY === TILE_EXTENT) return undefined;
+	return [minX, minY, maxX, maxY];
 }

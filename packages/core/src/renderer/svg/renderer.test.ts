@@ -284,6 +284,49 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('<path d="M10,10H0V0h10" fill="none" stroke="#336699"');
 		});
 
+		test('an opaque color fills a polygon clipped to its tile with its fill geometry', () => {
+			// Clipped at x = 10.5; its fill geometry reaches on to the pixel border at x = 11.
+			const feature = (): Feature =>
+				new Feature({
+					type: 'Polygon',
+					properties: {},
+					geometry: [
+						[new Point2D(0, 0), new Point2D(10.5, 0), new Point2D(10.5, 10), new Point2D(0, 10)],
+					],
+					outline: [
+						[new Point2D(10.5, 10), new Point2D(0, 10), new Point2D(0, 0), new Point2D(10.5, 0)],
+					],
+					fillGeometry: [
+						[new Point2D(0, 0), new Point2D(11, 0), new Point2D(11, 10), new Point2D(0, 10)],
+					],
+				});
+			const fills = (style: FillStyle): string[] => {
+				const r = makeRenderer();
+				r.drawPolygons('fill-test', [[feature(), style]]);
+				return r.getString().match(/<path d="[^"]*" fill="[^"n][^>]*>/g) ?? [];
+			};
+			const style: FillStyle = { color: mc('#336699'), opacity: 1, translate: [0, 0] };
+			expect(fills(style)).toEqual(['<path d="M0,0h11v10H0z" fill="#336699" />']);
+
+			// Drawn twice where the tiles overlap, a translucent fill would show it.
+			expect(fills({ ...style, opacity: 0.5 })[0]).toContain('d="M0,0h10.5v10H0z"');
+			expect(fills({ ...style, color: mc('#336699', 0.5) })[0]).toContain('d="M0,0h10.5v10H0z"');
+			// So would a pattern with translucent pixels.
+			const sprite = {
+				width: 16,
+				height: 8,
+				x: 0,
+				y: 0,
+				pixelRatio: 1,
+				sdf: false,
+				sheetDataUri: 'data:image/png;base64,AAAA',
+				sheetWidth: 16,
+				sheetHeight: 8,
+			};
+			const pattern = { name: 'hatch', sprite, origin: [0, 0] as [number, number] };
+			expect(fills({ ...style, pattern })[0]).toContain('d="M0,0h10.5v10H0z"');
+		});
+
 		test('empty features produce no output', () => {
 			const r = makeRenderer();
 			r.drawPolygons('fill-test', []);

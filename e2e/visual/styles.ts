@@ -8,6 +8,7 @@ import { berlin, type Region, type StyleName } from './regions.js';
 import { cells as featureCells, featuresStyle } from './scenes/features.js';
 import { geojsonStyle } from './scenes/geojson.js';
 import { pmtilesStyle } from './scenes/pmtiles.js';
+import { seamsStyle } from './scenes/seams.js';
 import type { Cell } from './scenes/grid.js';
 import { anchorsStyle, cells as anchorCells } from './scenes/anchors.js';
 import { cells as dashCells, dashesStyle } from './scenes/dashes.js';
@@ -80,6 +81,8 @@ async function buildStyle(
 			return dashesStyle();
 		case 'anchors':
 			return anchorsStyle();
+		case 'seams':
+			return seamsStyle();
 	}
 }
 

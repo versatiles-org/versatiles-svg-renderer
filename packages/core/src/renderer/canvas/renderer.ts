@@ -219,9 +219,13 @@ export class CanvasRenderer implements Renderer {
 					this.#patterns.tile(ctx, pattern, sheet, feature.getBbox());
 				});
 			} else if (color.alpha > 0) {
+				// An opaque color fills a polygon clipped to its tile a little beyond the tile, so
+				// that it overlaps its continuation in the next tile without a seam. What is drawn
+				// twice there must not show: not with a translucent fill, nor with a pattern.
+				const geometry = (translucent ? undefined : feature.fillGeometry) ?? feature.geometry;
 				this.#paint(this.ctx, style.translate, style.opacity, (ctx) => {
 					ctx.fillStyle = color.hex;
-					this.#trace(ctx, toSegments(feature.geometry), true);
+					this.#trace(ctx, toSegments(geometry), true);
 					ctx.fill();
 				});
 			}

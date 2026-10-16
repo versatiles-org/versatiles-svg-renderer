@@ -154,7 +154,14 @@ export class SVGRenderer {
 					currentFillKey = translucent ? undefined : key;
 				}
 				const group = fillGroups[fillGroups.length - 1]!;
-				for (const ring of rings) group.segments.push(ring);
+				// An opaque color fills a polygon clipped to its tile a little beyond the tile, so
+				// that it overlaps its continuation in the next tile without a seam. What is drawn
+				// twice there must not show: not with a translucent fill, nor with a pattern.
+				const fillRings =
+					feature.fillGeometry && !translucent && !patternPaint
+						? feature.fillGeometry.map((ring) => ring.map((p) => roundXY(p.x, p.y)))
+						: rings;
+				for (const ring of fillRings) group.segments.push(ring);
 			}
 
 			// fill-antialias outline, in fill-outline-color or else the fill color. For an

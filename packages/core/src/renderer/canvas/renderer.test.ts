@@ -258,6 +258,68 @@ describe('CanvasRenderer', () => {
 			expect(at(r, 128, 200)[1]).toBe(0); // clipped bottom edge, left bare
 		});
 
+		test('fills tiles of stacked opaque polygons without a seam between them', async () => {
+			// Two tiles meet at x = 100.5, each with sea and land over all of it. Clipped to its
+			// tile, each fill covers half of the pixels at the border, so the sea shows through.
+			const rect = (x0: number, x1: number): Point2D[][] => [
+				[
+					[x0, 0],
+					[x1, 0],
+					[x1, 256],
+					[x0, 256],
+				].map(([x, y]) => new Point2D(x!, y!)),
+			];
+			const tile = (x0: number, x1: number, fill?: [number, number]): Feature =>
+				new Feature({
+					type: 'Polygon',
+					properties: {},
+					geometry: rect(x0, x1),
+					fillGeometry: fill && rect(...fill),
+				});
+			const draw = async (left?: [number, number], right?: [number, number]) => {
+				const r = makeRenderer();
+				const sea = fillStyle({ color: mc('#0000FF') });
+				const land = fillStyle({ color: mc('#00FF00') });
+				await r.drawPolygons('fill-test', [
+					[tile(0, 100.5, left), sea],
+					[tile(0, 100.5, left), land],
+					[tile(100.5, 256, right), sea],
+					[tile(100.5, 256, right), land],
+				]);
+				return r;
+			};
+			expect(at(await draw(), 100, 128)[2]).toBeGreaterThan(20);
+			// Their fill geometry reaches on to whole pixels: x = 101 on the left, 100 on the right.
+			expect(at(await draw([0, 101], [100, 256]), 100, 128)).toEqual([0, 255, 0, 255]);
+		});
+
+		test('a translucent fill does not use the fill geometry', async () => {
+			const feature = new Feature({
+				type: 'Polygon',
+				properties: {},
+				geometry: makePolygonFeature([
+					[
+						[0, 0],
+						[100, 0],
+						[100, 100],
+						[0, 100],
+					],
+				]).geometry,
+				fillGeometry: makePolygonFeature([
+					[
+						[0, 0],
+						[200, 0],
+						[200, 100],
+						[0, 100],
+					],
+				]).geometry,
+			});
+			const r = makeRenderer();
+			await r.drawPolygons('fill-test', [[feature, fillStyle({ opacity: 0.5 })]]);
+			expect(at(r, 50, 50)[3]).toBeGreaterThan(0);
+			expect(at(r, 150, 50)[3]).toBe(0);
+		});
+
 		test('every fill is drawn before any outline', async () => {
 			// MapLibre draws all fills, then all outlines, so a lower feature's border
 			// composites on top of a later overlapping fill.

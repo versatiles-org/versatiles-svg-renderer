@@ -105,6 +105,13 @@ export class Feature implements MapLibreFeature {
 	public readonly outline?: Geometry;
 
 	/**
+	 * The polygon as an opaque fill draws it — when it differs from the polygon's rings, i.e.
+	 * when the polygon was clipped to its tile: clipped a little beyond the tile instead, so
+	 * that it overlaps its continuation in the next tile, and no seam shows between them.
+	 */
+	public readonly fillGeometry?: Geometry;
+
+	/**
 	 * For each line of the geometry, how far along the line in its tile it starts, in pixels
 	 * — where the line was clipped to its tile, which cut off its start. A dash pattern
 	 * starts where the line in the tile does.
@@ -120,6 +127,7 @@ export class Feature implements MapLibreFeature {
 		patterns?: Patterns;
 		geometry: Geometry;
 		outline?: Geometry;
+		fillGeometry?: Geometry;
 		lineStarts?: number[];
 	}) {
 		this.type = opt.type;
@@ -128,6 +136,7 @@ export class Feature implements MapLibreFeature {
 		this.patterns = opt.patterns;
 		this.geometry = opt.geometry;
 		this.outline = opt.outline;
+		this.fillGeometry = opt.fillGeometry;
 		this.lineStarts = opt.lineStarts;
 	}
 
