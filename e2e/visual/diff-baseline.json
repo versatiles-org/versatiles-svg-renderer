@@ -12,7 +12,7 @@
 	"warsaw-vector": {
 		"svg": 1.23,
 		"png": 0.9,
-		"drift": 0.36
+		"drift": 0.35
 	},
 	"tokyo-vector": {
 		"svg": 1.2,
@@ -741,6 +741,21 @@
 	"europe-satellite-globe": {
 		"svg": 0.7,
 		"png": 0.7,
+		"drift": 0
+	},
+	"berlin-pmtiles-vector": {
+		"svg": 1.26,
+		"png": 0.87,
+		"drift": 0.43
+	},
+	"berlin-mlt-vector": {
+		"svg": 1.26,
+		"png": 0.87,
+		"drift": 0.43
+	},
+	"parity-tile-seams": {
+		"svg": 0,
+		"png": 0,
 		"drift": 0
 	}
 }
