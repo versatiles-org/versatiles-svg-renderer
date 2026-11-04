@@ -10,9 +10,9 @@
 		"drift": 0.22
 	},
 	"warsaw-vector": {
-		"svg": 1.23,
-		"png": 0.9,
-		"drift": 0.35
+		"svg": 1.39,
+		"png": 1.04,
+		"drift": 0.4
 	},
 	"tokyo-vector": {
 		"svg": 1.2,
