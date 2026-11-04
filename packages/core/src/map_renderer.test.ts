@@ -132,8 +132,8 @@ describe('SVGMapRenderer', () => {
 	test('renders the same SVG as renderToSVG', async () => {
 		const view = { width: 300, height: 200, lon: 10, lat: 20, zoom: 3 };
 		const style = makeStyle();
-		const map = new SVGMapRenderer({ style, renderLabels: true });
-		const expected = await renderToSVG({ style, renderLabels: true, ...view });
+		const map = new SVGMapRenderer({ style, labels: 'glyphs-text' });
+		const expected = await renderToSVG({ style, labels: 'glyphs-text', ...view });
 		expect(await map.renderSVG(view)).toBe(expected);
 	});
 
@@ -286,6 +286,7 @@ describe('SVGMapRenderer', () => {
 		test('draws them as glyphs with text for the deprecated renderLabels', async () => {
 			const svg = await new SVGMapRenderer({
 				style: labelStyle(),
+				// eslint-disable-next-line @typescript-eslint/no-deprecated -- this test covers the deprecated option
 				renderLabels: true,
 				fetch: glyphFetch(),
 			}).renderSVG({ width: 200, height: 200, zoom: 3 });
@@ -334,7 +335,7 @@ describe('SVGMapRenderer', () => {
 
 	test('fetches the sprite only once for several renders', async () => {
 		const fetchMock = mockFetch();
-		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+		const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 		await map.renderSVG({ zoom: 2 });
 		await map.renderSVG({ zoom: 3 });
 		// @2x JSON and PNG, once.
@@ -343,13 +344,13 @@ describe('SVGMapRenderer', () => {
 
 	test('shares one sprite fetch between concurrent first renders', async () => {
 		const fetchMock = mockFetch();
-		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+		const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 		await Promise.all([map.renderSVG({ zoom: 2 }), map.renderSVG({ zoom: 3 })]);
 		expect(spriteRequests(fetchMock)).toBe(2);
 	});
 
 	test('draws the cached sprite in later renders', async () => {
-		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+		const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 		await map.renderSVG();
 		expect(await map.renderSVG()).toContain('data:image/png;base64,');
 	});
@@ -363,7 +364,7 @@ describe('SVGMapRenderer', () => {
 
 	test('fetches a sprite that failed to load again', async () => {
 		let fetchMock = mockFetch({ spriteFails: true });
-		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+		const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 		await map.renderSVG();
 		// @2x, then 1x: JSON and PNG each.
 		expect(spriteRequests(fetchMock)).toBe(4);
@@ -377,7 +378,7 @@ describe('SVGMapRenderer', () => {
 
 	test('clearCache makes the next render fetch the sprite again', async () => {
 		const fetchMock = mockFetch();
-		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+		const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 		await map.renderSVG();
 		map.clearCache();
 		await map.renderSVG();
@@ -427,12 +428,12 @@ describe('SVGMapRenderer', () => {
 	test('renders GeoJSON data given as a URL like inline data, fetching it once', async () => {
 		const expected = await new SVGMapRenderer({
 			style: makeStyle(),
-			renderLabels: true,
+			labels: 'glyphs-text',
 		}).renderSVG();
 		const fetchMock = mockFetch();
 		const style = makeStyle();
 		style.sources.points = { type: 'geojson', data: GEOJSON_URL };
-		const map = new SVGMapRenderer({ style, renderLabels: true });
+		const map = new SVGMapRenderer({ style, labels: 'glyphs-text' });
 		expect(await map.renderSVG()).toBe(expected);
 		await map.renderSVG();
 		expect(fetchMock.mock.calls.filter(([url]) => url === GEOJSON_URL)).toHaveLength(1);
@@ -521,7 +522,7 @@ describe('SVGMapRenderer', () => {
 	});
 
 	test('concurrent renders at different zooms match sequential ones', async () => {
-		const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+		const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 		const zooms = [1, 5, 9, 13];
 		const sequential: string[] = [];
 		for (const zoom of zooms)
@@ -538,14 +539,14 @@ describe('SVGMapRenderer', () => {
 		test('loads tiles and sprites through the given function only', async () => {
 			forbidGlobalFetch();
 			const fetchFn = fakeFetch();
-			const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true, fetch: fetchFn });
+			const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text', fetch: fetchFn });
 			await map.renderSVG({ zoom: 3 });
 			expect(tileRequests(fetchFn)).toBeGreaterThan(0);
 			expect(spriteRequests(fetchFn)).toBe(2);
 		});
 
 		test('without it, uses the global fetch as it is at render time', async () => {
-			const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true });
+			const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text' });
 			const fetchMock = mockFetch();
 			await map.renderSVG({ zoom: 3 });
 			expect(tileRequests(fetchMock)).toBeGreaterThan(0);
@@ -558,7 +559,7 @@ describe('SVGMapRenderer', () => {
 				if (this !== undefined) throw new TypeError('Illegal invocation');
 				return inner(url);
 			};
-			const map = new SVGMapRenderer({ style: makeStyle(), renderLabels: true, fetch: fetchFn });
+			const map = new SVGMapRenderer({ style: makeStyle(), labels: 'glyphs-text', fetch: fetchFn });
 			await expect(map.renderSVG({ zoom: 3 })).resolves.toMatch(/^<svg/);
 			expect(tileRequests(inner)).toBeGreaterThan(0);
 		});
@@ -592,7 +593,7 @@ describe('SVGMapRenderer', () => {
 		test('is passed on by renderToSVG', async () => {
 			forbidGlobalFetch();
 			const fetchFn = fakeFetch();
-			await renderToSVG({ style: makeStyle(), renderLabels: true, zoom: 3, fetch: fetchFn });
+			await renderToSVG({ style: makeStyle(), labels: 'glyphs-text', zoom: 3, fetch: fetchFn });
 			expect(tileRequests(fetchFn)).toBeGreaterThan(0);
 			expect(spriteRequests(fetchFn)).toBe(2);
 		});

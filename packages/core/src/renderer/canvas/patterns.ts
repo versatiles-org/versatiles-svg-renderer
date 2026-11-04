@@ -149,7 +149,10 @@ export class CanvasPatterns {
 					sprite.width,
 					sprite.height,
 				);
-			fill = this.#ctx.createPattern(image, 'repeat');
+			// Only an unloaded `Image` gives `null`; a canvas never does.
+			const created = this.#ctx.createPattern(image, 'repeat');
+			if (!created) throw new Error(`could not create a canvas pattern of "${pattern.name}"`);
+			fill = created;
 			this.#patterns.set(key, fill);
 		}
 		const scale = (pattern.scale ?? 1) / sprite.pixelRatio;
