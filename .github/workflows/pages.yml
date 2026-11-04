@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,9 +18,18 @@ jobs:
   # resolve it here and hand it to the next job. The version comes from the lockfile
   # rather than package.json because that is what `npm ci` actually installs —
   # package.json only carries a `^` range.
+  #
+  # Pages deploy only from `main`. The `branches` filter above matches the branch name of
+  # the CI run, which a pull request from a fork's `main` also has, so this condition also
+  # requires a push to this repository.
   container-image:
     name: Resolve Playwright image
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.resolve.outputs.image }}
