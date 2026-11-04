@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-04
+
+### Changed
+
+- **`@versatiles/png-renderer` requires `@napi-rs/canvas` 1.1.0.** The package depended on `@napi-rs/canvas` `^1.0.11`; it now depends on `^1.1.0`.
+
 ## [2.4.2] - 2026-10-16
 
 ### Changed
