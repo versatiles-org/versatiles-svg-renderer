@@ -35,9 +35,9 @@
 		"drift": 0.94
 	},
 	"berlin-outlines-vector": {
-		"svg": 1.2,
-		"png": 1.01,
-		"drift": 0.14
+		"svg": 1.07,
+		"png": 0.84,
+		"drift": 0.2
 	},
 	"berlin-rotated-vector": {
 		"svg": 1.14,
@@ -555,7 +555,7 @@
 	"parity-patterns-z11.5": {
 		"svg": 1.01,
 		"png": 0.68,
-		"drift": 0.5,
+		"drift": 0.41,
 		"cells": {
 			"line-pattern": {
 				"svg": 0.25,
@@ -600,7 +600,7 @@
 			"fill-pattern": {
 				"svg": 3.57,
 				"png": 1.88,
-				"drift": 2.79
+				"drift": 2.22
 			}
 		}
 	},
@@ -710,8 +710,8 @@
 	},
 	"world-vector-globe": {
 		"svg": 0.35,
-		"png": 0.63,
-		"drift": 0.26
+		"png": 0.52,
+		"drift": 0.19
 	},
 	"europe-vector-globe": {
 		"svg": 0.22,
