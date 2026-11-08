@@ -113,11 +113,11 @@ jobs:
         id: e2e
         run: npm run test:e2e
 
-      # A failed E2E run skips the Pages workflow, which publishes the report otherwise:
-      # keep the screenshots and diffs, to see what differs.
+      # Keep the screenshots and diffs of every run, passed or failed. GitHub Pages publishes
+      # the report only for releases.
       - name: Upload E2E report
         uses: actions/upload-artifact@v7
-        if: failure() && steps.e2e.outcome == 'failure'
+        if: always() && (steps.e2e.outcome == 'success' || steps.e2e.outcome == 'failure')
         with:
           name: e2e-report
           path: e2e/output/

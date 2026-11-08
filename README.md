@@ -86,9 +86,11 @@ Version 2.0.0 split the single package into the three above. See the [migration 
 
 ## E2E Visual Comparison
 
-A visual comparison report between this renderer and MapLibre GL JS is published to GitHub Pages:
+A visual comparison report between this renderer and MapLibre GL JS is published to GitHub Pages for each release:
 
 [View Report](https://versatiles.org/versatiles-svg-renderer/e2e/report.html)
+
+Every CI run also keeps the report of its commit as the `e2e-report` artifact.
 
 ## Performance
 
