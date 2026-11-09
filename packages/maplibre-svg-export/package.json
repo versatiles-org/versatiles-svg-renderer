@@ -21,6 +21,10 @@
   },
   "author": "Michael Kreil <versatiles@michael-kreil.de>",
   "license": "MIT",
+  "funding": [
+    { "type": "github", "url": "https://github.com/sponsors/versatiles-org" },
+    { "type": "opencollective", "url": "https://opencollective.com/versatiles" }
+  ],
   "type": "module",
   "scripts": {
     "docs": "npm run docs:bundle && npm run docs:graph",
