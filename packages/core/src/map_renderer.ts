@@ -7,12 +7,15 @@ import type { LabelMode, Renderer, SpriteAtlas } from './types.js';
 import {
 	type FetchFunction,
 	type GlyphRange,
+	imageAtlas,
 	loadGlyphRange,
 	loadSprite,
 	PMTilesProtocol,
 	resolveSources,
 	TileCache,
 	toFetchFunction,
+	type StyleImage,
+	withImages,
 } from './sources/index.js';
 import { MAX_LATITUDE, mercatorToLonLat, type Padding, Point2D, Projection } from './geo/index.js';
 import { checkSources, checkStyle } from './pipeline/support.js';
@@ -103,6 +106,19 @@ export interface SVGMapRendererOptions {
 	 * @defaultValue the defaults of the style's `state`
 	 */
 	globalState?: GlobalState;
+	/**
+	 * Images that the style uses besides those of its sprite, like `map.addImage(id, image,
+	 * { pixelRatio, sdf })` in MapLibre GL JS: for `icon-image`, `fill-pattern`, `line-pattern`
+	 * and `background-pattern`, by their `id`, which no sprite id is put before. An SDF image is
+	 * colored by `icon-color` and its halo, like one of the sprite.
+	 *
+	 * As in MapLibre GL JS, where `addImage` fails for an id that exists, an image of the sprite
+	 * with the same id is drawn instead, reported through
+	 * {@link SVGMapRendererOptions.onWarning}. In an SVG, each image is a data URI of a PNG file
+	 * without compression.
+	 * @defaultValue none
+	 */
+	images?: readonly StyleImage[];
 }
 
 /** Default for {@link SVGMapRendererOptions.tileCacheSize}: 128 MB. */
@@ -233,6 +249,9 @@ export class SVGMapRenderer {
 	readonly #pmtiles: PMTilesProtocol;
 	readonly #fetch: FetchFunction;
 	#sprite: Promise<SpriteAtlas> | undefined;
+	/** The images of {@link SVGMapRendererOptions.images}, encoded on first use. */
+	readonly #imageList: readonly StyleImage[];
+	#images: SpriteAtlas | undefined;
 	#sources: Promise<StyleSpecification['sources']> | undefined;
 	readonly #glyphRanges = new Map<string, Promise<GlyphRange | undefined>>();
 	readonly #onWarning: (message: string) => void;
@@ -246,6 +265,7 @@ export class SVGMapRenderer {
 	public constructor(options: SVGMapRendererOptions) {
 		this.#style = options.style;
 		this.#onWarning = options.onWarning ?? ((message) => console.warn(message));
+		this.#imageList = options.images ?? [];
 		let labels: LabelMode =
 			// eslint-disable-next-line @typescript-eslint/no-deprecated -- still supported, mapped to `labels`
 			options.labels ?? (options.renderLabels === true ? 'glyphs-text' : 'none');
@@ -380,7 +400,8 @@ export class SVGMapRenderer {
 		if (this.#sprite) return this.#sprite;
 		const sprite = loadSprite(this.#style, this.#fetch).then(({ atlas, complete }) => {
 			if (!complete && this.#sprite === sprite) this.#sprite = undefined;
-			return atlas;
+			this.#images ??= imageAtlas(this.#imageList, (message) => this.#warn(message));
+			return withImages(atlas, this.#images, (message) => this.#warn(message));
 		});
 		this.#sprite = sprite;
 		return sprite;

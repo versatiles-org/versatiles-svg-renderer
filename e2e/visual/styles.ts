@@ -4,6 +4,7 @@
 import { resolve } from 'node:path';
 import { inlineSources, osm, satellite } from '@versatiles/style';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type { StyleImage } from '../../packages/svg-renderer/src/index.js';
 import { berlin, type Region, type StyleName } from './regions.js';
 import { cells as featureCells, featuresStyle } from './scenes/features.js';
 import { geojsonStyle } from './scenes/geojson.js';
@@ -12,6 +13,7 @@ import { seamsStyle } from './scenes/seams.js';
 import type { Cell } from './scenes/grid.js';
 import { anchorsStyle, cells as anchorCells } from './scenes/anchors.js';
 import { cells as dashCells, dashesStyle } from './scenes/dashes.js';
+import { cells as imageCells, images as sceneImages, imagesStyle } from './scenes/images.js';
 import { cells as patternCells, patternsStyle } from './scenes/patterns.js';
 import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
@@ -83,7 +85,14 @@ async function buildStyle(
 			return anchorsStyle();
 		case 'seams':
 			return seamsStyle();
+		case 'images':
+			return imagesStyle();
 	}
+}
+
+/** The images that `region`'s style uses besides its sprite, as `map.addImage` takes them. */
+export function getImages(region: Region): StyleImage[] {
+	return region.style === 'images' ? sceneImages : [];
 }
 
 /** The cells of a style that is a grid of single-feature checks (see `scenes/grid.ts`). */
@@ -94,6 +103,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'patterns') return patternCells;
 	if (name === 'dashes') return dashCells;
 	if (name === 'anchors') return anchorCells;
+	if (name === 'images') return imageCells;
 	return undefined;
 }
 

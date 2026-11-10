@@ -62,8 +62,11 @@ GeoJSON sources' `filter`, `promoteId` and `generateId`), `visual/scenes/pattern
 zoom-dependent width; a `fill-pattern`), also drawn at zoom 11.5 (`parity-patterns-z11.5`),
 where patterns are scaled with the map, `visual/scenes/dashes.ts` (`line-dasharray`: short
 dashes on thin lines, caps, turns, a polygon's outline, an odd number of values, a
-zoom-dependent width), also drawn at zoom 11.5 and turned, and `visual/scenes/anchors.ts` (labels with
-variable anchors, moved on by translucent blockers placed first; `text-radial-offset`).
+zoom-dependent width), also drawn at zoom 11.5 and turned, `visual/scenes/anchors.ts` (labels with
+variable anchors, moved on by translucent blockers placed first; `text-radial-offset`), and
+`visual/scenes/images.ts` (images given as the `images` option, which MapLibre gets with
+`map.addImage`: SDF icons colored, with a halo and at pixel ratio 2, an RGBA icon, a
+`fill-pattern` and a `line-pattern`).
 Each cell is one object: a title, and a function that builds its sources and layers around
 the cell's center. When a renderer gains a feature MapLibre has, give it a cell in a scene
 (or start a new scene, with a region of its own), so its diff is measured without the
@@ -123,7 +126,7 @@ The `*-rotated` and `*-padded` regions are rendered with a `bearing` or `padding
 compared with MapLibre with the same.
 
 Labels and icons are switched off in every region but `berlin-labels-vector` (and its
-rotated twin), `parity-symbols` and `parity-anchors`.
+rotated twin), `parity-symbols`, `parity-anchors` and `parity-images`.
 MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
 difference is large and inherent; confining it to one region keeps it measured
 without letting it dominate every other diff.

@@ -757,5 +757,42 @@
 		"svg": 0,
 		"png": 0,
 		"drift": 0
+	},
+	"parity-images": {
+		"svg": 0.27,
+		"png": 0.16,
+		"drift": 0.17,
+		"cells": {
+			"SDF icon, colored": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0.02
+			},
+			"SDF icon, halo": {
+				"svg": 1.03,
+				"png": 0.03,
+				"drift": 1.28
+			},
+			"SDF icon, pixelRatio 2": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0.01
+			},
+			"RGBA icon": {
+				"svg": 0,
+				"png": 0.09,
+				"drift": 0.07
+			},
+			"fill-pattern": {
+				"svg": 0.26,
+				"png": 0.26,
+				"drift": 0
+			},
+			"line-pattern": {
+				"svg": 0.42,
+				"png": 0.37,
+				"drift": 0.02
+			}
+		}
 	}
 }

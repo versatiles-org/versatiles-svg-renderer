@@ -362,3 +362,149 @@ describe('PNGMapRenderer', () => {
 		}
 	});
 });
+
+describe('images', () => {
+	/** Pixels of one color, `width * height` of them. */
+	const filled = (width: number, height: number, rgba: number[]): Uint8Array =>
+		new Uint8Array(width * height * 4).map((_, i) => rgba[i % 4]!);
+
+	const geojson = (geometry: object): StyleSpecification['sources'][string] =>
+		({
+			type: 'geojson',
+			data: { type: 'Feature', properties: {}, geometry },
+		}) as unknown as StyleSpecification['sources'][string];
+
+	/** The pixels of a PNG file. */
+	async function pixels(png: Uint8Array, width: number, height: number) {
+		const { createCanvas, loadImage } = await loadCanvasBackend();
+		const canvas = createCanvas(width, height);
+		const ctx = canvas.getContext('2d');
+		ctx.drawImage(await loadImage(png), 0, 0);
+		const { data } = ctx.getImageData(0, 0, width, height);
+		return {
+			at: (x: number, y: number) => [
+				...data.subarray((y * width + x) * 4, (y * width + x) * 4 + 4),
+			],
+			count: (rgba: number[]) => {
+				let n = 0;
+				for (let i = 0; i < data.length; i += 4) {
+					if (rgba.every((value, k) => Math.abs(data[i + k]! - value) <= 2)) n++;
+				}
+				return n;
+			},
+		};
+	}
+
+	const square = {
+		type: 'Polygon',
+		coordinates: [
+			[
+				[-10, -10],
+				[10, -10],
+				[10, 10],
+				[-10, 10],
+				[-10, -10],
+			],
+		],
+	};
+	const view = { width: 64, height: 64, lon: 0, lat: 0, zoom: 2 };
+
+	test('fills with a pattern that the sprite does not have', async () => {
+		const style: StyleSpecification = {
+			version: 8,
+			sources: { area: geojson(square) },
+			layers: [{ id: 'fill', type: 'fill', source: 'area', paint: { 'fill-pattern': 'red' } }],
+		};
+		const images = [{ id: 'red', width: 4, height: 4, data: filled(4, 4, [255, 0, 0, 255]) }];
+		const image = await pixels(await renderToPNG({ style, images, ...view }), 64, 64);
+		expect(image.at(32, 32)).toEqual([255, 0, 0, 255]);
+		// without the image, nothing is drawn, as in MapLibre GL JS
+		const onWarning = vi.fn();
+		const without = await pixels(await renderToPNG({ style, onWarning, ...view }), 64, 64);
+		expect(without.at(32, 32)[3]).toBe(0);
+	});
+
+	test('draws lines and the background with a pattern of the images', async () => {
+		const style: StyleSpecification = {
+			version: 8,
+			sources: {
+				line: geojson({
+					type: 'LineString',
+					coordinates: [
+						[-30, 0],
+						[30, 0],
+					],
+				}),
+			},
+			layers: [
+				{ id: 'bg', type: 'background', paint: { 'background-pattern': 'blue' } },
+				{
+					id: 'line',
+					type: 'line',
+					source: 'line',
+					paint: { 'line-pattern': 'red', 'line-width': 8 },
+				},
+			],
+		};
+		const images = [
+			{ id: 'red', width: 4, height: 4, data: filled(4, 4, [255, 0, 0, 255]) },
+			{ id: 'blue', width: 4, height: 4, data: filled(4, 4, [0, 0, 255, 255]) },
+		];
+		const image = await pixels(await renderToPNG({ style, images, ...view }), 64, 64);
+		expect(image.at(32, 32)).toEqual([255, 0, 0, 255]);
+		expect(image.at(32, 4)).toEqual([0, 0, 255, 255]);
+	});
+
+	test('colors an SDF image as an icon, at its pixel ratio', async () => {
+		const style: StyleSpecification = {
+			version: 8,
+			sources: { point: geojson({ type: 'Point', coordinates: [0, 0] }) },
+			layers: [
+				{
+					id: 'icon',
+					type: 'symbol',
+					source: 'point',
+					layout: { 'icon-image': 'square' },
+					paint: { 'icon-color': '#00ff00' },
+				},
+			],
+		};
+		// a distance field that is inside everywhere: an opaque square in the icon's color
+		const sdf = (pixelRatio: number) => [
+			{
+				id: 'square',
+				width: 16,
+				height: 16,
+				data: filled(16, 16, [0, 0, 0, 255]),
+				pixelRatio,
+				sdf: true,
+			},
+		];
+		const green = [0, 255, 0, 255];
+		const single = await pixels(
+			await renderToPNG({ style, images: sdf(1), labels: 'text', ...view }),
+			64,
+			64,
+		);
+		expect(single.at(32, 32)).toEqual(green);
+		const double = await pixels(
+			await renderToPNG({ style, images: sdf(2), labels: 'text', ...view }),
+			64,
+			64,
+		);
+		expect(double.at(32, 32)).toEqual(green);
+		// at half the size: a quarter of the pixels
+		expect(double.count(green) / single.count(green)).toBeCloseTo(0.25, 1);
+	});
+
+	test('puts the images into an SVG as data URIs', async () => {
+		const style: StyleSpecification = {
+			version: 8,
+			sources: { area: geojson(square) },
+			layers: [{ id: 'fill', type: 'fill', source: 'area', paint: { 'fill-pattern': 'red' } }],
+		};
+		const images = [{ id: 'red', width: 4, height: 4, data: filled(4, 4, [255, 0, 0, 255]) }];
+		const svg = await new PNGMapRenderer({ style, images }).renderSVG(view);
+		expect(svg).toContain('data:image/png;base64,iVBORw0KGgo');
+	});
+});

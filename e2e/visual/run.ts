@@ -11,7 +11,7 @@
  */
 import { installFetchCache } from '../shared/fetch-cache.js';
 import { regions } from './regions.js';
-import { getStyle } from './styles.js';
+import { getImages, getStyle } from './styles.js';
 import { Capture } from './capture.js';
 import {
 	fails,
@@ -73,9 +73,14 @@ for (const region of selectedRegions) {
 	const { id } = region;
 	let result: Result;
 	try {
-		const shots = await capture.shots(region, await getStyle(region), (message) => {
-			console.log(dim(`  ${id}: ${message} — retrying`));
-		});
+		const shots = await capture.shots(
+			region,
+			await getStyle(region),
+			getImages(region),
+			(message) => {
+				console.log(dim(`  ${id}: ${message} — retrying`));
+			},
+		);
 		const { svgSizeKB, pngSizeKB } = shots;
 		result = { region, ...measure(region, shots), svgSizeKB, pngSizeKB };
 	} catch (error) {

@@ -116,7 +116,7 @@ Which MapLibre GL JS features are covered, and which are not yet: [MapLibre GL J
 
 ### `new PNGMapRenderer(options)`
 
-An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (`style`, `renderLabels`, `tileCacheSize`, `fetch`), plus `fonts` as above.
+An [`SVGMapRenderer`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#new-svgmaprendereroptions) that can also render PNG. It takes the options of `SVGMapRenderer` (e.g. `style`, `labels`, `tileCacheSize`, `fetch`, `images`), plus `fonts` as above.
 
 - **`renderPNG(view?): Promise<Uint8Array>`** renders one view as PNG. `view` takes `width`, `height`, `lon`, `lat`, `zoom` and `scale`, with the same defaults as `renderToPNG`.
 - **`renderCanvas(view?): Promise<Canvas>`** renders one view onto a canvas, to draw on or to encode in another format; see [above](#drawing-on-the-map-or-saving-another-format).

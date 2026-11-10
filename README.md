@@ -192,6 +192,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Other paint/layout properties         | ✅² | ✅² |       |
 | **Labels and icons**                  |     |     |       |
 | Icons from the sprite, SDF icons      | ✅  | ✅  |       |
+| Images added with `map.addImage`³     | ✅  | ✅  |       |
 | `icon-text-fit`, stretchable icons    | ✅  | ✅  |       |
 | Point labels                          | ✅  | ✅  |       |
 | Letter shapes of the style's glyphs   | ✅  | ✅  |       |
@@ -209,6 +210,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 ¹ The text is drawn, its formatting is lost.
 
 ² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones.
+
+³ Given to the renderer as the `images` option.
 
 Labels and icons are only drawn with the `labels` option. Interaction, animation and `feature-state` do not apply to a static image.
 

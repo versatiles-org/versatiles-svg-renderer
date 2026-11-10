@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Images besides the sprite: the `images` option**, like `map.addImage` in MapLibre GL JS ([#65](https://github.com/versatiles-org/versatiles-svg-renderer/issues/65)). `SVGMapRenderer`, `PNGMapRenderer`, `renderToSVG` and `renderToPNG` take images as `{ id, width, height, data, pixelRatio, sdf }`, for `icon-image` (SDF images colored by `icon-color`), `fill-pattern`, `line-pattern` and `background-pattern`. The new e2e region `parity-images` compares them with MapLibre GL JS.
+
 ## [2.5.0] - 2026-11-04
 
 ### Changed

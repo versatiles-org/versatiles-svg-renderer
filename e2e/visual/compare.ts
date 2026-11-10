@@ -48,6 +48,7 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	dashes: 0.035,
 	anchors: 0.035,
 	seams: 0.035,
+	images: 0.035,
 	satellite: 0.11,
 };
 

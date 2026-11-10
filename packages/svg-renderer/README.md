@@ -59,33 +59,35 @@ const potsdam = await map.renderSVG({ lon: 13.06, lat: 52.4, zoom: 12 });
 
 ### `renderToSVG(options): Promise<string>`
 
-| Option        | Type                                            | Default                     | Description                                                                            |
-| ------------- | ----------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
-| `style`       | `StyleSpecification`                            | _(required)_                | MapLibre style specification                                                           |
-| `width`       | `number`                                        | `1024`                      | Output width in pixels                                                                 |
-| `height`      | `number`                                        | `1024`                      | Output height in pixels                                                                |
-| `lon`         | `number`                                        | style's `center`, else `0`  | Center longitude                                                                       |
-| `lat`         | `number`                                        | style's `center`, else `0`  | Center latitude                                                                        |
-| `zoom`        | `number`                                        | style's `zoom`, else `2`    | Zoom level                                                                             |
-| `bearing`     | `number`                                        | style's `bearing`, else `0` | Compass direction that is up, in degrees (`90`: east is up)                            |
-| `padding`     | `number \| Padding`                             | `0`                         | Space around the center, in pixels: it sits in the middle of the area inside           |
-| `labels`      | `'none' \| 'text' \| 'glyphs' \| 'glyphs-text'` | `'none'`                    | Whether and how to draw labels and icons; see [About labels](#about-labels)            |
-| `fetch`       | `FetchFunction`                                 | global `fetch`              | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way) |
-| `onWarning`   | `(message) => void`                             | `console.warn`              | Reports parts of the style that are not drawn; see [Warnings](#warnings)               |
-| `globalState` | `GlobalState`                                   | style's `state`             | Values for `global-state` expressions, over the style's defaults                       |
+| Option        | Type                                            | Default                     | Description                                                                                                   |
+| ------------- | ----------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `style`       | `StyleSpecification`                            | _(required)_                | MapLibre style specification                                                                                  |
+| `width`       | `number`                                        | `1024`                      | Output width in pixels                                                                                        |
+| `height`      | `number`                                        | `1024`                      | Output height in pixels                                                                                       |
+| `lon`         | `number`                                        | style's `center`, else `0`  | Center longitude                                                                                              |
+| `lat`         | `number`                                        | style's `center`, else `0`  | Center latitude                                                                                               |
+| `zoom`        | `number`                                        | style's `zoom`, else `2`    | Zoom level                                                                                                    |
+| `bearing`     | `number`                                        | style's `bearing`, else `0` | Compass direction that is up, in degrees (`90`: east is up)                                                   |
+| `padding`     | `number \| Padding`                             | `0`                         | Space around the center, in pixels: it sits in the middle of the area inside                                  |
+| `labels`      | `'none' \| 'text' \| 'glyphs' \| 'glyphs-text'` | `'none'`                    | Whether and how to draw labels and icons; see [About labels](#about-labels)                                   |
+| `fetch`       | `FetchFunction`                                 | global `fetch`              | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)                        |
+| `onWarning`   | `(message) => void`                             | `console.warn`              | Reports parts of the style that are not drawn; see [Warnings](#warnings)                                      |
+| `globalState` | `GlobalState`                                   | style's `state`             | Values for `global-state` expressions, over the style's defaults                                              |
+| `images`      | `StyleImage[]`                                  | none                        | Images besides the sprite's, like `map.addImage`; see [Images besides the sprite](#images-besides-the-sprite) |
 
 ### `new SVGMapRenderer(options)`
 
 Renders many views of one style. The options stay the same for every view:
 
-| Option          | Type                                            | Default              | Description                                                                               |
-| --------------- | ----------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
-| `style`         | `StyleSpecification`                            | _(required)_         | MapLibre style specification. Read once: to render a changed style, create a new instance |
-| `labels`        | `'none' \| 'text' \| 'glyphs' \| 'glyphs-text'` | `'none'`             | Whether and how to draw labels and icons; see [About labels](#about-labels)               |
-| `tileCacheSize` | `number`                                        | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                          |
-| `fetch`         | `FetchFunction`                                 | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)    |
-| `onWarning`     | `(message) => void`                             | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                  |
-| `globalState`   | `GlobalState`                                   | style's `state`      | Values for `global-state` expressions, over the style's defaults                          |
+| Option          | Type                                            | Default              | Description                                                                                                   |
+| --------------- | ----------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `style`         | `StyleSpecification`                            | _(required)_         | MapLibre style specification. Read once: to render a changed style, create a new instance                     |
+| `labels`        | `'none' \| 'text' \| 'glyphs' \| 'glyphs-text'` | `'none'`             | Whether and how to draw labels and icons; see [About labels](#about-labels)                                   |
+| `tileCacheSize` | `number`                                        | `134217728` (128 MB) | How much memory fetched tiles may take, in bytes. `0` keeps none                                              |
+| `fetch`         | `FetchFunction`                                 | global `fetch`       | Loads tiles and sprites; see [Loading tiles your own way](#loading-tiles-your-own-way)                        |
+| `onWarning`     | `(message) => void`                             | `console.warn`       | Reports parts of the style that are not drawn; see [Warnings](#warnings)                                      |
+| `globalState`   | `GlobalState`                                   | style's `state`      | Values for `global-state` expressions, over the style's defaults                                              |
+| `images`        | `StyleImage[]`                                  | none                 | Images besides the sprite's, like `map.addImage`; see [Images besides the sprite](#images-besides-the-sprite) |
 
 - **`renderSVG(view?): Promise<string>`** renders one view. `view` takes `width`, `height`, `lon`, `lat`, `zoom`, `bearing` and `padding`, with the same defaults as `renderToSVG`. Renders may run concurrently.
 - **`project(view, [lon, lat]): [x, y] | undefined`** tells where a coordinate lands in the image of `view`, in the units of `width` and `height`, to place your own drawing on the map. On the globe, a point on the far side gives `undefined`.
@@ -93,6 +95,20 @@ Renders many views of one style. The options stay the same for every view:
 - **`clearCache()`** forgets the fetched tiles and sprite, e.g. after they were updated on the server.
 
 Tiles are kept for the lifetime of the instance, regardless of their HTTP caching headers; beyond `tileCacheSize`, the least recently used ones are dropped. A tile the server does not have (404) is remembered as missing; a failed request (network error, server error) is not, so the next render tries again.
+
+### Images besides the sprite
+
+A style may use images that its sprite does not have, which a map in the browser gets with `map.addImage`. Give them to the renderer as `images`, an array of `{ id, width, height, data, pixelRatio, sdf }`, the arguments of `map.addImage(id, { width, height, data }, { pixelRatio, sdf })`:
+
+```typescript
+const svg = await renderToSVG({
+	style,
+	images: [{ id: 'dot', width: 16, height: 16, data: rgba, pixelRatio: 2, sdf: true }],
+	labels: 'text',
+});
+```
+
+`data` holds the pixels as RGBA, row by row, not premultiplied: `width * height * 4` bytes. The style names an image by its `id`, without a sprite id before it, in `icon-image`, `fill-pattern`, `line-pattern` or `background-pattern`. An SDF image is colored by `icon-color` and its halo, like an SDF image of the sprite. As `map.addImage` fails for an id that exists, an image of the sprite with the same id is drawn instead, reported through `onWarning`. In the SVG, each image is a data URI of a PNG file without compression.
 
 ### Loading tiles your own way
 

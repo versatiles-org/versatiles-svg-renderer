@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { PNG } from 'pngjs';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { renderToSVG } from '../../packages/svg-renderer/src/index.js';
+import { renderToSVG, type StyleImage } from '../../packages/svg-renderer/src/index.js';
 import { renderToPNG } from '../../packages/png-renderer/src/index.js';
 import { readCache, writeCache } from '../shared/fetch-cache.js';
 import { readFixture } from '../shared/fixtures.js';
@@ -52,15 +52,16 @@ export class Capture {
 	public async shots(
 		region: Region,
 		style: StyleSpecification,
+		images: StyleImage[],
 		onRetry: (message: string) => void,
 		attempts = 3,
 	): Promise<Shots> {
 		for (let attempt = 1; ; attempt++) {
 			try {
 				const [svg, png, maplibre] = await Promise.all([
-					this.#svg(region, style),
-					this.#png(region, style),
-					this.#maplibre(region, style),
+					this.#svg(region, style, images),
+					this.#png(region, style, images),
+					this.#maplibre(region, style, images),
 				]);
 				return {
 					maplibre,
@@ -91,7 +92,7 @@ export class Capture {
 	}
 
 	/** The region rendered by MapLibre GL JS in a headless page. */
-	async #maplibre(region: Region, style: StyleSpecification): Promise<PNG> {
+	async #maplibre(region: Region, style: StyleSpecification, images: StyleImage[]): Promise<PNG> {
 		const page = await this.#newPage('MapLibre', region.id);
 		try {
 			await installPageCache(page);
@@ -106,7 +107,16 @@ export class Capture {
 					bearing,
 					padding,
 					pixelRatio,
+					images,
 				}: {
+					images: {
+						id: string;
+						width: number;
+						height: number;
+						data: number[];
+						pixelRatio?: number;
+						sdf?: boolean;
+					}[];
 					styleJson: any;
 					center: [number, number];
 					zoom: number;
@@ -127,6 +137,19 @@ export class Capture {
 							pixelRatio,
 						});
 						if (padding) map.setPadding(padding);
+						// the images that the renderers get in `images`, all of them once the style is
+						// loaded, before tiles are laid out: a tile laid out without an image does not
+						// draw it later. (No named function here: tsx would wrap it in `__name`, which
+						// the page does not have.)
+						map.once('style.load', () => {
+							for (const { id, width, height, data, pixelRatio = 1, sdf = false } of images) {
+								map.addImage(
+									id,
+									{ width, height, data: new Uint8Array(data) },
+									{ pixelRatio, sdf },
+								);
+							}
+						});
 						map.once('idle', () => resolve());
 						setTimeout(() => reject(new Error('MapLibre idle timeout')), 30000);
 					});
@@ -138,6 +161,7 @@ export class Capture {
 					bearing: region.view.bearing ?? 0,
 					padding: region.view.padding,
 					pixelRatio: SCALE,
+					images: images.map((image) => ({ ...image, data: Array.from(image.data) })),
 				},
 			);
 
@@ -149,11 +173,16 @@ export class Capture {
 	}
 
 	/** The region rendered as SVG, and the SVG rasterized by Chromium. */
-	async #svg(region: Region, style: StyleSpecification): Promise<{ png: PNG; sizeKB: number }> {
+	async #svg(
+		region: Region,
+		style: StyleSpecification,
+		images: StyleImage[],
+	): Promise<{ png: PNG; sizeKB: number }> {
 		const svg = await renderToSVG({
 			width: WIDTH,
 			height: HEIGHT,
 			style,
+			images,
 			...renderView(region),
 			onWarning: this.#onWarning,
 		});
@@ -181,12 +210,17 @@ ${fontFaces()}</style></head>
 	 * screenshots come off a white page. Diffing them unflattened reports every unpainted
 	 * pixel as a mismatch, which on a globe region is most of the image.
 	 */
-	async #png(region: Region, style: StyleSpecification): Promise<{ png: PNG; sizeKB: number }> {
+	async #png(
+		region: Region,
+		style: StyleSpecification,
+		images: StyleImage[],
+	): Promise<{ png: PNG; sizeKB: number }> {
 		const buffer = await renderToPNG({
 			width: WIDTH,
 			height: HEIGHT,
 			scale: SCALE,
 			style,
+			images,
 			...renderView(region),
 			fonts,
 			onWarning: this.#onWarning,

@@ -18,7 +18,8 @@ export interface View {
  * - `vector`, `satellite`: the VersaTiles styles;
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
- * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`:
+ * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`,
+ *   `images`:
  *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
@@ -33,7 +34,8 @@ export type StyleName =
 	| 'patterns'
 	| 'dashes'
 	| 'anchors'
-	| 'seams';
+	| 'seams'
+	| 'images';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -138,6 +140,8 @@ export const regions: Region[] = [
 	// Patterns are scaled with the map from the zoom level's integer part.
 	{ id: 'parity-patterns-z11.5', style: 'patterns', view: { ...scene, zoom: 11.5 } },
 	// So are dashes.
+	// Images that are not in a sprite, given like `map.addImage`: icons need labels on.
+	{ id: 'parity-images', style: 'images', view: scene, labels: true },
 	{ id: 'parity-dashes', style: 'dashes', view: scene },
 	{ id: 'parity-dashes-z11.5', style: 'dashes', view: { ...scene, zoom: 11.5 } },
 	// Polygons going on from tile to tile, at a zoom level where the tile borders run through

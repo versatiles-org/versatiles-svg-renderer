@@ -19,6 +19,7 @@ export {
 	type Glyph,
 	type GlyphRange,
 } from './glyphs.js';
+export { imageAtlas, withImages, type StyleImage } from './images.js';
 export { isPMTilesUrl, PMTilesProtocol } from './pmtiles.js';
 export { getRasterTiles } from './raster.js';
 export { resolveSources } from './resolve.js';
