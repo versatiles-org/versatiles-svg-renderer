@@ -115,6 +115,8 @@ describe('SVGExportControl', () => {
 			expect(el.classList.contains('maplibregl-ctrl')).toBe(true);
 			expect(el.classList.contains('maplibregl-ctrl-group')).toBe(true);
 			expect(el.classList.contains('svg-export-control')).toBe(true);
+			// follows the map's colour scheme, where a page signals one
+			expect(el.classList.contains('maplibregl-ctrl-scheme-aware')).toBe(true);
 		});
 
 		test('adds a style element to the head', () => {

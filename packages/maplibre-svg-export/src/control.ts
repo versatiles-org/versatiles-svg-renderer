@@ -142,7 +142,8 @@ export class SVGExportControl implements MapLibreControl {
 		document.head.appendChild(this.styleEl);
 
 		this.container = document.createElement('div');
-		this.container.className = 'maplibregl-ctrl maplibregl-ctrl-group svg-export-control';
+		this.container.className =
+			'maplibregl-ctrl maplibregl-ctrl-group maplibregl-ctrl-scheme-aware svg-export-control';
 
 		const button = document.createElement('button');
 		button.type = 'button';

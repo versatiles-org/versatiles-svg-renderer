@@ -259,11 +259,98 @@ async function runScenario(browser: Browser, scenario: Scenario): Promise<void> 
 	await expectInteractions(page, true);
 	console.log('  PASS: Panel closed, map interactions restored');
 
-	// Test 10: No uncaught errors on the page
+	// Test 10: The map's colour scheme, as a page signals it on the container
+	console.log('Test 10: Checking the colour scheme...');
+	await expectSchemeColors(page);
+	console.log('  PASS: The control and the panel follow data-color-scheme, and only it');
+
+	// Test 11: No uncaught errors on the page
 	if (pageErrors.length > 0) throw new Error(`Page errors: ${pageErrors.join('; ')}`);
 	console.log('  PASS: No page errors');
 
 	await context.close();
+}
+
+/** The computed value of `property` on the first element that matches `selector`. */
+async function computed(page: Page, selector: string, property: string): Promise<string> {
+	return page.evaluate(
+		({ selector, property }) => {
+			const el = document.querySelector(selector);
+			if (!el) throw new Error(`Element not found: ${selector}`);
+			return getComputedStyle(el).getPropertyValue(property);
+		},
+		{ selector, property },
+	);
+}
+
+async function expectCSS(
+	page: Page,
+	selector: string,
+	property: string,
+	expected: string,
+): Promise<void> {
+	const value = await computed(page, selector, property);
+	if (value !== expected) {
+		throw new Error(`Expected ${property} of ${selector} to be ${expected}, got ${value}`);
+	}
+}
+
+/**
+ * The control and the panel follow `data-color-scheme` on the map's container, the variables a
+ * page sets, and not the page's own scheme.
+ */
+async function expectSchemeColors(page: Page): Promise<void> {
+	const group = '.svg-export-control';
+	const button = '.svg-export-btn';
+	const setScheme = (scheme: string | null) =>
+		page.evaluate((scheme) => {
+			const container = (window as any)._map.getContainer() as HTMLElement;
+			if (scheme === null) delete container.dataset.colorScheme;
+			else container.dataset.colorScheme = scheme;
+		}, scheme);
+
+	// A dark page without a scheme on the map: light, as before.
+	const pageStyle = await page.addStyleTag({ content: ':root { color-scheme: dark; }' });
+	await expectCSS(page, group, 'background-color', 'rgb(255, 255, 255)');
+	await expectCSS(page, button, 'color', 'rgb(51, 51, 51)');
+
+	// A light map stays light on the dark page.
+	await setScheme('light');
+	await expectCSS(page, group, 'color-scheme', 'light');
+	await expectCSS(page, group, 'background-color', 'rgb(255, 255, 255)');
+
+	// A dark map: the control, the panel and its fields are dark.
+	await setScheme('dark');
+	await expectCSS(page, group, 'color-scheme', 'dark');
+	await expectCSS(page, group, 'background-color', 'rgb(22, 27, 34)');
+	await expectCSS(page, button, 'color', 'rgb(228, 233, 239)');
+	await expectCSS(page, `${button} svg`, 'fill', 'rgb(228, 233, 239)');
+	await page.locator(button).click();
+	const panel = page.locator('.svg-export-panel');
+	await panel.waitFor({ state: 'visible', timeout: 5000 });
+	await expectCSS(page, '.svg-export-panel', 'background-color', 'rgb(22, 27, 34)');
+	await expectCSS(page, '.svg-export-panel', 'color', 'rgb(228, 233, 239)');
+	await expectCSS(page, '.svg-export-panel .input-width', 'color-scheme', 'dark');
+	const fieldBackground = await computed(
+		page,
+		'.svg-export-panel .input-width',
+		'background-color',
+	);
+	if (fieldBackground === 'rgb(255, 255, 255)') throw new Error('The width field is still white');
+
+	// The variables a page sets win.
+	const variables = await page.addStyleTag({
+		content: ':root { --maplibregl-ctrl-bg: rgb(1, 2, 3); --maplibregl-ctrl-fg: rgb(4, 5, 6); }',
+	});
+	await expectCSS(page, group, 'background-color', 'rgb(1, 2, 3)');
+	await expectCSS(page, button, 'color', 'rgb(4, 5, 6)');
+	await expectCSS(page, '.svg-export-panel', 'background-color', 'rgb(1, 2, 3)');
+
+	await page.locator('.panel-close').click();
+	await panel.waitFor({ state: 'detached', timeout: 5000 });
+	await variables.evaluate((el) => (el as Element).remove());
+	await pageStyle.evaluate((el) => (el as Element).remove());
+	await setScheme(null);
 }
 
 /** Asserts that every interaction handler the control toggles is enabled (or disabled). */

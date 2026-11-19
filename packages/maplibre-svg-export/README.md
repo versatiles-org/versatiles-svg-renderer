@@ -90,6 +90,16 @@ new SVGExportControl({
 
 Both only set the starting values of the panel's size inputs; the user can change them.
 
+## Dark mode
+
+The button and the panel follow the map's colour scheme when the page sets one as `data-color-scheme="light"` or `"dark"` on the map's container. [maplibre-versatiles-styler](https://github.com/versatiles-org/maplibre-versatiles-styler#dark-mode) sets it by the style it shows. A page that picks the style itself sets it like this:
+
+```js
+map.getContainer().dataset.colorScheme = 'dark';
+```
+
+Without the attribute, the control is light, even on a dark page, as before. The control carries the class `maplibregl-ctrl-scheme-aware`, and reads the shared variables `--maplibregl-ctrl-bg`, `--maplibregl-ctrl-fg`, `--maplibregl-ctrl-line` and `--maplibregl-ctrl-hover` where a page sets them, as in `:root { --maplibregl-ctrl-bg: light-dark(#fff, #222); }`. Browsers without `light-dark()` (before Chrome 123, Firefox 120 and Safari 17.5) keep the light colours.
+
 ## How the SVG is made
 
 The preview and the export are rendered by [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md) from the map's current style, centre, zoom, bearing and padding. Its notes on [labels](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#about-labels) and [projections](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#projections) apply here too.
