@@ -113,11 +113,7 @@ export function evaluateLayer(layer: Layer, zoom = layer.job.view.zoom): LayerVa
 	const { paint, layout } = layerStyle.evaluate({ zoom }, availableImages);
 	const featureState = {};
 
-	function getStyleValue(
-		properties: EvaluatedProperties,
-		key: string,
-		feature?: Feature,
-	): unknown {
+	function getStyleValue(properties: EvaluatedProperties, key: string, feature?: Feature): unknown {
 		const value = properties.get(key);
 		if (typeof value === 'object' && value !== null && 'evaluate' in value) {
 			const evaluatable = value as PossiblyEvaluatedPropertyValue<unknown>;
