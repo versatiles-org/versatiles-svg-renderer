@@ -71,11 +71,11 @@ describe('iconQuads', () => {
 			[4, 16, -16, 16],
 			[16, 20, 16, 20],
 		]);
-		// icon-size scales the stretch zone only.
+		// icon-size scales the whole image, the fixed parts too (MapLibre GL JS 6.18).
 		expect(columns(icon({ fit: [-20, -5, 20, 5], size: 2 }), entry)).toEqual([
-			[0, 4, -40, -36],
-			[4, 16, -36, 36],
-			[16, 20, 36, 40],
+			[0, 4, -40, -32],
+			[4, 16, -32, 32],
+			[16, 20, 32, 40],
 		]);
 	});
 
@@ -105,6 +105,13 @@ describe('fitIconToText', () => {
 
 	test('spans the label plus padding on both axes', () => {
 		expect(fitIconToText(icon(), sprite(), text, 'both', [1, 2, 3, 4])).toEqual([-34, -10, 32, 12]);
+	});
+
+	test('is in icon units, so that drawn at icon-size it covers the label plus the same padding', () => {
+		// MapLibre GL JS 6.18: the padding no longer grows with icon-size.
+		const box = fitIconToText(icon({ size: 2 }), sprite(), text, 'both', [1, 2, 3, 4]);
+		expect(box).toEqual([-17, -5, 16, 6]);
+		expect(box.map((v) => v * 2)).toEqual([-34, -10, 32, 12]);
 	});
 
 	test('spans only the width or the height, and centers the icon on the label otherwise', () => {

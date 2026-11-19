@@ -72,10 +72,11 @@ export function iconQuads(style: IconStyle, sprite: SpriteEntry): IconQuad[] {
 		fixedContentHeight = y2 - y1 - stretchContentHeight;
 	}
 
-	// The stretched parts scale with `icon-size`, but not below what leaves room for the
-	// fixed ones; the fixed parts keep their size.
-	const scaleX = Math.max(fixedContentWidth / pixelRatio / iconWidth, size);
-	const scaleY = Math.max(fixedContentHeight / pixelRatio / iconHeight, size);
+	// The whole image scales with `icon-size`, its fixed parts too (MapLibre GL JS 6.18): the
+	// stretched parts, but not below what leaves room for the fixed ones.
+	const pixelScale = size / pixelRatio;
+	const scaleX = Math.max((fixedContentWidth * pixelScale) / iconWidth, size);
+	const scaleY = Math.max((fixedContentHeight * pixelScale) / iconHeight, size);
 	const position = (
 		cut: Cut,
 		stretchOffset: number,
@@ -92,7 +93,7 @@ export function iconQuads(style: IconStyle, sprite: SpriteEntry): IconQuad[] {
 			cut.fixed -
 			fixedOffset -
 			(stretchTotal > 0 ? (fixedContent * cut.stretch) / stretchTotal : 0);
-		return (start + em) * scale + px / pixelRatio;
+		return (start + em) * scale + px * pixelScale;
 	};
 	const x = (cut: Cut): number =>
 		position(
@@ -163,6 +164,10 @@ export function iconQuads(style: IconStyle, sprite: SpriteEntry): IconQuad[] {
  * `fitIconToText`: `textBox` is the label's box from its point, in pixels; `fit` says which
  * sides follow it, `padding` (`[top, right, bottom, left]`) how far beyond. The icon is
  * centered on the label on the sides that do not follow it; its `anchor` does not apply.
+ *
+ * The box is in the icon's units, before `icon-size`: drawn at `icon-size`, it covers the
+ * label plus `padding`, whatever the size (MapLibre GL JS 6.18). `offset` is in those units
+ * already.
  */
 export function fitIconToText(
 	style: IconStyle,
@@ -171,8 +176,14 @@ export function fitIconToText(
 	fit: 'width' | 'height' | 'both',
 	padding: readonly number[],
 ): [number, number, number, number] {
-	const [textLeft, textTop, textRight, textBottom] = textBox;
-	const [top, right, bottom, left] = padding;
+	const scale = style.size > 0 ? 1 / style.size : 1;
+	const [textLeft, textTop, textRight, textBottom] = textBox.map((v) => v * scale) as [
+		number,
+		number,
+		number,
+		number,
+	];
+	const [top, right, bottom, left] = padding.map((v) => v * scale);
 	const [dx, dy] = style.offset;
 	const width = sprite.width / sprite.pixelRatio;
 	const height = sprite.height / sprite.pixelRatio;

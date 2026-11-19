@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dark mode for the export control.** The button and the panel turn dark when the page signals a dark map with `data-color-scheme="dark"` on the map's container, as maplibre-versatiles-styler does. They follow the shared `--maplibregl-ctrl-*` variables, and the icon is drawn in the text colour. Without the signal they stay light.
 
+### Changed
+
+- **`icon-size` scales an icon fitted to its text as a whole, as MapLibre GL JS 6.18 does** ([maplibre-gl-js#8952](https://github.com/maplibre/maplibre-gl-js/pull/8952)). With `icon-text-fit`, the `icon-text-fit-padding` no longer grows with `icon-size`, and the parts of a stretchable image outside its stretch zones grow with it.
+
 ## [2.6.0] - 2026-11-11
 
 ### Added
