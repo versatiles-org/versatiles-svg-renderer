@@ -46,17 +46,12 @@ If the claim is "behaves like MapLibre GL JS", unit tests aren't enough. Also ad
 
 ## Releasing
 
-Only when asked. The user runs `npm run release [patch|minor|major|x.y.z]`, which is interactive; `-- --dry-run` changes nothing. It must run on an up-to-date `main` with nothing uncommitted except `CHANGELOG.md`.
+Only when asked. The user runs `npm run release [patch|minor|major|x.y.z]`, which is `vrt release` from `@versatiles/release-tool`, as in the other Node repos; `-- --dry-run` changes nothing. The [node-release-tool README](https://github.com/versatiles-org/node-release-tool#release-workflow) describes it.
 
-- The script pushes pending commits, waits for CI, bumps every `package.json`, dates the changelog, then commits and pushes the tag `vX.Y.Z`.
-- The tag starts `.github/workflows/release.yml`, which refuses commits not on `main`. It tests, then waits for a maintainer to approve the `npm` GitHub environment.
-- It then publishes the tested tarballs through npm trusted publishing with provenance, and creates the GitHub release with `maplibre-svg-export.tar.gz`. No npm token exists.
-- Prerelease versions such as `2.5.0-rc.0` get the npm dist-tag `next`.
-- If a release fails, run `npm run release` again; it offers to finish it. Re-runs skip versions already on npm.
-- Unlike most Node repos here, `npm run release` doesn't run `vrt release-npm`. It runs `scripts/release.ts`.
+- It waits for CI on the commit, writes the version into every `package.json` (all packages share one version), adds a CHANGELOG.md section generated from the commit messages, then commits and pushes the tag `vX.Y.Z`. So commit messages are the release notes.
+- The tag starts `.github/workflows/release.yml`: node-release-tool's reusable workflow runs `check:release` (lint, types, build, unit tests, and `test:pack -- --docker`: the steps of CI's first job, so keep the two equal) and packs the public packages; the private core is bundled into each of them. After a maintainer approves the `npm` environment, `vrt release-publish` publishes them through npm trusted publishing with provenance and creates the GitHub release; the workflow then attaches `maplibre-svg-export.tar.gz`, made from the plugin's npm tarball. No npm token exists.
+- If a release fails, run `npm run release` again; it offers to finish it.
 - A new package name must be published once by hand before trusted publishing can be configured.
-
-Commit types drive the recommended version: `feat` is minor, `fix` and `perf` are patch, and breaking changes are major. Changelog notes belong under `## [Unreleased]`. The script flags `feat`, `fix`, `perf` and breaking commits that didn't touch `CHANGELOG.md`.
 
 ## Decisions not to reopen
 

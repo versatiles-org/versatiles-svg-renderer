@@ -12,15 +12,12 @@
  * Options:
  *   --docker      also install and run png-renderer in Linux containers: node:22-slim
  *                 (glibc, the oldest supported Node) and node:24-alpine (musl)
- *   --out <dir>   keep the tested package tarballs in <dir>; the release workflow
- *                 publishes exactly these files
  *
  * `npm pack` runs with `--ignore-scripts`; the tarballs are packed from whatever each
  * package's `dist/` currently holds, so run `npm run build` first.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
-	copyFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
@@ -36,12 +33,6 @@ import { createContext, runInContext } from 'node:vm';
 const repo = resolve(import.meta.dirname, '..');
 const args = process.argv.slice(2);
 const withDocker = args.includes('--docker');
-const outIndex = args.indexOf('--out');
-const outDir = outIndex >= 0 ? args[outIndex + 1] : undefined;
-if (outIndex >= 0 && !outDir) {
-	console.error('--out needs a directory');
-	process.exit(2);
-}
 
 const useColor = !process.env.NO_COLOR;
 const paint = (code: number, s: string): string => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
@@ -196,14 +187,6 @@ try {
 			assert(foreign.length === 0, `references ${foreign.join(', ')}`);
 			return [...new Set([...references, ...imports])].join(', ');
 		});
-	}
-
-	if (outDir) {
-		const target = resolve(repo, outDir);
-		mkdirSync(target, { recursive: true });
-		for (const tarball of Object.values(tarballs)) {
-			copyFileSync(tarball, resolve(target, tarball.split('/').pop()!));
-		}
 	}
 
 	// --- @versatiles/svg-renderer ---------------------------------------------
@@ -540,7 +523,6 @@ if (failures > 0) {
 			`\nAll packages install and work.${withDocker ? '' : dim(' (Linux containers skipped; pass --docker)')}`,
 		),
 	);
-	if (outDir) console.log(dim(`Tarballs kept in ${outDir}/`));
 }
 
 // --- Helpers --------------------------------------------------------------------
