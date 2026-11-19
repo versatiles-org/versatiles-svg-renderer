@@ -81,7 +81,7 @@ export function screenTranslate(
  * the promoted property as it is as the id (`['id']`; a boolean as a number), where filters
  * and layout properties read the tile feature's own id. `undefined` without `promoteId`.
  */
-function promotedFeatures(layer: Layer): ((feature: LayerFeature) => LayerFeature) | undefined {
+function promotedFeatures(layer: Layer): ((feature: LayerFeature) => Feature) | undefined {
 	const { layerStyle, job } = layer;
 	const source = job.style.sources[layerStyle.source] as
 		{ type: string; promoteId?: unknown } | undefined;
@@ -92,7 +92,7 @@ function promotedFeatures(layer: Layer): ((feature: LayerFeature) => LayerFeatur
 		typeof promoteId === 'string'
 			? promoteId
 			: (promoteId as Record<string, string | undefined>)[sourceLayer];
-	const promoted = new WeakMap<LayerFeature, LayerFeature>();
+	const promoted = new WeakMap<LayerFeature, Feature>();
 	return (feature) => {
 		let result = promoted.get(feature);
 		if (!result) {
@@ -100,7 +100,7 @@ function promotedFeatures(layer: Layer): ((feature: LayerFeature) => LayerFeatur
 			if (typeof id === 'boolean') id = Number(id);
 			// What expressions read of a feature, with the promoted id.
 			const { type, properties, geometry } = feature;
-			result = { type, properties, geometry, id } as LayerFeature;
+			result = { type, properties, geometry, id };
 			promoted.set(feature, result);
 		}
 		return result;
@@ -116,7 +116,7 @@ export function evaluateLayer(layer: Layer, zoom = layer.job.view.zoom): LayerVa
 	function getStyleValue(
 		properties: EvaluatedProperties,
 		key: string,
-		feature?: LayerFeature,
+		feature?: Feature,
 	): unknown {
 		const value = properties.get(key);
 		if (typeof value === 'object' && value !== null && 'evaluate' in value) {
