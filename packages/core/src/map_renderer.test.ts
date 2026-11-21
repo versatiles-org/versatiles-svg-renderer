@@ -231,8 +231,8 @@ describe('SVGMapRenderer', () => {
 
 	describe('labels', () => {
 		const GLYPHS_URL = 'https://example.com/glyphs/{fontstack}/{range}.pbf';
-		/** makeStyle, with a label "AB" at the icons' point; with `glyphs`, the style has glyphs. */
-		const labelStyle = (glyphs = true): StyleSpecification => {
+		/** makeStyle, with a label `text` at the icons' point; with `glyphs`, the style has glyphs. */
+		const labelStyle = (glyphs = true, text = 'AB'): StyleSpecification => {
 			const style = makeStyle();
 			style.layers = [
 				style.layers[0]!,
@@ -240,7 +240,7 @@ describe('SVGMapRenderer', () => {
 					id: 'label',
 					type: 'symbol',
 					source: 'points',
-					layout: { 'text-field': 'AB', 'text-font': ['Test Regular'] },
+					layout: { 'text-field': text, 'text-font': ['Test Regular'] },
 				},
 			];
 			if (glyphs) style.glyphs = GLYPHS_URL;
@@ -280,7 +280,23 @@ describe('SVGMapRenderer', () => {
 			expect(glyphs).not.toContain('<text');
 			const overlaid = await render('glyphs-text');
 			expect(overlaid).toContain('#glyph-0');
-			expect(overlaid).toMatch(/fill-opacity="0"><tspan[^>]*textLength[^>]*>AB</);
+			expect(overlaid).toMatch(/<text [^>]*textLength[^>]*fill-opacity="0">AB</);
+		});
+
+		test('draws text with its baseline where MapLibre puts it', async () => {
+			const render = (glyphs: boolean, text: string, labels: 'text' | 'glyphs') =>
+				new SVGMapRenderer({
+					style: labelStyle(glyphs, text),
+					labels,
+					fetch: glyphFetch(),
+					onWarning: vi.fn(),
+				}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			// The label's line is in the middle of the image, 16 px high. The glyph server's
+			// baseline is 7/24 em below its middle.
+			expect(await render(true, 'AB', 'text')).toContain('<text x="100" y="104.7" ');
+			// MapLibre draws the glyphs itself without the style's glyphs, and for Thai: 10.5/24 em.
+			expect(await render(false, 'AB', 'glyphs')).toContain('<text x="100" y="107" ');
+			expect(await render(true, 'กรุงเทพ', 'glyphs')).toContain('<text x="100" y="107" ');
 		});
 
 		test('draws them as glyphs with text for the deprecated renderLabels', async () => {

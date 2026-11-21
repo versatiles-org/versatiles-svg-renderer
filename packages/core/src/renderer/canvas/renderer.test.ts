@@ -1117,18 +1117,37 @@ describe('CanvasRenderer', () => {
 			expect(paintedPixels(r, (p) => p[3]! > 0)).toBe(0);
 		});
 
-		test('text-anchor moves the label relative to its point', () => {
-			const leftOf = (anchor: string): number => {
+		test('aligns each line at its point by justify', () => {
+			const leftOf = (justify: 'left' | 'right'): number => {
 				const r = makeRenderer();
-				r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ anchor })]]);
+				const lines = [{ text: 'Berlin', x: 128, y: 128 }];
+				r.drawLabels('labels', [[makePointFeature([[128, 128]]), symbolStyle({ lines, justify })]]);
 				const { data } = r.ctx.getImageData(0, 0, 256, 256);
 				for (let x = 0; x < 256; x++) {
 					for (let y = 0; y < 256; y++) if (data[(y * 256 + x) * 4 + 3]! > 128) return x;
 				}
 				return -1;
 			};
-			// 'left' anchors the text's start at the point; 'right' ends it there.
+			// 'left' starts the line at its point; 'right' ends it there.
 			expect(leftOf('left')).toBeGreaterThan(leftOf('right'));
+		});
+
+		test("draws on the alphabetic baseline, 7/24 em below the line's middle or as given", () => {
+			// The lowest row of "H" with ink, which ends on the baseline.
+			const bottomOf = (baseline?: number): number => {
+				const r = makeRenderer();
+				const lines = [{ text: 'H', x: 128, y: 100 }];
+				r.drawLabels('labels', [
+					[makePointFeature([[128, 100]]), symbolStyle({ text: 'H', lines, baseline })],
+				]);
+				const { data } = r.ctx.getImageData(0, 0, 256, 256);
+				for (let y = 255; y >= 0; y--) {
+					for (let x = 0; x < 256; x++) if (data[(y * 256 + x) * 4 + 3]! > 128) return y + 1;
+				}
+				return -1;
+			};
+			expect(bottomOf()).toBe(100 + Math.round((32 * 7) / 24));
+			expect(bottomOf(0.5)).toBe(116);
 		});
 
 		test('text-rotate turns the label about its point', () => {

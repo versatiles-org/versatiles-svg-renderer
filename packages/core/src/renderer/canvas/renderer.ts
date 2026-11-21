@@ -10,7 +10,7 @@ import {
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
 	linePatternStrips,
-	mapTextAnchor,
+	TEXT_BASELINE,
 	quadsBox,
 	type Segment,
 	strokeLines,
@@ -745,18 +745,20 @@ export class CanvasRenderer implements Renderer {
 		this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
 			ctx.font = `${String(roundToTenths(style.size))}px ${fontFamily(style.font)}`;
 			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle';
+			ctx.textBaseline = 'alphabetic';
 			ctx.strokeStyle = haloColor.hex;
 			ctx.lineWidth = roundToTenths(style.haloWidth);
 			ctx.lineJoin = 'round';
 			ctx.fillStyle = color.hex;
+			// The baseline, below each place in the glyph's own turned frame.
+			const below = roundToTenths((style.baseline ?? TEXT_BASELINE.server) * style.size);
 			for (const pass of hasHalo ? ['halo', 'fill'] : ['fill']) {
 				for (const glyph of path) {
 					ctx.save();
 					ctx.translate(glyph.x, glyph.y);
 					ctx.rotate((glyph.angle * Math.PI) / 180);
-					if (pass === 'halo') ctx.strokeText(glyph.text, 0, 0);
-					else ctx.fillText(glyph.text, 0, 0);
+					if (pass === 'halo') ctx.strokeText(glyph.text, 0, below);
+					else ctx.fillText(glyph.text, 0, below);
 					ctx.restore();
 				}
 			}
@@ -827,9 +829,6 @@ export class CanvasRenderer implements Renderer {
 			const [px, py] = roundPoint(point.x, point.y);
 			const x = px / UNITS_PER_PX;
 			const y = py / UNITS_PER_PX;
-			const [dx, dy] = roundPoint(style.offset[0] * style.size, style.offset[1] * style.size);
-
-			const [align, baseline] = mapTextAnchor(style.anchor);
 
 			this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
 				if (style.rotate !== 0) {
@@ -841,22 +840,20 @@ export class CanvasRenderer implements Renderer {
 				const spacing = (style.letterSpacing ?? 0) * style.size;
 				if (spacing !== 0) ctx.letterSpacing = `${String(spacing)}px`;
 
-				// One line at the point, or several, each at its own point (see SymbolStyle.lines).
-				let lines: { text: string; x: number; y: number }[];
-				if (style.lines) {
-					const anchor = JUSTIFY_ANCHOR[style.justify ?? 'center'];
-					const shift = letterSpacingShift(spacing, anchor);
-					ctx.textAlign = CANVAS_TEXT_ALIGN[anchor];
-					ctx.textBaseline = 'middle';
-					lines = style.lines.map((line) => ({ ...line, x: line.x + shift }));
-				} else {
-					ctx.textAlign = CANVAS_TEXT_ALIGN[align];
-					ctx.textBaseline = CANVAS_TEXT_BASELINE[baseline];
-					const shift = letterSpacingShift(spacing, align);
-					lines = [
-						{ text: style.text, x: x + dx / UNITS_PER_PX + shift, y: y + dy / UNITS_PER_PX },
-					];
-				}
+				// Each line at its point (see SymbolStyle.lines), on the alphabetic baseline: where
+				// MapLibre puts it, whatever metrics Skia takes for the font.
+				const anchor = JUSTIFY_ANCHOR[style.justify ?? 'center'];
+				const shift = letterSpacingShift(spacing, anchor);
+				const below = (style.baseline ?? TEXT_BASELINE.server) * style.size;
+				ctx.textAlign = CANVAS_TEXT_ALIGN[anchor];
+				ctx.textBaseline = 'alphabetic';
+				const lines = (style.lines ?? [{ text: style.text, x: point.x, y: point.y }]).map(
+					(line) => ({
+						text: line.text,
+						x: roundToTenths(line.x + shift),
+						y: roundToTenths(line.y + below),
+					}),
+				);
 
 				const haloColor = new Color(style.haloColor);
 				// Stroke first, then fill: the same order `paint-order="stroke fill"` gives the
@@ -921,12 +918,6 @@ const CANVAS_TEXT_ALIGN = {
 	middle: 'center',
 	end: 'end',
 } as const satisfies Record<string, CanvasTextAlign>;
-
-const CANVAS_TEXT_BASELINE = {
-	central: 'middle',
-	'text-before-edge': 'top',
-	'text-after-edge': 'bottom',
-} as const satisfies Record<string, CanvasTextBaseline>;
 
 function roundToTenths(v: number): number {
 	return Math.round(v * UNITS_PER_PX) / UNITS_PER_PX;

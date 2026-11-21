@@ -227,13 +227,19 @@ export interface SymbolStyle {
 	/** With `glyphs`: also the text, invisible, so the label stays selectable and searchable. */
 	textOverlay?: boolean;
 	/**
-	 * For a label of several lines: each line, and the point its alignment (`justify`)
-	 * refers to, vertically at the middle of the line. The anchor and offset are applied
-	 * already; `text` is all lines.
+	 * For a label at a point: each line, and the point its alignment (`justify`) refers
+	 * to, vertically at the middle of the line. The anchor and offset are applied already;
+	 * `text` is all lines. Without them, the text is one line centered on the point.
 	 */
 	lines?: { text: string; x: number; y: number; width?: number }[];
 	/** How the `lines` align at their points (`text-justify`). */
 	justify?: 'left' | 'center' | 'right';
+	/**
+	 * For a label drawn as text: how far below the middle of each line, or of each place on
+	 * its `path`, the alphabetic baseline lies, in ems (see `TEXT_BASELINE`). By default the
+	 * glyph server's.
+	 */
+	baseline?: number;
 	/** `text-letter-spacing`, in ems. */
 	letterSpacing?: number;
 	text: string;

@@ -107,9 +107,9 @@ export interface TextLayout {
 	 * and as drawn (see `LabelLine`).
 	 */
 	lineBoxes: { text: string; glyphs: string; left: number; width: number; y: number }[];
-	/** Only for more than one line (see `SymbolStyle.lines`). */
-	lines?: { text: string; x: number; y: number }[];
-	justify?: 'left' | 'center' | 'right';
+	/** As the renderers draw them (see `SymbolStyle.lines`). */
+	lines: { text: string; x: number; y: number }[];
+	justify: 'left' | 'center' | 'right';
 }
 
 /**
@@ -167,7 +167,6 @@ export function layoutText(
 			y: top + (i + 0.5) * style.size * lineHeight,
 		};
 	});
-	if (lines.length <= 1) return { box, lineBoxes };
 	return {
 		box,
 		lineBoxes,

@@ -8,7 +8,7 @@ import type {
 	RenderJob,
 	SymbolStyle,
 } from '../../types.js';
-import { fitIconToText, iconQuads, quadsBox } from '../../layout/index.js';
+import { fitIconToText, iconQuads, quadsBox, TEXT_BASELINE } from '../../layout/index.js';
 import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources/index.js';
 import type { StyleLayer } from '../style_layer.js';
 import {
@@ -39,6 +39,7 @@ import {
 	type CollisionOptions,
 	type FontMetrics,
 	type PlacedSymbol,
+	type TextLayout,
 } from '../symbol/index.js';
 import {
 	evaluateLayer,
@@ -201,6 +202,12 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					letterSpacing: allowsLetterSpacing(text)
 						? (getLayout('text-letter-spacing', feature) as number)
 						: 0,
+					// Where MapLibre puts the baseline: lower for the glyphs it draws itself, which
+					// it does without the style's glyphs and for scripts whose letters combine.
+					baseline:
+						typeof job.style.glyphs !== 'string' || drawnByFontEngine(text)
+							? TEXT_BASELINE.local
+							: TEXT_BASELINE.server,
 				}
 			: undefined;
 		if (!iconStyle && !labelStyle) continue;
@@ -337,24 +344,14 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					style: SymbolStyle,
 				): { label: [LayerFeature, SymbolStyle]; textBoxes: Box[] } => {
 					const layout = layoutText(tx, ty, style, lines, lineHeight, justify, metrics);
-					let drawn: SymbolStyle = layout.lines
-						? { ...style, lines: layout.lines, justify: layout.justify }
-						: style;
-					if (asGlyphs) {
-						drawn = {
-							...style,
-							glyphs: glyphsOfLines(layout.lineBoxes, style, outlineOf, tx, ty, metrics),
-							textOverlay,
-							// The invisible text, line by line, as wide as the glyphs.
-							lines: layout.lineBoxes.map((line) => ({
-								text: line.text,
-								x: line.left + line.width / 2,
-								y: line.y,
-								width: line.width,
-							})),
-							justify: 'center',
-						};
-					}
+					const drawn = drawnLines(
+						style,
+						layout,
+						asGlyphs
+							? glyphsOfLines(layout.lineBoxes, style, outlineOf, tx, ty, metrics)
+							: undefined,
+						textOverlay,
+					);
 					return {
 						label: [pointAtAnchor(tx, ty), drawn],
 						textBoxes: [paddedBox(layout.box, style, tx, ty, textPadding)],
@@ -468,13 +465,14 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					const layout = layoutText(tx, ty, labelStyle, [single], undefined, undefined, metrics);
 					label = [
 						pointAtAnchor(tx, ty),
-						asGlyphs
-							? {
-									...labelStyle,
-									glyphs: glyphsOfLines(layout.lineBoxes, labelStyle, outlineOf, tx, ty, metrics),
-									textOverlay,
-								}
-							: labelStyle,
+						drawnLines(
+							labelStyle,
+							layout,
+							asGlyphs
+								? glyphsOfLines(layout.lineBoxes, labelStyle, outlineOf, tx, ty, metrics)
+								: undefined,
+							textOverlay,
+						),
 					];
 					textBoxes = [paddedBox(layout.box, labelStyle, tx, ty, textPadding)];
 				}
@@ -509,6 +507,31 @@ function hasAllGlyphs(text: string, glyphAt: (codePoint: number) => Glyph | unde
 		if (!/\s/.test(char) && !glyphAt(char.codePointAt(0)!)) return false;
 	}
 	return true;
+}
+
+/**
+ * A label at a point as the renderers draw it: as text, line by line; or as its `glyphs`,
+ * with the text, invisible, line by line over them and as wide as they are.
+ */
+function drawnLines(
+	style: SymbolStyle,
+	layout: TextLayout,
+	glyphs: PlacedGlyph[] | undefined,
+	textOverlay: boolean,
+): SymbolStyle {
+	if (!glyphs) return { ...style, lines: layout.lines, justify: layout.justify };
+	return {
+		...style,
+		glyphs,
+		textOverlay,
+		lines: layout.lineBoxes.map((line) => ({
+			text: line.text,
+			x: line.left + line.width / 2,
+			y: line.y,
+			width: line.width,
+		})),
+		justify: 'center',
+	};
 }
 
 /**

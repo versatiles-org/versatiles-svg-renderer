@@ -9,7 +9,7 @@ import {
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
 	linePatternStrips,
-	mapTextAnchor,
+	TEXT_BASELINE,
 	type Segment,
 	strokeLines,
 } from '../../layout/index.js';
@@ -519,44 +519,40 @@ export class SVGRenderer {
 			const family = fontFamily(style.font);
 			const spacing = (style.letterSpacing ?? 0) * style.size;
 
-			// Several lines: each a <tspan> at its point, the block placed by the pipeline.
-			let content = escapeXml(style.text);
-			let attrs: string[];
-			if (style.lines) {
-				const anchor = JUSTIFY_ANCHOR[style.justify ?? 'center'];
-				const shift = letterSpacingShift(spacing, anchor);
-				content = style.lines
-					.map((line) => {
-						const [x, y] = roundXY(line.x + shift, line.y);
-						// Invisible over glyphs: as wide as they are, whatever font it is set in.
-						const length =
-							invisible && line.width
-								? ` textLength="${formatScaled(line.width)}" lengthAdjust="spacingAndGlyphs"`
-								: '';
-						return `<tspan x="${formatNum(x)}" y="${formatNum(y)}"${length}>${escapeXml(line.text)}</tspan>`;
-					})
-					.join('');
-				attrs = [
-					`font-family="${escapeXml(family)}"`,
-					`font-size="${fontSize}"`,
-					`text-anchor="${anchor}"`,
-					'dominant-baseline="central"',
-				];
+			// Each line at its point, placed by the pipeline, on the alphabetic baseline: where
+			// MapLibre puts it, whatever metrics the viewer's font engine gives the font. One
+			// line is the <text> itself, several are a <tspan> each.
+			const anchor = JUSTIFY_ANCHOR[style.justify ?? 'center'];
+			const shift = letterSpacingShift(spacing, anchor);
+			const below = (style.baseline ?? TEXT_BASELINE.server) * style.size;
+			const lines = style.lines ?? [{ text: style.text, x: point.x, y: point.y }];
+			const placed = lines.map((line) => {
+				const [x, y] = roundXY(line.x + shift, line.y + below);
+				// Invisible over glyphs: as wide as they are, whatever font it is set in.
+				const length =
+					invisible && line.width
+						? ` textLength="${formatScaled(line.width)}" lengthAdjust="spacingAndGlyphs"`
+						: '';
+				return {
+					xy: `x="${formatNum(x)}" y="${formatNum(y)}"`,
+					length,
+					text: escapeXml(line.text),
+				};
+			});
+			const attrs = [
+				`font-family="${escapeXml(family)}"`,
+				`font-size="${fontSize}"`,
+				`text-anchor="${anchor}"`,
+			];
+			let content: string;
+			if (placed.length === 1) {
+				const [only] = placed as [(typeof placed)[0]];
+				attrs.unshift(only.xy + only.length);
+				content = only.text;
 			} else {
-				const [svgAnchor, baseline] = mapTextAnchor(style.anchor);
-				const offsetX = style.offset[0] * style.size + letterSpacingShift(spacing, svgAnchor);
-				const offsetY = style.offset[1] * style.size;
-				const [dx, dy] = roundXY(offsetX, offsetY);
-				attrs = [
-					`x="${formatNum(px)}"`,
-					`y="${formatNum(py)}"`,
-					`font-family="${escapeXml(family)}"`,
-					`font-size="${fontSize}"`,
-					`text-anchor="${svgAnchor}"`,
-					`dominant-baseline="${baseline}"`,
-				];
-				if (dx !== 0) attrs.push(`dx="${formatNum(dx)}"`);
-				if (dy !== 0) attrs.push(`dy="${formatNum(dy)}"`);
+				content = placed
+					.map((line) => `<tspan ${line.xy}${line.length}>${line.text}</tspan>`)
+					.join('');
 			}
 			if (spacing !== 0) attrs.push(`letter-spacing="${formatScale(spacing)}"`);
 
@@ -601,17 +597,19 @@ export class SVGRenderer {
 		invisible = false,
 	): string {
 		const family = fontFamily(style.font);
+		// The baseline, below each place in the glyph's own turned frame.
+		const below = formatScaled((style.baseline ?? TEXT_BASELINE.server) * style.size);
 		const glyphs = path
 			.map((glyph) => {
 				const [x, y] = roundXY(glyph.x, glyph.y);
 				const angle = Math.round(glyph.angle * 10) / 10;
 				const rotate = angle === 0 ? '' : ` rotate(${String(angle)})`;
-				return `<text transform="translate(${formatNum(x)},${formatNum(y)})${rotate}">${escapeXml(glyph.text)}</text>`;
+				return `<text transform="translate(${formatNum(x)},${formatNum(y)})${rotate}" y="${below}">${escapeXml(glyph.text)}</text>`;
 			})
 			.join('');
 		const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 		const parts = [
-			`<g font-family="${escapeXml(family)}" font-size="${formatScaled(style.size)}" text-anchor="middle" dominant-baseline="central"${opacity}>`,
+			`<g font-family="${escapeXml(family)}" font-size="${formatScaled(style.size)}" text-anchor="middle"${opacity}>`,
 		];
 		if (invisible) {
 			parts.push(`<g fill-opacity="0">${glyphs}</g>`, '</g>');

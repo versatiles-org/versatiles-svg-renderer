@@ -1,13 +1,12 @@
 /**
- * Where a symbol sits relative to its point, shared by every backend so the two cannot
- * drift apart. The text vocabulary is SVG's (`text-anchor` / `dominant-baseline`); the
- * canvas backend translates it to `textAlign` / `textBaseline`.
+ * Where a symbol sits relative to its point, shared by the pipeline and every backend so
+ * they cannot drift apart. The text vocabulary is SVG's (`text-anchor` / `dominant-baseline`).
  */
 
 /** SVG's `text-anchor` values. */
 export type TextAlign = 'start' | 'middle' | 'end';
 
-/** The `dominant-baseline` values this renderer emits. */
+/** Which edge of a block of lines, or its middle, is at the label's point. */
 export type TextBaseline = 'central' | 'text-before-edge' | 'text-after-edge';
 
 export function mapTextAnchor(anchor: string): [TextAlign, TextBaseline] {
@@ -67,3 +66,12 @@ export const JUSTIFY_ANCHOR = { left: 'start', center: 'middle', right: 'end' } 
 export function letterSpacingShift(spacing: number, anchor: 'start' | 'middle' | 'end'): number {
 	return anchor === 'middle' ? spacing / 2 : anchor === 'end' ? spacing : 0;
 }
+
+/**
+ * How far below the middle of a line of text its alphabetic baseline lies, in ems, where
+ * MapLibre puts it. Its glyphs hang 17 of 24 px above the middle (`SHAPING_DEFAULT_OFFSET`);
+ * the glyph server's have their baseline 24 px below that, the glyphs MapLibre draws itself
+ * from the browser's fonts 27.5 px (its `topAdjustment`). Placed by these numbers, text sits
+ * where MapLibre's does whatever metrics the font engine gives the font.
+ */
+export const TEXT_BASELINE = { server: 7 / 24, local: 10.5 / 24 } as const;

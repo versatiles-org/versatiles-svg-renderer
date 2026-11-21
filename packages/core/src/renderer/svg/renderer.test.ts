@@ -1293,13 +1293,21 @@ describe('SVGRenderer', () => {
 			expect(svg).not.toContain('<text');
 		});
 
-		test('applies text anchor mapping', () => {
+		test("draws on the alphabetic baseline, 7/24 em below the line's middle or as given", () => {
+			const lines = [{ text: 'Hello', x: 100, y: 50 }];
 			const r = makeRenderer();
 			const feature = makePointFeature([[100, 50]]);
-			r.drawLabels('symbol-test', [[feature, defaultSymbolStyle({ anchor: 'left' })]]);
+			r.drawLabels('symbol-test', [
+				[feature, defaultSymbolStyle({ lines, justify: 'left' })],
+				[feature, defaultSymbolStyle({ lines, baseline: 0.5 })],
+			]);
 			const svg = r.getString();
-			expect(svg).toContain('text-anchor="start"');
-			expect(svg).toContain('dominant-baseline="central"');
+			// Not the font's own middle, which differs between font engines.
+			expect(svg).not.toContain('dominant-baseline');
+			expect(svg).toContain(
+				'<text x="100" y="54.7" font-family="Arial, Helvetica, Arial, sans-serif" font-size="16" text-anchor="start"',
+			);
+			expect(svg).toContain('<text x="100" y="58" ');
 		});
 
 		test('applies rotation', () => {
@@ -1331,15 +1339,6 @@ describe('SVGRenderer', () => {
 			expect(svg).not.toContain('stroke=');
 		});
 
-		test('applies offset as dx/dy', () => {
-			const r = makeRenderer();
-			const feature = makePointFeature([[100, 50]]);
-			r.drawLabels('symbol-test', [[feature, defaultSymbolStyle({ offset: [1, 0.5], size: 16 })]]);
-			const svg = r.getString();
-			expect(svg).toContain('dx=');
-			expect(svg).toContain('dy=');
-		});
-
 		test('escapes XML special characters in text', () => {
 			const r = makeRenderer();
 			const feature = makePointFeature([[100, 50]]);
@@ -1363,14 +1362,15 @@ describe('SVGRenderer', () => {
 				[feature, defaultSymbolStyle({ text: 'AB', path, haloWidth: 2, haloColor: mc('#FFFFFF') })],
 			]);
 			const svg = r.getString();
+			// Each on the baseline below its place, turned with it: 7/24 of 16 px.
 			const glyphs =
-				'<text transform="translate(10,20)">A</text><text transform="translate(20,25) rotate(30)">B</text>';
+				'<text transform="translate(10,20)" y="4.7">A</text><text transform="translate(20,25) rotate(30)" y="4.7">B</text>';
 			expect(svg).toContain(
 				`<g fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round">${glyphs}</g>`,
 			);
 			expect(svg).toContain(`<g fill="#`);
 			expect(svg.indexOf('stroke="#FFFFFF"')).toBeLessThan(svg.lastIndexOf(glyphs));
-			expect(svg).toContain('text-anchor="middle" dominant-baseline="central"');
+			expect(svg).toContain('font-size="16" text-anchor="middle">');
 		});
 
 		test('draws a label as glyph outlines, each defined once, with text over them', () => {
@@ -1414,9 +1414,9 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('transform="translate(20,20) rotate(30) scale(0.5)"');
 			// The halo is 2 px on screen: 4 in the outlines' units, scaled by 0.5.
 			expect(svg).toContain('stroke="#FFFFFF" stroke-width="4"');
-			// The invisible text, as wide as the glyphs.
+			// The invisible text, as wide as the glyphs, on their baseline.
 			expect(svg).toMatch(
-				/<text [^>]*fill-opacity="0"><tspan x="15" y="20" textLength="12" lengthAdjust="spacingAndGlyphs">AA<\/tspan><\/text>/,
+				/<text x="15" y="24.7" textLength="12" lengthAdjust="spacingAndGlyphs" [^>]*fill-opacity="0">AA<\/text>/,
 			);
 		});
 
@@ -1450,9 +1450,9 @@ describe('SVGRenderer', () => {
 			]);
 			const svg = r.getString();
 			expect(svg).toContain(
-				'<tspan x="100" y="40">Museum für</tspan><tspan x="100" y="55">Naturkunde</tspan>',
+				'<tspan x="100" y="44.7">Museum für</tspan><tspan x="100" y="59.7">Naturkunde</tspan>',
 			);
-			expect(svg).toContain('text-anchor="end" dominant-baseline="central"');
+			expect(svg).toContain('text-anchor="end" fill="#333333">');
 		});
 
 		test('spaces letters, keeping centered text centered', () => {
@@ -1467,10 +1467,10 @@ describe('SVGRenderer', () => {
 			const size = defaultSymbolStyle().size;
 			expect(svg).toContain(`letter-spacing="${String(0.2 * size)}"`);
 			// SVG adds the spacing after the last letter too: half of it moves the text back.
-			expect(svg).toContain(`dx="${String(Math.round(0.1 * size * 10) / 10)}"`);
+			expect(svg).toContain(`x="${String(50 + 0.1 * size)}"`);
 		});
 
-		test("draws at the feature's first point, where the pipeline placed it", () => {
+		test("without lines, draws one line centered on the feature's first point", () => {
 			const feature = new Feature({
 				type: 'Point',
 				properties: {},
@@ -1479,8 +1479,8 @@ describe('SVGRenderer', () => {
 			const r = makeRenderer();
 			r.drawLabels('symbol-test', [[feature, defaultSymbolStyle()]]);
 			const svg = r.getString();
-			expect(svg).toContain('x="50"');
-			expect(svg).toContain('y="60"');
+			expect(svg).toContain('<text x="50" y="64.7" ');
+			expect(svg).toContain('text-anchor="middle"');
 		});
 
 		test('applies opacity attribute when < 1', () => {

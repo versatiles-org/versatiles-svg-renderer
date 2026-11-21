@@ -58,7 +58,7 @@ describe('layoutText', () => {
 		// 25.56 × 30 px (2 lines of 15 px), centered on the point.
 		expect(round(layout.box)).toEqual([87.22, 35, 112.78, 65]);
 		expect(layout.justify).toBe('center');
-		expect(layout.lines!.map((l) => [round([l.x, l.y, 0, 0])[0], l.y])).toEqual([
+		expect(layout.lines.map((l) => [round([l.x, l.y, 0, 0])[0], l.y])).toEqual([
 			[100, 42.5],
 			[100, 57.5],
 		]);
@@ -67,15 +67,16 @@ describe('layoutText', () => {
 	test('justifies "auto" by the anchor: a label left of its point is right-aligned', () => {
 		const layout = layoutText(100, 50, label({ anchor: 'right' }), two, 1.2, 'auto');
 		expect(layout.justify).toBe('right');
-		expect(layout.lines!.every((l) => l.x === 100)).toBe(true);
+		expect(layout.lines.every((l) => l.x === 100)).toBe(true);
 		expect(layoutText(100, 50, label({ anchor: 'top-left' }), two, 1.2, 'auto').justify).toBe(
 			'left',
 		);
 	});
 
-	test('keeps a single line as it is', () => {
+	test('places a single line in the middle of its box', () => {
 		const layout = layoutText(100, 50, label(), ['AAAAAAAAAA'], 1.2, 'center');
-		expect(layout.lines).toBeUndefined();
+		expect(layout.lines).toEqual([{ text: 'AAAAAAAAAA', x: 100, y: 50 }]);
+		expect(layout.justify).toBe('center');
 		expect(round(layout.box)).toEqual([68.05, 44, 131.95, 56]);
 	});
 

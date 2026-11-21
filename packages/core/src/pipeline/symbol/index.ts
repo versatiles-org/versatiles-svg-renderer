@@ -9,6 +9,7 @@ export {
 	type Box,
 	type CollisionOptions,
 	type PlacedSymbol,
+	type TextLayout,
 } from './collision.js';
 export { traceGlyph } from './glyph_outline.js';
 export { labelAnchors } from './label_anchors.js';

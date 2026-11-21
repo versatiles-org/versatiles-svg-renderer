@@ -6,6 +6,7 @@ export {
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
 	mapTextAnchor,
+	TEXT_BASELINE,
 	type TextAlign,
 	type TextBaseline,
 } from './anchors.js';
