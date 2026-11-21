@@ -12,15 +12,17 @@ import { fitIconToText, iconQuads, quadsBox } from '../../layout/index.js';
 import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources/index.js';
 import type { StyleLayer } from '../style_layer.js';
 import {
+	allowsLetterSpacing,
 	anchorOffsets,
-	breakLines,
 	CollisionIndex,
+	drawnCharacters,
 	fitsMaxAngle,
 	glyphAdvances,
 	glyphBox,
 	glyphMetrics,
 	iconBox,
 	labelAnchors,
+	labelLines,
 	layoutAlongLine,
 	layoutText,
 	lineAnchors,
@@ -29,6 +31,7 @@ import {
 	placeSymbols,
 	pointAt,
 	radialOffset,
+	singleLine,
 	tableMetrics,
 	traceGlyph,
 	type Box,
@@ -123,14 +126,14 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 	};
 
 	// Drawn as glyphs, labels need the style's glyphs before they are laid out, with their
-	// metrics: all ranges the layer's labels use, loaded together.
+	// metrics: all ranges the layer's labels use (Arabic in its shapes), loaded together.
 	const glyphMode = job.labels === 'glyphs' || job.labels === 'glyphs-text';
 	const glyphRanges = new Map<string, GlyphRange | undefined>();
 	if (glyphMode) {
 		const wanted = new Set<string>();
 		for (const feature of symbolFeatures) {
 			const fontStack = (getLayout('text-font', feature) as string[]).join(',');
-			for (const char of labelText(feature)) {
+			for (const char of drawnCharacters(labelText(feature))) {
 				wanted.add(`${fontStack}\0${String(rangeStart(char.codePointAt(0)!))}`);
 			}
 		}
@@ -190,7 +193,10 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					opacity: getPaint('text-opacity', feature) as number,
 					haloColor: getPaint('text-halo-color', feature) as MaplibreColor,
 					haloWidth: getPaint('text-halo-width', feature) as number,
-					letterSpacing: getLayout('text-letter-spacing', feature) as number,
+					// As in MapLibre, letters of a cursive script are not spaced apart.
+					letterSpacing: allowsLetterSpacing(text)
+						? (getLayout('text-letter-spacing', feature) as number)
+						: 0,
 				}
 			: undefined;
 		if (!iconStyle && !labelStyle) continue;
@@ -201,7 +207,9 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		const glyphAt = (codePoint: number): Glyph | undefined =>
 			glyphRanges.get(`${fontStack}\0${String(rangeStart(codePoint))}`)?.get(codePoint);
 		const asGlyphs =
-			glyphMode && labelStyle !== undefined && hasAllGlyphs(labelStyle.text, glyphAt);
+			glyphMode &&
+			labelStyle !== undefined &&
+			hasAllGlyphs(drawnCharacters(labelStyle.text), glyphAt);
 		const fallbackMetrics = tableMetrics(labelStyle?.font);
 		const metrics = asGlyphs ? glyphMetrics(glyphAt, fallbackMetrics) : fallbackMetrics;
 		const outlineOf = (codePoint: number): GlyphOutline | undefined => {
@@ -255,9 +263,10 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			});
 
 		if (placement === 'point' || feature.type === 'Point') {
-			// A point label is broken into lines of at most `text-max-width` ems.
+			// A point label is broken into lines of at most `text-max-width` ems, each kept as
+			// written (drawn as text) and as drawn (as glyphs).
 			const lines = labelStyle
-				? breakLines(
+				? labelLines(
 						labelStyle.text,
 						metrics,
 						getLayout('text-max-width', feature) as number,
@@ -274,7 +283,11 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			const iconTurn = turn(getLayout('icon-rotation-alignment', feature));
 			const lineStyle: SymbolStyle | undefined =
 				labelStyle && lines.length > 0
-					? { ...labelStyle, text: lines.join('\n'), rotate: labelStyle.rotate + textTurn }
+					? {
+							...labelStyle,
+							text: lines.map((line) => line.text).join('\n'),
+							rotate: labelStyle.rotate + textTurn,
+						}
 					: undefined;
 			// With variable anchors, the places to try, each with the label anchored there.
 			const places =
@@ -375,17 +388,18 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			labelStyle !== undefined && alignedToMap(getLayout('text-rotation-alignment', feature));
 		const iconAlongLine =
 			iconStyle !== undefined && alignedToMap(getLayout('icon-rotation-alignment', feature));
+		// Along a line, a label is one line, its glyphs in the order they are drawn.
+		const single = labelStyle && singleLine(labelStyle.text, metrics);
 		// Fitted, the icon spans the label as if it were straight.
 		const lineIconStyle =
 			iconStyle &&
 			fitted(
 				iconStyle,
 				labelStyle &&
-					layoutText(0, 0, labelStyle, [labelStyle.text], undefined, undefined, metrics).box,
+					single &&
+					layoutText(0, 0, labelStyle, [single], undefined, undefined, metrics).box,
 			);
-		// Along a line, a label is one line.
-		const glyphs =
-			labelStyle && glyphAdvances(labelStyle.text.replace(/\s+/g, ' '), metrics, labelStyle.size);
+		const glyphs = labelStyle && single && glyphAdvances(single.glyphs, metrics, labelStyle.size);
 		const textLength = glyphs ? glyphs.advances.reduce((sum, width) => sum + width, 0) : 0;
 		const iconBounds = lineIconStyle && quadsBox(iconQuads(lineIconStyle, sprite!));
 		const iconLength = iconBounds ? iconBounds[2] - iconBounds[0] : 0;
@@ -442,18 +456,10 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					textBoxes = path.map((glyph, i) =>
 						glyphBox(glyph, glyphs.advances[i]!, labelStyle.size, textPadding),
 					);
-				} else if (labelStyle) {
+				} else if (labelStyle && single) {
 					const tx = anchor.x + textTranslate[0];
 					const ty = anchor.y + textTranslate[1];
-					const layout = layoutText(
-						tx,
-						ty,
-						labelStyle,
-						[labelStyle.text],
-						undefined,
-						undefined,
-						metrics,
-					);
+					const layout = layoutText(tx, ty, labelStyle, [single], undefined, undefined, metrics);
 					label = [
 						pointAtAnchor(tx, ty),
 						asGlyphs
@@ -488,7 +494,10 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 	return entries;
 }
 
-/** Whether every character of `text` has a glyph, except white space, which needs none. */
+/**
+ * Whether every character of `text` (as drawn, see `drawnCharacters`) has a glyph, except
+ * white space, which needs none.
+ */
 function hasAllGlyphs(text: string, glyphAt: (codePoint: number) => Glyph | undefined): boolean {
 	for (const char of text) {
 		if (!/\s/.test(char) && !glyphAt(char.codePointAt(0)!)) return false;
@@ -497,11 +506,11 @@ function hasAllGlyphs(text: string, glyphAt: (codePoint: number) => Glyph | unde
 }
 
 /**
- * The glyphs of a label's lines, as MapLibre places them: along each line from its start,
- * one advance after the other, turned with `text-rotate` around the label's point `x`, `y`.
+ * The glyphs of a label's lines, as MapLibre places them: along each line as drawn from its
+ * start, one advance after the other, turned with `text-rotate` around the label's point `x`, `y`.
  */
 function glyphsOfLines(
-	lineBoxes: { text: string; left: number; y: number }[],
+	lineBoxes: { glyphs: string; left: number; y: number }[],
 	style: SymbolStyle,
 	outlineOf: (codePoint: number) => GlyphOutline | undefined,
 	x: number,
@@ -516,7 +525,7 @@ function glyphsOfLines(
 	const placed: PlacedGlyph[] = [];
 	for (const line of lineBoxes) {
 		let pen = line.left;
-		for (const char of line.text) {
+		for (const char of line.glyphs) {
 			const advance = metrics.advance(char) * style.size;
 			const outline = outlineOf(char.codePointAt(0)!);
 			if (outline) {

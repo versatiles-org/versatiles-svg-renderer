@@ -201,6 +201,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Label position in polygons            | ✅  | ✅  |       |
 | Line breaks, wrapping, justification  | ✅  | ✅  |       |
 | Variable anchors, radial offset       | ✅  | ✅  |       |
+| Right to left, Arabic letters joined  | ✅⁴ | ✅⁴ |       |
+| Indic, Thai, letters with marks       | ⚠️⁵ | ⚠️⁵ |       |
 | Vertical text                         | ❌  | ❌  | [#41] |
 | `format` expressions                  | ⚠️¹ | ⚠️¹ | [#42] |
 | **Expressions**                       |     |     |       |
@@ -212,6 +214,10 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 ² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones.
 
 ³ Given to the renderer as the `images` option.
+
+⁴ Drawn as text (`labels: 'text'`), labels are measured with the widths of Noto Sans' Latin, Greek and Cyrillic letters, so Arabic and Hebrew are measured roughly: their letters along a line stand slightly apart.
+
+⁵ Drawn as text, the viewer shapes them. Drawn as the style's glyphs, their letters and marks are set side by side, where MapLibre draws them with the browser's fonts.
 
 Labels and icons are only drawn with the `labels` option. Interaction, animation and `feature-state` do not apply to a static image.
 

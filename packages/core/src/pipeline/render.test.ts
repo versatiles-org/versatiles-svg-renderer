@@ -9,7 +9,9 @@ import {
 	Point2D,
 	type SourceFeatures,
 } from '../geo/index.js';
-import type { IconStyle, LineStyle } from '../types.js';
+import type { Glyph } from '../sources/index.js';
+import type { IconStyle, LineStyle, PlacedGlyph, SymbolStyle } from '../types.js';
+import { createRenderContext } from './context.js';
 
 vi.mock(import('../sources/index.js'), async (importOriginal) => ({
 	...(await importOriginal()),
@@ -958,6 +960,76 @@ describe('renderMap', () => {
 			const [street0] = drawLabels.mock.calls.find(([id]) => id === 'streets-labels')![1];
 			expect(street0![1].lines).toBeUndefined();
 			expect(street0![1].path!.map((g) => g.text).join('')).toBe('Unter den Linden');
+		});
+
+		test('draws Arabic and Hebrew as glyphs shaped and from the right, as text as written', async () => {
+			const point = makePointFeature([[[128, 128]]], { name: '\u0633\u0644\u0627\u0645' });
+			const street = makeLineFeature(
+				[
+					[
+						[0, 20],
+						[256, 20],
+					],
+				],
+				{ name: '\u05d0\u05d1' },
+			);
+			setLayerFeatures(new Map([['l', makeFeatures({ points: [point], linestrings: [street] })]]));
+			const style = makeStyle([
+				{
+					id: 'streets',
+					type: 'symbol',
+					source: 'src',
+					'source-layer': 'l',
+					filter: ['==', ['geometry-type'], 'LineString'],
+					layout: { 'text-field': '{name}', 'symbol-placement': 'line' },
+				},
+				{
+					id: 'places',
+					type: 'symbol',
+					source: 'src',
+					'source-layer': 'l',
+					filter: ['==', ['geometry-type'], 'Point'],
+					layout: { 'text-field': '{name}', 'text-letter-spacing': 0.5 },
+				},
+			]);
+			// Every glyph of every range: an empty square, one em wide.
+			const context = createRenderContext(style);
+			const ranges: number[] = [];
+			context.getGlyphRange = (_, start) => {
+				ranges.push(start);
+				const range = new Map<number, Glyph>();
+				for (let id = start; id < start + 256; id++) {
+					const bitmap = new Uint8Array(16 * 16);
+					range.set(id, { id, bitmap, width: 10, height: 10, left: 0, top: -3, advance: 24 });
+				}
+				return Promise.resolve(range);
+			};
+			const job = { ...makeJob(style), labels: 'glyphs-text' as const };
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job, context);
+			// The presentation forms (U+FE70\u2026) are loaded, not the Arabic letters (U+0600\u2026).
+			expect(ranges).toContain(0xfe00);
+			expect(ranges).not.toContain(0x0600);
+
+			const codePoints = (glyphs: PlacedGlyph[]) =>
+				[...glyphs]
+					.sort((a, b) => a.x - b.x)
+					.map(({ outline }) => outline.key.split('\0')[1]!)
+					.map((code) => Number(code).toString(16));
+			const [[, place]] = drawLabels.mock.calls.find(([id]) => id === 'places-labels')![1] as [
+				[unknown, SymbolStyle],
+			];
+			// From the left: meem final, lam-alef final, seen initial; not spaced apart.
+			expect(codePoints(place.glyphs!)).toEqual(['fee1', 'fefc', 'feb3']);
+			expect(place.letterSpacing).toBe(0);
+			expect(place.lines!.map((line) => line.text)).toEqual(['\u0633\u0644\u0627\u0645']);
+			expect(place.text).toBe('\u0633\u0644\u0627\u0645');
+
+			const [[, street0]] = drawLabels.mock.calls.find(([id]) => id === 'streets-labels')![1] as [
+				[unknown, SymbolStyle],
+			];
+			expect(street0.path!.map((glyph) => glyph.text).join('')).toBe('\u05d1\u05d0');
+			expect(codePoints(street0.glyphs!)).toEqual(['5d1', '5d0']);
 		});
 
 		test('places labels and icons along lines, repeated and turned with the line', async () => {

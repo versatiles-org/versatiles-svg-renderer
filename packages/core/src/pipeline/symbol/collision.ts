@@ -6,6 +6,7 @@
  */
 import { iconQuads, mapTextAnchor, quadsBox } from '../../layout/index.js';
 import type { GlyphPlacement, IconStyle, SpriteEntry, SymbolStyle } from '../../types.js';
+import type { LabelLine } from './script.js';
 import { tableMetrics, textWidth, type FontMetrics } from './text_metrics.js';
 import { VIEW_MARGIN } from '../../geo/index.js';
 
@@ -101,8 +102,11 @@ function rotate(box: Box, degrees: number, pivot: [number, number]): Box {
 /** A label's lines placed around its point, and the box the block covers. */
 export interface TextLayout {
 	box: Box;
-	/** Each line: where it starts, how wide it is, and its middle, before rotation. */
-	lineBoxes: { text: string; left: number; width: number; y: number }[];
+	/**
+	 * Each line: where it starts, how wide it is, and its middle, before rotation; as written
+	 * and as drawn (see `LabelLine`).
+	 */
+	lineBoxes: { text: string; glyphs: string; left: number; width: number; y: number }[];
 	/** Only for more than one line (see `SymbolStyle.lines`). */
 	lines?: { text: string; x: number; y: number }[];
 	justify?: 'left' | 'center' | 'right';
@@ -112,21 +116,25 @@ export interface TextLayout {
  * Places the `lines` of a label around its point `x`, `y` as MapLibre GL JS does: the block
  * of lines `lineHeight` ems apart is anchored by `text-anchor` and moved by `text-offset`,
  * and each line is aligned within it by `justify` (`"auto"` follows the anchor). The box
- * is the block's, before rotation and padding.
+ * is the block's, before rotation and padding. Lines are measured as drawn; a plain string
+ * is a line written as it is drawn.
  */
 export function layoutText(
 	x: number,
 	y: number,
 	style: SymbolStyle,
-	lines: string[],
+	lines: readonly (string | LabelLine)[],
 	lineHeight = LINE_HEIGHT,
 	justify = 'center',
 	metrics: FontMetrics = tableMetrics(style.font),
 ): TextLayout {
 	const spacing = (style.letterSpacing ?? 0) * style.size;
-	const widths = lines.map(
-		(line) =>
-			textWidth(line, metrics, style.size) + spacing * Math.max(0, Array.from(line).length - 1),
+	const labelLines = lines.map((line) =>
+		typeof line === 'string' ? { text: line, glyphs: line } : line,
+	);
+	const widths = labelLines.map(
+		({ glyphs }) =>
+			textWidth(glyphs, metrics, style.size) + spacing * Math.max(0, Array.from(glyphs).length - 1),
 	);
 	const width = Math.max(0, ...widths);
 	const height = style.size * lineHeight * Math.max(1, lines.length);
@@ -149,10 +157,11 @@ export function layoutText(
 					: 'center'
 			: (justify as 'left' | 'center' | 'right');
 	const lineX = side === 'left' ? left : side === 'right' ? left + width : left + width / 2;
-	const lineBoxes = lines.map((text, i) => {
+	const lineBoxes = labelLines.map(({ text, glyphs }, i) => {
 		const lineWidth = widths[i]!;
 		return {
 			text,
+			glyphs,
 			left: side === 'left' ? left : side === 'right' ? lineX - lineWidth : lineX - lineWidth / 2,
 			width: lineWidth,
 			y: top + (i + 0.5) * style.size * lineHeight,

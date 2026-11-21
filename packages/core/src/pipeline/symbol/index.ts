@@ -20,4 +20,11 @@ export {
 	tableMetrics,
 	type FontMetrics,
 } from './text_metrics.js';
+export {
+	allowsLetterSpacing,
+	drawnCharacters,
+	labelLines,
+	singleLine,
+	type LabelLine,
+} from './script.js';
 export { anchorOffsets, radialOffset } from './variable_anchor.js';

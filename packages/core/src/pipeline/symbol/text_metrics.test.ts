@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+	breakLineRanges,
 	breakLines,
 	glyphAdvances,
 	glyphMetrics,
@@ -111,6 +112,21 @@ describe('breakLines', () => {
 		expect(breakLines('Brandenburger Tor', tableMetrics(fonts), 10, 0.2)).toEqual([
 			'Brandenburger',
 			'Tor',
+		]);
+	});
+});
+
+describe('breakLineRanges', () => {
+	test('gives the lines as code unit ranges, untrimmed, covering the text', () => {
+		const ems = { advance: () => 1 };
+		// The emoji is two code units, but one grapheme: "😀 aaaa " is 8 code units.
+		expect(breakLineRanges('😀 aaaa bbbb', ems, 5)).toEqual([
+			[0, 8],
+			[8, 12],
+		]);
+		expect(breakLineRanges('a\nb', ems, 0)).toEqual([
+			[0, 2],
+			[2, 3],
 		]);
 	});
 });

@@ -794,5 +794,57 @@
 				"drift": 0.02
 			}
 		}
+	},
+	"parity-scripts": {
+		"svg": 0.79,
+		"png": 0.91,
+		"drift": 0.03,
+		"cells": {
+			"Hebrew along a line": {
+				"svg": 0.64,
+				"png": 0.72,
+				"drift": 0.02
+			},
+			"Hebrew, Latin, brackets": {
+				"svg": 1.14,
+				"png": 1.28,
+				"drift": 0.02
+			},
+			"Arabic along a line": {
+				"svg": 0.73,
+				"png": 0.84,
+				"drift": 0.03
+			},
+			"Arabic": {
+				"svg": 0.53,
+				"png": 0.63,
+				"drift": 0.02
+			},
+			"Arabic over Latin": {
+				"svg": 0.94,
+				"png": 1.12,
+				"drift": 0.03
+			},
+			"Persian": {
+				"svg": 0.52,
+				"png": 0.6,
+				"drift": 0.02
+			},
+			"Arabic with digits along a line": {
+				"svg": 0.94,
+				"png": 1.08,
+				"drift": 0.04
+			},
+			"Arabic on several lines": {
+				"svg": 1.19,
+				"png": 1.36,
+				"drift": 0.03
+			},
+			"Arabic with letter spacing": {
+				"svg": 0.49,
+				"png": 0.54,
+				"drift": 0.03
+			}
+		}
 	}
 }

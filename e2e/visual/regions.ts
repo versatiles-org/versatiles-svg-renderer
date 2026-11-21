@@ -19,7 +19,7 @@ export interface View {
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`,
- *   `images`:
+ *   `images`, `scripts`:
  *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
@@ -35,7 +35,8 @@ export type StyleName =
 	| 'dashes'
 	| 'anchors'
 	| 'seams'
-	| 'images';
+	| 'images'
+	| 'scripts';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -135,6 +136,8 @@ export const regions: Region[] = [
 	{ id: 'parity-features', style: 'features', view: scene },
 	{ id: 'parity-symbols', style: 'symbols', view: scene, labels: true },
 	{ id: 'parity-anchors', style: 'anchors', view: scene, labels: true },
+	// Labels written right to left: Arabic joined, text in the order it is drawn.
+	{ id: 'parity-scripts', style: 'scripts', view: scene, labels: true },
 	{ id: 'parity-sources', style: 'sources', view: scene },
 	{ id: 'parity-patterns', style: 'patterns', view: scene },
 	// Patterns are scaled with the map from the zoom level's integer part.

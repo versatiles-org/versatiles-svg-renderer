@@ -78,6 +78,12 @@ describe('layoutText', () => {
 		expect(layout.lines).toBeUndefined();
 		expect(round(layout.box)).toEqual([68.05, 44, 131.95, 56]);
 	});
+
+	test('measures a line as drawn, and keeps it as written', () => {
+		const wide = { advance: (grapheme: string) => (grapheme === 'W' ? 2 : 1) };
+		const layout = layoutText(0, 0, label(), [{ text: 'ab', glyphs: 'W' }], 1.2, 'center', wide);
+		expect(layout.lineBoxes).toEqual([{ text: 'ab', glyphs: 'W', left: -10, width: 20, y: 0 }]);
+	});
 });
 
 describe('iconBox', () => {

@@ -15,6 +15,7 @@ import { anchorsStyle, cells as anchorCells } from './scenes/anchors.js';
 import { cells as dashCells, dashesStyle } from './scenes/dashes.js';
 import { cells as imageCells, images as sceneImages, imagesStyle } from './scenes/images.js';
 import { cells as patternCells, patternsStyle } from './scenes/patterns.js';
+import { cells as scriptCells, scriptsStyle } from './scenes/scripts.js';
 import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
 
@@ -87,6 +88,8 @@ async function buildStyle(
 			return seamsStyle();
 		case 'images':
 			return imagesStyle();
+		case 'scripts':
+			return scriptsStyle();
 	}
 }
 
@@ -104,6 +107,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'dashes') return dashCells;
 	if (name === 'anchors') return anchorCells;
 	if (name === 'images') return imageCells;
+	if (name === 'scripts') return scriptCells;
 	return undefined;
 }
 

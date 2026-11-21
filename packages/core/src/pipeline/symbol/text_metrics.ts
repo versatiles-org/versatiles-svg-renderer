@@ -195,15 +195,32 @@ export function breakLines(
 	maxWidth: number,
 	letterSpacing = 0,
 ): string[] {
+	return breakLineRanges(text, metrics, maxWidth, letterSpacing)
+		.map(([start, end]) => text.slice(start, end).trim())
+		.filter((line) => line !== '');
+}
+
+/**
+ * Where `text` breaks into lines, as {@link breakLines} breaks it: each line's start and end
+ * in UTF-16 code units, untrimmed, together covering the whole text.
+ */
+export function breakLineRanges(
+	text: string,
+	metrics: FontMetrics,
+	maxWidth: number,
+	letterSpacing = 0,
+): [number, number][] {
 	const chars = Array.from(graphemes.segment(text), ({ segment }) => segment);
 	const codes = chars.map((char) => char.codePointAt(0)!);
 	const advances = chars.map((char) => metrics.advance(char) + letterSpacing);
-	const lines = (indices: number[]): string[] => {
-		const result: string[] = [];
+	// Where each grapheme starts, in code units, and where the text ends.
+	const offsets = [0];
+	for (const char of chars) offsets.push(offsets[offsets.length - 1]! + char.length);
+	const lines = (indices: number[]): [number, number][] => {
+		const result: [number, number][] = [];
 		let start = 0;
 		for (const end of [...indices, chars.length]) {
-			const line = chars.slice(start, end).join('').trim();
-			if (line) result.push(line);
+			result.push([offsets[start]!, offsets[end]!]);
 			start = end;
 		}
 		return result;
