@@ -1,14 +1,17 @@
 /**
  * Generates `packages/core/src/pipeline/symbol/glyph_widths.ts`: the advance width of every
- * character Noto Sans covers (Latin, Greek, Cyrillic and Vietnamese; not Devanagari), and of
- * Arabic, with its presentation forms, and Hebrew from Noto Sans Arabic and Hebrew, in regular
+ * character Noto Sans covers (Latin, Greek, Cyrillic, Vietnamese and Devanagari), of Arabic,
+ * with its presentation forms, and Hebrew, and of the scripts whose letters combine (Indic
+ * scripts, Thai, Lao, Myanmar, Khmer, Balinese, Javanese) from their Noto Sans fonts, in regular
  * and bold, so the pipeline can measure label text without a font engine. Both renderers then
  * drop the same labels in collision detection, and the widths match the glyphs MapLibre GL JS
  * uses for styles that name Noto Sans, like the VersaTiles styles, whose Noto Sans includes
- * Noto Sans Arabic and Hebrew.
+ * these fonts. Letters that combine are measured by the width each adds between two
+ * consonants, so a virama narrows a conjunct by about as much as it is narrower than its
+ * letters.
  *
- * Run with `npx tsx scripts/generate-glyph-widths.ts` after updating `@fontsource/noto-sans`,
- * `@fontsource/noto-sans-arabic` or `@fontsource/noto-sans-hebrew`.
+ * Run with `npx tsx scripts/generate-glyph-widths.ts` after updating any `@fontsource/noto-sans`
+ * package.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,20 +21,45 @@ const root = resolve(import.meta.dirname, '..');
 const fontsource = resolve(root, 'node_modules/@fontsource');
 const output = resolve(root, 'packages/core/src/pipeline/symbol/glyph_widths.ts');
 
+/** A fontsource package to measure, and the subsets to take from it. */
+interface Font {
+	name: string;
+	subsets: string[];
+	/**
+	 * For a script whose letters combine (see `script.ts`), a consonant to measure each
+	 * character between: alone, a vowel sign would be measured with the dotted circle a font
+	 * engine draws it on, not as the width it adds to its letter, and a virama as itself, not
+	 * as the conjunct it joins two consonants into.
+	 */
+	base?: number;
+}
+
 /**
- * The fontsource packages to measure, each with the subsets to take from it: of Noto Sans every
- * subset but Devanagari, which needs shaping. A code point is measured with the first font that
- * covers it, so Noto Sans Arabic and Hebrew add only their scripts.
+ * The fonts to measure. A code point is measured with the first font that covers it, so the
+ * fonts after Noto Sans add only their scripts: those the VersaTiles Noto Sans includes.
  */
-const FONTS = [
+const FONTS: Font[] = [
 	{
 		name: 'noto-sans',
 		subsets: ['latin', 'latin-ext', 'greek', 'greek-ext', 'cyrillic', 'cyrillic-ext', 'vietnamese'],
 	},
 	{ name: 'noto-sans-arabic', subsets: ['arabic'] },
 	{ name: 'noto-sans-hebrew', subsets: ['hebrew'] },
+	{ name: 'noto-sans', subsets: ['devanagari'], base: 0x0915 },
+	{ name: 'noto-sans-bengali', subsets: ['bengali'], base: 0x0995 },
+	{ name: 'noto-sans-gurmukhi', subsets: ['gurmukhi'], base: 0x0a15 },
+	{ name: 'noto-sans-gujarati', subsets: ['gujarati'], base: 0x0a95 },
+	{ name: 'noto-sans-oriya', subsets: ['oriya'], base: 0x0b15 },
+	{ name: 'noto-sans-tamil', subsets: ['tamil'], base: 0x0b95 },
+	{ name: 'noto-sans-kannada', subsets: ['kannada'], base: 0x0c95 },
+	{ name: 'noto-sans-sinhala', subsets: ['sinhala'], base: 0x0d9a },
+	{ name: 'noto-sans-thai', subsets: ['thai'], base: 0x0e01 },
+	{ name: 'noto-sans-lao', subsets: ['lao'], base: 0x0e81 },
+	{ name: 'noto-sans-myanmar', subsets: ['myanmar'], base: 0x1000 },
+	{ name: 'noto-sans-khmer', subsets: ['khmer'], base: 0x1780 },
+	{ name: 'noto-sans-balinese', subsets: ['balinese'], base: 0x1b13 },
+	{ name: 'noto-sans-javanese', subsets: ['javanese'], base: 0xa98f },
 ];
-type Font = (typeof FONTS)[number];
 /** Widths are stored in thousandths of an em. */
 const UNITS = 1000;
 
@@ -65,15 +93,22 @@ function measure(weight: number): Map<number, number> {
 	const widths = new Map<number, number>();
 	for (const font of FONTS) {
 		// Each font a family of its own, so that each code point is measured in the font it is from.
-		const family = `Measure ${font.name} ${String(weight)}`;
+		const family = `Measure ${font.name} ${font.subsets.join(' ')} ${String(weight)}`;
 		for (const subset of font.subsets) {
 			const file = `${font.name}-${subset}-${String(weight)}-normal.woff2`;
 			GlobalFonts.registerFromPath(resolve(fontsource, font.name, 'files', file), family);
 		}
 		ctx.font = `${String(UNITS)}px "${family}"`;
+		const width = (text: string): number => ctx.measureText(text).width;
+		const base = font.base === undefined ? undefined : String.fromCodePoint(font.base);
 		for (const c of codePoints(font, weight)) {
-			// Combining marks and other zero-width characters are kept: they add nothing.
-			if (!widths.has(c)) widths.set(c, Math.round(ctx.measureText(String.fromCodePoint(c)).width));
+			if (widths.has(c)) continue;
+			const char = String.fromCodePoint(c);
+			// Combining marks and other zero-width characters are kept: they add nothing. Between
+			// two consonants, a vowel sign adds its width, and a virama what the conjunct it makes
+			// saves: less than nothing.
+			const added = base ? width(base + char + base) - 2 * width(base) : width(char);
+			widths.set(c, Math.round(added));
 		}
 	}
 	return new Map([...widths].sort(([a], [b]) => a - b));
@@ -102,18 +137,18 @@ const table = (weight: number): string =>
 
 writeFileSync(
 	output,
-	`// Generated by scripts/generate-glyph-widths.ts from Noto Sans, Noto Sans Arabic and Noto Sans Hebrew
-// (@fontsource/noto-sans, -arabic, -hebrew). Do not edit.
+	`// Generated by scripts/generate-glyph-widths.ts from Noto Sans and the Noto Sans fonts of other
+// scripts (@fontsource/noto-sans, @fontsource/noto-sans-*). Do not edit.
 
 /** Advance widths in thousandths of an em, as runs: \`[first code point, ...widths]\`. */
 export type GlyphWidthRuns = number[][];
 
-/** Noto Sans Regular, with Noto Sans Arabic and Hebrew Regular. */
+/** Noto Sans Regular, with the other scripts' Regular. */
 export const REGULAR: GlyphWidthRuns = [
 ${table(400)}
 ];
 
-/** Noto Sans Bold, with Noto Sans Arabic and Hebrew Bold. */
+/** Noto Sans Bold, with the other scripts' Bold. */
 export const BOLD: GlyphWidthRuns = [
 ${table(700)}
 ];

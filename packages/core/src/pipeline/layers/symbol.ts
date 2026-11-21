@@ -15,6 +15,7 @@ import {
 	allowsLetterSpacing,
 	anchorOffsets,
 	CollisionIndex,
+	drawnByFontEngine,
 	drawnCharacters,
 	fitsMaxAngle,
 	glyphAdvances,
@@ -126,14 +127,17 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 	};
 
 	// Drawn as glyphs, labels need the style's glyphs before they are laid out, with their
-	// metrics: all ranges the layer's labels use (Arabic in its shapes), loaded together.
+	// metrics: all ranges the layer's labels use (Arabic in its shapes), loaded together; not
+	// those of labels drawn as text anyway, as MapLibre draws them with the browser's fonts.
 	const glyphMode = job.labels === 'glyphs' || job.labels === 'glyphs-text';
 	const glyphRanges = new Map<string, GlyphRange | undefined>();
 	if (glyphMode) {
 		const wanted = new Set<string>();
 		for (const feature of symbolFeatures) {
 			const fontStack = (getLayout('text-font', feature) as string[]).join(',');
-			for (const char of drawnCharacters(labelText(feature))) {
+			const text = labelText(feature);
+			if (drawnByFontEngine(text)) continue;
+			for (const char of drawnCharacters(text)) {
 				wanted.add(`${fontStack}\0${String(rangeStart(char.codePointAt(0)!))}`);
 			}
 		}
@@ -201,14 +205,16 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			: undefined;
 		if (!iconStyle && !labelStyle) continue;
 
-		// The label's glyphs, if all of them could be loaded: then it is measured with their
-		// metrics and drawn as them; else measured with Noto Sans and drawn as text.
+		// The label's glyphs, if all of them could be loaded and MapLibre draws it with them: then
+		// it is measured with their metrics and drawn as them; else measured with Noto Sans and
+		// drawn as text.
 		const fontStack = labelStyle?.font.join(',') ?? '';
 		const glyphAt = (codePoint: number): Glyph | undefined =>
 			glyphRanges.get(`${fontStack}\0${String(rangeStart(codePoint))}`)?.get(codePoint);
 		const asGlyphs =
 			glyphMode &&
 			labelStyle !== undefined &&
+			!drawnByFontEngine(labelStyle.text) &&
 			hasAllGlyphs(drawnCharacters(labelStyle.text), glyphAt);
 		const fallbackMetrics = tableMetrics(labelStyle?.font);
 		const metrics = asGlyphs ? glyphMetrics(glyphAt, fallbackMetrics) : fallbackMetrics;

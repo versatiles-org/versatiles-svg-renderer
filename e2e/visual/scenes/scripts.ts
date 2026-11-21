@@ -15,7 +15,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { collection, feature, gridStyle, type Cell } from './grid.js';
 
 /** A label `text` at the cell's center, or along a line through it (drawn below it). */
-function scriptCell(options: {
+export function scriptCell(options: {
 	id: string;
 	title: string;
 	text: string;

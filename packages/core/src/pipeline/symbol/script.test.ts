@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	allowsLetterSpacing,
+	drawnByFontEngine,
 	drawnCharacters,
 	labelLines,
 	shapeArabic,
@@ -128,6 +129,34 @@ describe('singleLine', () => {
 describe('drawnCharacters', () => {
 	it('is the shaped text without bidi controls', () => {
 		expect(codePoints(drawnCharacters('\u200f\u0644\u0627'))).toEqual([0xfefb]);
+	});
+});
+
+describe('drawnByFontEngine', () => {
+	const text = (...codePoints: number[]) => String.fromCodePoint(...codePoints);
+
+	it('is true for scripts whose letters combine', () => {
+		expect(drawnByFontEngine(text(0x928, 0x908))).toBe(true); // Devanagari "naī"
+		expect(drawnByFontEngine(text(0xe01, 0xe23, 0xe38, 0xe07))).toBe(true); // Thai "krung"
+		expect(drawnByFontEngine(text(0x1797, 0x17d2, 0x1793, 0x17c6))).toBe(true); // Khmer
+		expect(drawnByFontEngine(text(0x1000))).toBe(true); // Myanmar ka, alone
+		expect(drawnByFontEngine(`Old Delhi ${text(0x926, 0x93f)}`)).toBe(true);
+	});
+
+	it('is true for a letter with marks of its own', () => {
+		expect(drawnByFontEngine(text(0x65, 0x301))).toBe(true); // e and a combining acute
+		expect(drawnByFontEngine(text(0x5d9, 0x5b0, 0x5e8))).toBe(true); // Hebrew yod with sheva
+		expect(drawnByFontEngine(text(0x628, 0x64e))).toBe(true); // Arabic beh with fatha
+	});
+
+	it('is false for letters glyphs show as they are', () => {
+		expect(drawnByFontEngine('Brandenburger Tor')).toBe(false);
+		expect(drawnByFontEngine(text(0xe9))).toBe(false); // é, one character
+		expect(drawnByFontEngine(text(0x5ea, 0x5dc))).toBe(false); // Hebrew
+		expect(drawnByFontEngine(text(0x627, 0x644, 0x642))).toBe(false); // Arabic
+		expect(drawnByFontEngine(text(0x6771, 0x4eac))).toBe(false); // Tōkyō, in CJK
+		expect(drawnByFontEngine(text(0x1f600))).toBe(false); // one character beyond U+FFFF
+		expect(drawnByFontEngine('one\r\ntwo')).toBe(false);
 	});
 });
 

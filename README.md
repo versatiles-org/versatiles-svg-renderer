@@ -202,7 +202,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Line breaks, wrapping, justification  | ✅  | ✅  |       |
 | Variable anchors, radial offset       | ✅  | ✅  |       |
 | Right to left, Arabic letters joined  | ✅  | ✅  |       |
-| Indic, Thai, letters with marks       | ⚠️⁴ | ⚠️⁴ |       |
+| Indic, Thai, letters with marks⁴      | ✅  | ✅  |       |
 | Vertical text                         | ❌  | ❌  | [#41] |
 | `format` expressions                  | ⚠️¹ | ⚠️¹ | [#42] |
 | **Expressions**                       |     |     |       |
@@ -215,7 +215,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 
 ³ Given to the renderer as the `images` option.
 
-⁴ Drawn as text, the viewer shapes them. Drawn as the style's glyphs, their letters and marks are set side by side, where MapLibre draws them with the browser's fonts.
+⁴ As MapLibre draws them with the browser's fonts rather than the style's glyphs, they are always drawn as text, which the viewer shapes; their letters are measured by the width each adds to its cluster.
 
 Labels and icons are only drawn with the `labels` option. Interaction, animation and `feature-state` do not apply to a static image.
 

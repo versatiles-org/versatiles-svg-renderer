@@ -1007,7 +1007,7 @@ describe('renderMap', () => {
 			const job = { ...makeJob(style), labels: 'glyphs-text' as const };
 			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
 			await renderMap(job, context);
-			// The presentation forms (U+FE70\u2026) are loaded, not the Arabic letters (U+0600\u2026).
+			// The presentation forms (from U+FE70) are loaded, not the Arabic letters (from U+0600).
 			expect(ranges).toContain(0xfe00);
 			expect(ranges).not.toContain(0x0600);
 
@@ -1030,6 +1030,56 @@ describe('renderMap', () => {
 			];
 			expect(street0.path!.map((glyph) => glyph.text).join('')).toBe('\u05d1\u05d0');
 			expect(codePoints(street0.glyphs!)).toEqual(['5d1', '5d0']);
+		});
+
+		test('draws labels MapLibre draws with the browser fonts as text, without their glyphs', async () => {
+			// Devanagari "Dillī", and Latin "Berlin"
+			const delhi = String.fromCodePoint(0x926, 0x93f, 0x932, 0x94d, 0x932, 0x940);
+			setLayerFeatures(
+				new Map([
+					[
+						'l',
+						makeFeatures({
+							points: [
+								makePointFeature([[[64, 128]]], { name: delhi }),
+								makePointFeature([[[192, 128]]], { name: 'Berlin' }),
+							],
+						}),
+					],
+				]),
+			);
+			const style = makeStyle([
+				{
+					id: 'places',
+					type: 'symbol',
+					source: 'src',
+					'source-layer': 'l',
+					layout: { 'text-field': '{name}', 'text-allow-overlap': true },
+				},
+			]);
+			const context = createRenderContext(style);
+			const ranges: number[] = [];
+			context.getGlyphRange = (_, start) => {
+				ranges.push(start);
+				const range = new Map<number, Glyph>();
+				for (let id = start; id < start + 256; id++) {
+					const bitmap = new Uint8Array(16 * 16);
+					range.set(id, { id, bitmap, width: 10, height: 10, left: 0, top: -3, advance: 24 });
+				}
+				return Promise.resolve(range);
+			};
+			const job = { ...makeJob(style), labels: 'glyphs-text' as const };
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job, context);
+			expect(ranges).toEqual([0]);
+
+			const labels = drawLabels.mock.calls.find(([id]) => id === 'places-labels')![1] as [
+				unknown,
+				SymbolStyle,
+			][];
+			const byText = new Map(labels.map(([, label]) => [label.text, label]));
+			expect(byText.get(delhi)!.glyphs).toBeUndefined();
+			expect(byText.get('Berlin')!.glyphs).toHaveLength(6);
 		});
 
 		test('places labels and icons along lines, repeated and turned with the line', async () => {

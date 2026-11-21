@@ -22,6 +22,7 @@ export {
 } from './text_metrics.js';
 export {
 	allowsLetterSpacing,
+	drawnByFontEngine,
 	drawnCharacters,
 	labelLines,
 	singleLine,

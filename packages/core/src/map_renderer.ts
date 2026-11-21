@@ -53,7 +53,9 @@ export interface SVGMapRendererOptions {
 	 * from its edges, and along lines; labels and icons that would overlap one placed before
 	 * are left out, from the top layer down. With glyphs, they are laid out with MapLibre's
 	 * own metrics; as text, with the widths of Noto Sans. A style without `glyphs`, or glyphs
-	 * that cannot be loaded, fall back to `'text'`, reported through `onWarning`.
+	 * that cannot be loaded, fall back to `'text'`, reported through `onWarning`. Labels in
+	 * scripts whose letters combine (Indic scripts, Thai, Khmer, …) or with letters that carry
+	 * marks are drawn as text in every mode, as MapLibre draws them with the browser's fonts.
 	 * @defaultValue `'none'`, or as given by {@link SVGMapRendererOptions.renderLabels}
 	 */
 	labels?: LabelMode;

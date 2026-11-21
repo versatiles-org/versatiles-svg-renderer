@@ -846,5 +846,57 @@
 				"drift": 0.03
 			}
 		}
+	},
+	"parity-combining": {
+		"svg": 1.3,
+		"png": 1.74,
+		"drift": 1.61,
+		"cells": {
+			"Devanagari along a line": {
+				"svg": 2.29,
+				"png": 2.7,
+				"drift": 2.57
+			},
+			"Devanagari": {
+				"svg": 0.9,
+				"png": 1.98,
+				"drift": 1.99
+			},
+			"Thai along a line": {
+				"svg": 1.81,
+				"png": 2.26,
+				"drift": 1.64
+			},
+			"Bengali": {
+				"svg": 0.6,
+				"png": 0.73,
+				"drift": 0.72
+			},
+			"Thai": {
+				"svg": 2.24,
+				"png": 3.16,
+				"drift": 2.91
+			},
+			"Tamil": {
+				"svg": 0.95,
+				"png": 1.68,
+				"drift": 1.68
+			},
+			"Hebrew with points along a line": {
+				"svg": 1.1,
+				"png": 1.19,
+				"drift": 0.78
+			},
+			"Khmer": {
+				"svg": 0.98,
+				"png": 1.08,
+				"drift": 1.22
+			},
+			"Myanmar": {
+				"svg": 0.81,
+				"png": 0.92,
+				"drift": 1.04
+			}
+		}
 	}
 }

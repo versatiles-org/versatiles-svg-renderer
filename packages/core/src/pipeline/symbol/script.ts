@@ -77,6 +77,31 @@ export function allowsLetterSpacing(text: string): boolean {
 	return !CURSIVE.test(text);
 }
 
+/**
+ * Whether MapLibre draws `text` with the browser's fonts rather than the style's glyphs: when it
+ * has a letter of a script whose letters combine (Indic scripts, Thai, Lao, Tibetan, Myanmar,
+ * Khmer and others), or a grapheme of several characters, such as a letter with its marks.
+ * Glyphs set one per character side by side cannot show what such letters combine into, so
+ * the renderers draw these labels as text too.
+ */
+export function drawnByFontEngine(text: string): boolean {
+	if (COMPLEX.test(text)) return true;
+	for (const { segment } of graphemes.segment(text)) {
+		if (segment.codePointAt(0)! > 0xffff ? segment.length > 2 : segment.length > 1) {
+			// A line break of two characters (CR LF) is not a letter.
+			if (!/^\s+$/.test(segment)) return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Scripts whose letters combine (MapLibre's `codePointIsInComplexShapingScript`). The ranges
+ * that start with a combining mark have classes of their own, with nothing before the mark.
+ */
+const COMPLEX =
+	/[\u0900-\u109F\u1700-\u17FF\u1900-\u194F\u19E0-\u1AAF\u1CC0-\u1CCF\uA800-\uA82F\uA930-\uA95F\uABC0-\uABFF]|[\u1B00-\u1C4F]|[\uA880-\uA8FF]|[\uA980-\uAAFF]|\uD802[\uDE00-\uDE5F]|\uD804[\uDC00-\uDCCF\uDD00-\uDD4F\uDD80-\uDE4F\uDEB0-\uDFFF]|\uD805[\uDC00-\uDCDF\uDD80-\uDE5F\uDE80-\uDF4F]|\uD806[\uDC00-\uDC4F\uDD00-\uDD5F\uDDA0-\uDEAF\uDF00-\uDF7F]|\uD807[\uDC00-\uDCBF\uDD00-\uDDAF\uDEE0-\uDF5F\uDFC0-\uDFFF]|\uD818[\uDD00-\uDD3F]/;
+
 /** Scripts written cursively (MapLibre's `codePointIsInCursiveScript`). */
 const CURSIVE =
 	/[\p{Script=Arabic}\p{Script=Syriac}\p{Script=Nko}\p{Script=Mongolian}\p{Script=Mandaic}\p{Script=Phags_Pa}\p{Script=Manichaean}\p{Script=Psalter_Pahlavi}\p{Script=Hanifi_Rohingya}\p{Script=Sogdian}\p{Script=Duployan}\p{Script=Adlam}]/u;

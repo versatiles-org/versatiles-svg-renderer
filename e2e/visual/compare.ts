@@ -50,6 +50,7 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	seams: 0.035,
 	images: 0.035,
 	scripts: 0.035,
+	combining: 0.035,
 	satellite: 0.11,
 };
 

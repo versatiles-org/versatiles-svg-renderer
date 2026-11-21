@@ -33,6 +33,32 @@ describe('textWidth', () => {
 		expect(regular.advance('Ж')).toBe(0.905);
 	});
 
+	test('covers scripts whose letters combine, by the width each adds to its letter', () => {
+		const regular = tableMetrics(['noto_sans_regular']);
+		const advance = (codePoint: number) => regular.advance(String.fromCodePoint(codePoint));
+		expect(advance(0x915)).toBe(0.768); // Devanagari ka
+		expect(advance(0x93f)).toBe(0.259); // vowel sign i: not the dotted circle it has alone
+		expect(advance(0x94d)).toBe(-0.223); // virama: what the conjunct it makes saves
+		// Devanagari "Naī Dillī", 3.48 em as a font engine shapes it, conjunct and all
+		const delhi = String.fromCodePoint(
+			0x928,
+			0x908,
+			0x20,
+			0x926,
+			0x93f,
+			0x932,
+			0x94d,
+			0x932,
+			0x940,
+		);
+		expect(textWidth(delhi, regular, 1)).toBeCloseTo(3.48, 1);
+		expect(advance(0xe01)).toBe(0.6); // Thai ko kai
+		expect(advance(0xe38)).toBe(0); // Thai sara u, below its letter
+		for (const codePoint of [0x995, 0xa15, 0xa95, 0xb15, 0xb95, 0xc95, 0xd9a, 0xe81, 0x1000]) {
+			expect(advance(codePoint)).not.toBe(0.572); // Bengali … Myanmar: not the default
+		}
+	});
+
 	test('covers Hebrew, and Arabic in the shapes it is drawn in', () => {
 		const regular = tableMetrics(['noto_sans_regular']);
 		const bold = tableMetrics(['noto_sans_bold']);
@@ -46,7 +72,7 @@ describe('textWidth', () => {
 
 	test('counts CJK characters as one em, and other unknown ones as an average width', () => {
 		expect(textWidth('東京', tableMetrics(undefined), 10)).toBe(20);
-		expect(textWidth('ક', tableMetrics(undefined), 10)).toBeCloseTo(5.72);
+		expect(textWidth('ሀ', tableMetrics(undefined), 10)).toBeCloseTo(5.72); // Ethiopic
 	});
 });
 
