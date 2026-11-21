@@ -145,6 +145,36 @@ describe('renderToPNG', () => {
 			expect(GlobalFonts.has('a_style_font_name')).toBe(true);
 		});
 
+		test('draws a character missing from one file of a name from the next', async () => {
+			const devanagari = createRequire(import.meta.url).resolve(
+				'@fontsource/noto-sans/files/noto-sans-devanagari-400-normal.woff2',
+			);
+			await renderToPNG({
+				style: minimalStyle,
+				width: 8,
+				height: 8,
+				fonts: { a_font_in_subsets: [notoSans, devanagari] },
+			});
+			const { createCanvas } = await loadCanvasBackend();
+			const ctx = createCanvas(8, 8).getContext('2d');
+			ctx.font = '24px a_font_in_subsets';
+			// "Berlin" from the Latin file, and Devanagari "Naī Dillī" from the Devanagari one,
+			// conjunct and all: 2.76 and 3.48 em in Noto Sans.
+			expect(ctx.measureText('Berlin').width / 24).toBeCloseTo(2.76, 2);
+			const delhi = String.fromCodePoint(
+				0x928,
+				0x908,
+				0x20,
+				0x926,
+				0x93f,
+				0x932,
+				0x94d,
+				0x932,
+				0x940,
+			);
+			expect(ctx.measureText(delhi).width / 24).toBeCloseTo(3.48, 2);
+		});
+
 		test('reports which font file could not be registered', async () => {
 			await expect(
 				renderToPNG({

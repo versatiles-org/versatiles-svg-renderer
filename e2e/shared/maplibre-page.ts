@@ -77,9 +77,13 @@ function readPatchedMapLibre(file: string): string {
 // the whole bundle comes from a single http(s) origin.
 //
 // Register this *after* any catch-all `**/*` route — Playwright uses the last matching one.
+//
+// `fontFaces` are `@font-face` rules for the page. They are loaded before this returns:
+// MapLibre draws some glyphs itself, on a canvas, with the font stack's names as font
+// families, and a canvas does not wait for a font to load.
 export async function installMapLibrePage(
 	page: Page,
-	{ width, height }: { width: number; height: number },
+	{ width, height, fontFaces = '' }: { width: number; height: number; fontFaces?: string },
 ): Promise<void> {
 	await page.route('http://localhost/maplibre/*', async (route) => {
 		const name = basename(new URL(route.request().url()).pathname);
@@ -116,12 +120,14 @@ import * as maplibregl from '/maplibre/maplibre-gl.mjs';
 maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
 window.maplibregl = maplibregl;
 </script>
-<style>* { margin: 0; padding: 0; } #map { width: ${width}px; height: ${height}px; }</style>
+<style>* { margin: 0; padding: 0; } #map { width: ${width}px; height: ${height}px; }
+${fontFaces}</style>
 </head><body><div id="map"></div></body></html>`,
 		});
 	});
 
 	await page.goto(MAPLIBRE_PAGE_URL);
+	await page.evaluate(() => Promise.all([...document.fonts].map((face) => face.load())));
 	await page.waitForFunction(
 		() => typeof (window as unknown as Record<string, unknown>).maplibregl !== 'undefined',
 		{

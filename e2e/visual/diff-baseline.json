@@ -848,54 +848,54 @@
 		}
 	},
 	"parity-combining": {
-		"svg": 1.3,
-		"png": 1.74,
-		"drift": 1.61,
+		"svg": 2.32,
+		"png": 2.37,
+		"drift": 1.34,
 		"cells": {
 			"Devanagari along a line": {
-				"svg": 2.29,
-				"png": 2.7,
-				"drift": 2.57
+				"svg": 3.2,
+				"png": 3.43,
+				"drift": 1.67
 			},
 			"Devanagari": {
-				"svg": 0.9,
-				"png": 1.98,
-				"drift": 1.99
+				"svg": 2.2,
+				"png": 2.27,
+				"drift": 1.57
 			},
 			"Thai along a line": {
-				"svg": 1.81,
-				"png": 2.26,
-				"drift": 1.64
+				"svg": 2.23,
+				"png": 2.42,
+				"drift": 1.01
 			},
 			"Bengali": {
-				"svg": 0.6,
-				"png": 0.73,
-				"drift": 0.72
+				"svg": 1.16,
+				"png": 1.25,
+				"drift": 0.81
 			},
 			"Thai": {
-				"svg": 2.24,
-				"png": 3.16,
-				"drift": 2.91
+				"svg": 3.78,
+				"png": 3.66,
+				"drift": 2.37
 			},
 			"Tamil": {
-				"svg": 0.95,
-				"png": 1.68,
-				"drift": 1.68
+				"svg": 3.15,
+				"png": 3.2,
+				"drift": 2.04
 			},
 			"Hebrew with points along a line": {
-				"svg": 1.1,
-				"png": 1.19,
-				"drift": 0.78
+				"svg": 1.6,
+				"png": 1.7,
+				"drift": 0.76
 			},
 			"Khmer": {
-				"svg": 0.98,
-				"png": 1.08,
-				"drift": 1.22
+				"svg": 1.65,
+				"png": 1.6,
+				"drift": 0.85
 			},
 			"Myanmar": {
-				"svg": 0.81,
-				"png": 0.92,
-				"drift": 1.04
+				"svg": 1.96,
+				"png": 1.84,
+				"drift": 1.07
 			}
 		}
 	}

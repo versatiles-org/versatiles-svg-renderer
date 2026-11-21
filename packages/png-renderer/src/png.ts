@@ -24,7 +24,8 @@ export interface RenderToPNGOptions extends RenderToSVGOptions {
 	 */
 	scale?: number;
 	/**
-	 * Font files to draw labels with, as `{ "<text-font name>": "<path to a font file>" }`.
+	 * Font files to draw labels with, as `{ "<text-font name>": "<path to a font file>" }`,
+	 * or with a list of files for a name.
 	 *
 	 * A style only *names* its fonts (`"text-font": ["noto_sans_regular"]`). MapLibre
 	 * draws them from pre-rendered glyphs on the style's glyph server, which this renderer
@@ -32,25 +33,41 @@ export interface RenderToPNGOptions extends RenderToSVGOptions {
 	 * uses to a TTF, OTF, WOFF or WOFF2 file. A name left unmapped falls back to a font
 	 * installed on the machine, which is usually not the one the style asked for.
 	 *
+	 * A glyph server covers many scripts under one name, while a font file often covers
+	 * only some of them (as web fonts split into subsets do). Give such a name all of its
+	 * files: a character missing from one is drawn from the next that has it, before any
+	 * font installed on the machine.
+	 *
 	 * Fonts are registered process-wide, so a name registered by one call stays available
-	 * to every later call. Only matters when {@link RenderToSVGOptions.labels} is `'text'`.
+	 * to every later call. Matters when {@link RenderToSVGOptions.labels} is `'text'`, and
+	 * for labels in scripts whose letters combine (Indic scripts, Thai, …), which are drawn
+	 * as text in every mode.
 	 */
-	fonts?: Record<string, string>;
+	fonts?: Record<string, string | readonly string[]>;
 }
+
+/** The font file of a `text-font` name, or its files. */
+type Fonts = string | readonly string[];
 
 /** Registered `name\0file` pairs, so repeated renders do not re-register the same fonts. */
 const registeredFonts = new Set<string>();
 
-function registerFonts(backend: CanvasBackend, fonts: Record<string, string>): void {
-	for (const [name, file] of Object.entries(fonts)) {
-		const key = `${name}\0${file}`;
-		if (registeredFonts.has(key)) continue;
-		// Returns a font key on success and null on failure — a missing file and an
-		// unparseable one look the same, so report the path either way.
-		if (!backend.GlobalFonts.registerFromPath(file, name)) {
-			throw new Error(`Could not register the font "${name}" from ${file}`);
+/**
+ * Registers each file under its name. Skia draws a character missing from one file of a
+ * name from the next file of that name, so several files act as one font.
+ */
+function registerFonts(backend: CanvasBackend, fonts: Record<string, Fonts>): void {
+	for (const [name, files] of Object.entries(fonts)) {
+		for (const file of typeof files === 'string' ? [files] : files) {
+			const key = `${name}\0${file}`;
+			if (registeredFonts.has(key)) continue;
+			// Returns a font key on success and null on failure — a missing file and an
+			// unparseable one look the same, so report the path either way.
+			if (!backend.GlobalFonts.registerFromPath(file, name)) {
+				throw new Error(`Could not register the font "${name}" from ${file}`);
+			}
+			registeredFonts.add(key);
 		}
-		registeredFonts.add(key);
 	}
 }
 
@@ -128,10 +145,10 @@ export async function renderToCanvas(options: RenderToPNGOptions): Promise<Canva
 /** Options for {@link PNGMapRenderer}: those of {@link SVGMapRenderer}, plus fonts. */
 export interface PNGMapRendererOptions extends SVGMapRendererOptions {
 	/**
-	 * Font files to draw labels with, as `{ "<text-font name>": "<path to a font file>" }`.
-	 * See {@link RenderToPNGOptions.fonts}.
+	 * Font files to draw labels with, as `{ "<text-font name>": "<path to a font file>" }`,
+	 * or with a list of files for a name. See {@link RenderToPNGOptions.fonts}.
 	 */
-	fonts?: Record<string, string>;
+	fonts?: Record<string, string | readonly string[]>;
 }
 
 /** The view to render as PNG: {@link ViewOptions}, plus the pixel density. */
@@ -171,7 +188,7 @@ const IMAGE_CACHE_SIZE = 64 * 1024 * 1024;
  * ```
  */
 export class PNGMapRenderer extends SVGMapRenderer {
-	readonly #fonts: Record<string, string> | undefined;
+	readonly #fonts: Record<string, Fonts> | undefined;
 	readonly #images = new LRUCache<Image>(
 		IMAGE_CACHE_SIZE,
 		(image) => image.width * image.height * 4,

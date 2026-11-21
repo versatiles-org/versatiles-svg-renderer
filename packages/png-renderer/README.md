@@ -97,16 +97,31 @@ const png = await renderToPNG({
 
 The VersaTiles styles use Noto Sans. One source is `npm install @fontsource/noto-sans`, whose font files are in `node_modules/@fontsource/noto-sans/files`.
 
+A name can also take a list of files. A glyph server covers many scripts under one name, while fontsource splits each font into subsets (`latin`, `cyrillic`, …) and has other scripts in their own packages (`@fontsource/noto-sans-arabic`, `@fontsource/noto-sans-thai`, …). A character missing from one file is drawn from the next file of its name that has it:
+
+```typescript
+const files = '../node_modules/@fontsource';
+const fonts = {
+	noto_sans_regular: [
+		`${files}/noto-sans/files/noto-sans-latin-400-normal.woff2`,
+		`${files}/noto-sans/files/noto-sans-cyrillic-400-normal.woff2`,
+		`${files}/noto-sans-thai/files/noto-sans-thai-thai-400-normal.woff2`,
+	],
+};
+```
+
+Scripts whose letters combine, such as Devanagari or Thai, are drawn in these fonts in every `labels` mode, as MapLibre GL JS draws them with the browser's fonts rather than the style's glyphs.
+
 ## API
 
 ### `renderToPNG(options): Promise<Uint8Array>`
 
 Takes every option of [`renderToSVG`](https://github.com/versatiles-org/versatiles-svg-renderer/blob/main/packages/svg-renderer/README.md#api) (`style`, `width`, `height`, `lon`, `lat`, `zoom`, `labels`, `fetch` and more), plus:
 
-| Option  | Type                     | Default | Description                                                                                                                |
-| ------- | ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `scale` | `number`                 | `1`     | Pixel density: the image is `width × scale` by `height × scale` pixels. Use `2` for sharp output.                          |
-| `fonts` | `Record<string, string>` | —       | Font files for labels with `labels: 'text'`, by the `text-font` name the style uses: `{ noto_sans_regular: 'path.woff2' }` |
+| Option  | Type                                 | Default | Description                                                                                                                                     |
+| ------- | ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scale` | `number`                             | `1`     | Pixel density: the image is `width × scale` by `height × scale` pixels. Use `2` for sharp output.                                               |
+| `fonts` | `Record<string, string \| string[]>` | —       | Font files for labels drawn as text, by the `text-font` name the style uses: `{ noto_sans_regular: 'path.woff2' }`, or a list of files per name |
 
 The result is typed as a `Uint8Array` so the package does not require Node's type definitions; at runtime it is a `Buffer` and can be written with `fs.writeFile` as is.
 

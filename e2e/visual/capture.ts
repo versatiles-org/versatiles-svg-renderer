@@ -96,7 +96,7 @@ export class Capture {
 		const page = await this.#newPage('MapLibre', region.id);
 		try {
 			await installPageCache(page);
-			await installMapLibrePage(page, { width: WIDTH, height: HEIGHT });
+			await installMapLibrePage(page, { width: WIDTH, height: HEIGHT, fontFaces: fontFaces() });
 
 			// @ts-expect-error page.evaluate type instantiation too deep
 			await page.evaluate(
@@ -298,14 +298,17 @@ let fontFaceRules: string | undefined;
 /**
  * `@font-face` rules for the same fonts the PNG backend registers. The SVG only *names*
  * its fonts — resolving them is the viewer's job — so the page that rasterizes it has to
- * supply them, or the two renderers would be compared drawing different typefaces.
+ * supply them, or the two renderers would be compared drawing different typefaces. The
+ * MapLibre page gets them too, for the glyphs MapLibre draws itself with these names.
  */
 function fontFaces(): string {
 	fontFaceRules ??= Object.entries(fonts)
-		.map(([name, file]) => {
-			const data = readFileSync(file).toString('base64');
-			return `@font-face { font-family: "${name}"; src: url(data:font/woff2;base64,${data}) format("woff2"); }`;
-		})
+		.flatMap(([name, files]) =>
+			files.map((file) => {
+				const data = readFileSync(file).toString('base64');
+				return `@font-face { font-family: "${name}"; src: url(data:font/woff2;base64,${data}) format("woff2"); }`;
+			}),
+		)
 		.join('\n');
 	return fontFaceRules;
 }

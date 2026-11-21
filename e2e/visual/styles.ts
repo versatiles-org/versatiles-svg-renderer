@@ -21,18 +21,61 @@ import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
 
 /**
- * The fonts the styles name in `text-font`, mapped to real files.
+ * The fonts the styles name in `text-font`, mapped to real files: Noto Sans, in all the
+ * scripts the VersaTiles glyphs cover, as `scripts/generate-glyph-widths.ts` measures them.
+ * On the glyph server one name covers them all; fontsource splits them into subsets and
+ * packages.
  *
  * A style only names its fonts; MapLibre then fetches pre-rendered SDF glyphs from its
  * glyph server, which a renderer drawing real text cannot use. Without these, both
  * renderers fall back to whatever the machine has installed and every label is measured
  * against the wrong typeface.
  */
-const fontDir = resolve(import.meta.dirname, '../../node_modules/@fontsource/noto-sans/files');
-export const fonts: Record<string, string> = {
-	noto_sans_regular: resolve(fontDir, 'noto-sans-latin-400-normal.woff2'),
-	noto_sans_bold: resolve(fontDir, 'noto-sans-latin-700-normal.woff2'),
+export const fonts: Record<string, string[]> = {
+	noto_sans_regular: notoFiles(400),
+	noto_sans_bold: notoFiles(700),
 };
+
+function notoFiles(weight: 400 | 700): string[] {
+	const fontsource = resolve(import.meta.dirname, '../../node_modules/@fontsource');
+	const packages: [string, string[]][] = [
+		[
+			'noto-sans',
+			[
+				'latin',
+				'latin-ext',
+				'greek',
+				'greek-ext',
+				'cyrillic',
+				'cyrillic-ext',
+				'vietnamese',
+				'devanagari',
+			],
+		],
+		...[
+			'arabic',
+			'hebrew',
+			'bengali',
+			'gurmukhi',
+			'gujarati',
+			'oriya',
+			'tamil',
+			'kannada',
+			'sinhala',
+			'thai',
+			'lao',
+			'myanmar',
+			'khmer',
+			'balinese',
+			'javanese',
+		].map((script): [string, string[]] => [`noto-sans-${script}`, [script]]),
+	];
+	return packages.flatMap(([name, subsets]) =>
+		subsets.map((subset) =>
+			resolve(fontsource, name, 'files', `${name}-${subset}-${String(weight)}-normal.woff2`),
+		),
+	);
+}
 
 const styleCache = new Map<string, StyleSpecification>();
 

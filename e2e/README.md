@@ -133,9 +133,10 @@ compared with MapLibre with the same.
 Labels and icons are switched off in every region but `berlin-labels-vector` (and its
 rotated twin), `parity-symbols`, `parity-anchors`, `parity-images`, `parity-scripts` and
 `parity-combining`.
-MapLibre draws text from SDF glyphs while both renderers use system fonts, so the
-difference is large and inherent; confining it to one region keeps it measured
-without letting it dominate every other diff.
+MapLibre draws text from SDF glyphs, while the renderers draw outlines of the same glyphs
+or text in Noto Sans (all of its fontsource subsets and script packages, given to both
+renderers by `styles.ts`), so a difference remains; confining it to these regions keeps it
+measured without letting it dominate every other diff.
 
 ## Regression gate (`visual/compare.ts`)
 
