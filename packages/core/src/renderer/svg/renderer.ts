@@ -5,6 +5,7 @@ import {
 	closingLength,
 	dashOffset,
 	iconQuads,
+	overlapQuads,
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
 	linePatternStrips,
@@ -669,7 +670,7 @@ export class SVGRenderer {
 			if (!point) continue;
 
 			// Each piece of the sprite image: moved to its place, scaled from the image's size.
-			const pieces = iconQuads(style, sprite).map((quad) => {
+			const pieces = overlapQuads(iconQuads(style, sprite)).map((quad) => {
 				const [x, y] = roundXY(point.x + quad.left, point.y + quad.top);
 				const scaleX = (quad.right - quad.left) / quad.source.width;
 				const scaleY = (quad.bottom - quad.top) / quad.source.height;

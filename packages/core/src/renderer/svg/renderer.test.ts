@@ -1564,8 +1564,9 @@ describe('SVGRenderer', () => {
 			const feature = makePointFeature([[100, 50]]);
 			r.drawIcons('icon-test', [[feature, defaultIconStyle({ fit: [-40, -16, 40, 16] })]], atlas);
 			const svg = r.getString();
-			// Three pieces of the image, each defined once, drawn in one group.
-			for (const piece of ['0-0-80-320', '80-0-160-320', '240-0-80-320']) {
+			// Three pieces of the image, each defined once, drawn in one group; each reaching a
+			// pixel into the next, against seams: 1 px of the image, and 1/4 px of the stretch zone.
+			for (const piece of ['0-0-90-320', '80-0-163-320', '240-0-80-320']) {
 				expect(svg).toContain(`<symbol id="sprite-airport-${piece}">`);
 			}
 			expect(svg.match(/<use xlink:href="#sprite-airport-/g)).toHaveLength(3);

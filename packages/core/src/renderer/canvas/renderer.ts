@@ -6,6 +6,7 @@ import {
 	closingLength,
 	dashOffset,
 	iconQuads,
+	overlapQuads,
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
 	linePatternStrips,
@@ -631,7 +632,7 @@ export class CanvasRenderer implements Renderer {
 			if (!point) continue;
 
 			// Each piece of the sprite image (see `iconQuads`), at its place from the point.
-			const pieces = iconQuads(style, sprite);
+			const pieces = overlapQuads(iconQuads(style, sprite));
 			const quads = pieces.map((quad) => {
 				const [left, top] = roundPoint(point.x + quad.left, point.y + quad.top);
 				return {

@@ -18,6 +18,42 @@ export interface IconQuad {
 	bottom: number;
 }
 
+/** How far, in pixels, a piece reaches into the piece after it (see `overlapQuads`). */
+const OVERLAP = 1;
+
+/**
+ * The pieces of an icon as they are drawn: each reaching up to a pixel into the piece to its
+ * right and the one below it, with more of the image, so that no seam shows where two meet.
+ * Drawn edge to edge, both pieces would cover the pixel on their common edge only in part and
+ * let the background show through; MapLibre draws the pieces as one mesh, without seams. The
+ * icon's outer edges stay where they are.
+ */
+export function overlapQuads(quads: readonly IconQuad[]): IconQuad[] {
+	const result = quads.map((quad) => ({ ...quad, source: { ...quad.source } }));
+	for (const piece of result) {
+		const right = quads.find(
+			(q) => q.left === piece.right && q.top === piece.top && q.bottom === piece.bottom,
+		);
+		const below = quads.find(
+			(q) => q.top === piece.bottom && q.left === piece.left && q.right === piece.right,
+		);
+		const scaleX = (piece.right - piece.left) / piece.source.width;
+		const scaleY = (piece.bottom - piece.top) / piece.source.height;
+		if (right && scaleX > 0) {
+			// Not beyond the next piece, so not beyond the image into the next one in the sheet.
+			const source = Math.min(OVERLAP / scaleX, right.source.width);
+			piece.source.width += source;
+			piece.right += source * scaleX;
+		}
+		if (below && scaleY > 0) {
+			const source = Math.min(OVERLAP / scaleY, below.source.height);
+			piece.source.height += source;
+			piece.bottom += source * scaleY;
+		}
+	}
+	return result;
+}
+
 /** A cut across the image: pixels of fixed parts and of stretch zones before it. */
 interface Cut {
 	fixed: number;
