@@ -898,5 +898,47 @@
 				"drift": 0.43
 			}
 		}
+	},
+	"parity-overlap": {
+		"svg": 0.22,
+		"png": 0.22,
+		"drift": 0.01,
+		"cells": {
+			"never beats allow-overlap": {
+				"svg": 0.14,
+				"png": 0.13,
+				"drift": 0
+			},
+			"always": {
+				"svg": 0.34,
+				"png": 0.34,
+				"drift": 0
+			},
+			"cooperative among selves": {
+				"svg": 0.15,
+				"png": 0.15,
+				"drift": 0
+			},
+			"cooperative, never above": {
+				"svg": 0.21,
+				"png": 0.2,
+				"drift": 0
+			},
+			"cooperative, always above": {
+				"svg": 0.11,
+				"png": 0.1,
+				"drift": 0
+			},
+			"variable anchors": {
+				"svg": 0.13,
+				"png": 0.12,
+				"drift": 0
+			},
+			"icons, cooperative": {
+				"svg": 0.54,
+				"png": 0.55,
+				"drift": 0.09
+			}
+		}
 	}
 }

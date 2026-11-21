@@ -19,7 +19,7 @@ export interface View {
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`,
- *   `images`, `scripts`, `combining`:
+ *   `images`, `scripts`, `combining`, `overlap`:
  *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
@@ -37,7 +37,8 @@ export type StyleName =
 	| 'seams'
 	| 'images'
 	| 'scripts'
-	| 'combining';
+	| 'combining'
+	| 'overlap';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -141,6 +142,8 @@ export const regions: Region[] = [
 	{ id: 'parity-scripts', style: 'scripts', view: scene, labels: true },
 	// Labels in scripts whose letters combine: drawn as text, as MapLibre draws them locally.
 	{ id: 'parity-combining', style: 'combining', view: scene, labels: true },
+	// Labels and icons that may overlap others: `text-overlap`, `icon-overlap`.
+	{ id: 'parity-overlap', style: 'overlap', view: scene, labels: true },
 	{ id: 'parity-sources', style: 'sources', view: scene },
 	{ id: 'parity-patterns', style: 'patterns', view: scene },
 	// Patterns are scaled with the map from the zoom level's integer part.

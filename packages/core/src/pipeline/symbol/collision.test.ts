@@ -4,6 +4,7 @@ import {
 	CollisionIndex,
 	iconBox,
 	layoutText,
+	overlapMode,
 	placeSymbols,
 	textBox,
 	type Box,
@@ -153,8 +154,8 @@ describe('CollisionIndex', () => {
 
 describe('placeSymbols', () => {
 	const options = (overrides: Partial<CollisionOptions> = {}): CollisionOptions => ({
-		textAllowOverlap: false,
-		iconAllowOverlap: false,
+		textOverlap: 'never',
+		iconOverlap: 'never',
 		textIgnorePlacement: false,
 		iconIgnorePlacement: false,
 		textOptional: false,
@@ -206,9 +207,20 @@ describe('placeSymbols', () => {
 		test('hides the label where no anchor fits, unless it may overlap: then at the first', () => {
 			const hidden = variable([{ text: B }, { text: A }]);
 			expect(place(symbol({ text: A }), hidden)).toEqual(['T', '-']);
-			const overlapping = variable([{ text: B }, { text: A }], { textAllowOverlap: true });
+			const overlapping = variable([{ text: B }, { text: A }], { textOverlap: 'always' });
 			expect(place(symbol({ text: A }), overlapping)).toEqual(['T', 'T']);
 			expect(overlapping.anchor).toBe(0);
+		});
+
+		test('cooperative: first where it fits, then where it overlaps only those that may be', () => {
+			const cooperative = { textOverlap: 'cooperative' } as const;
+			const fits = variable([{ text: B }, { text: C }], cooperative);
+			expect(place(symbol({ text: A }, cooperative), fits)).toEqual(['T', 'T']);
+			expect(fits.anchor).toBe(1);
+			const blocker = symbol({ text: C });
+			const overlaps = variable([{ text: C }, { text: B }, { text: A }], cooperative);
+			expect(place(symbol({ text: A }, cooperative), blocker, overlaps)).toEqual(['T', 'T', 'T']);
+			expect(overlaps.anchor).toBe(1);
 		});
 
 		test('moves an icon fitted to the label with it, and needs room for both', () => {
@@ -222,8 +234,8 @@ describe('placeSymbols', () => {
 		});
 	});
 
-	test('allow-overlap shows a symbol anyway, ignore-placement lets others overlap it', () => {
-		expect(place(symbol({ text: A }), symbol({ text: B }, { textAllowOverlap: true }))).toEqual([
+	test('overlap "always" shows a symbol anyway, ignore-placement lets others overlap it', () => {
+		expect(place(symbol({ text: A }), symbol({ text: B }, { textOverlap: 'always' }))).toEqual([
 			'T',
 			'T',
 		]);
@@ -231,6 +243,18 @@ describe('placeSymbols', () => {
 			'T',
 			'T',
 		]);
+	});
+
+	test('overlap "cooperative" overlaps symbols that may be overlapped, not "never" ones', () => {
+		const cooperative = (boxes: { text?: Box; icon?: Box }) =>
+			symbol(boxes, { textOverlap: 'cooperative', iconOverlap: 'cooperative' });
+		expect(place(symbol({ text: A }), cooperative({ text: B }))).toEqual(['T', '-']);
+		expect(place(cooperative({ text: A }), cooperative({ text: B }))).toEqual(['T', 'T']);
+		expect(place(symbol({ text: A }, { textOverlap: 'always' }), cooperative({ icon: B }))).toEqual(
+			['T', 'I'],
+		);
+		// A "never" symbol is not shown over a cooperative one either.
+		expect(place(cooperative({ text: A }), symbol({ text: B }))).toEqual(['T', '-']);
 	});
 
 	test('shows a label and its icon together, unless one is optional', () => {
@@ -253,5 +277,14 @@ describe('placeSymbols', () => {
 
 	test('does not show symbols outside the image and its padding', () => {
 		expect(place(symbol({ text: [300, 300, 320, 310] }))).toEqual(['-']);
+	});
+});
+
+describe('overlapMode', () => {
+	test('reads *-overlap if set, else *-allow-overlap as "always" or "never"', () => {
+		expect(overlapMode('cooperative', false)).toBe('cooperative');
+		expect(overlapMode('never', true)).toBe('never');
+		expect(overlapMode(undefined, true)).toBe('always');
+		expect(overlapMode(undefined, false)).toBe('never');
 	});
 });

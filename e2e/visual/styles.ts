@@ -17,6 +17,7 @@ import { cells as imageCells, images as sceneImages, imagesStyle } from './scene
 import { cells as patternCells, patternsStyle } from './scenes/patterns.js';
 import { cells as scriptCells, scriptsStyle } from './scenes/scripts.js';
 import { cells as combiningCells, combiningStyle } from './scenes/combining.js';
+import { cells as overlapCells, overlapStyle } from './scenes/overlap.js';
 import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
 
@@ -136,6 +137,8 @@ async function buildStyle(
 			return scriptsStyle();
 		case 'combining':
 			return combiningStyle();
+		case 'overlap':
+			return overlapStyle();
 	}
 }
 
@@ -155,6 +158,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'images') return imageCells;
 	if (name === 'scripts') return scriptCells;
 	if (name === 'combining') return combiningCells;
+	if (name === 'overlap') return overlapCells;
 	return undefined;
 }
 

@@ -4,10 +4,12 @@ export {
 	glyphBox,
 	iconBox,
 	layoutText,
+	overlapMode,
 	paddedBox,
 	placeSymbols,
 	type Box,
 	type CollisionOptions,
+	type OverlapMode,
 	type PlacedSymbol,
 	type TextLayout,
 } from './collision.js';

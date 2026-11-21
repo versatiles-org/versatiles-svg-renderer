@@ -196,7 +196,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `icon-text-fit`, stretchable icons    | ✅  | ✅  |       |
 | Point labels                          | ✅  | ✅  |       |
 | Letter shapes of the style's glyphs   | ✅  | ✅  |       |
-| Dropping overlaps                     | ✅  | ✅  |       |
+| Dropping overlaps, `text-overlap`     | ✅  | ✅  |       |
 | Labels along lines                    | ✅  | ✅  |       |
 | Label position in polygons            | ✅  | ✅  |       |
 | Line breaks, wrapping, justification  | ✅  | ✅  |       |

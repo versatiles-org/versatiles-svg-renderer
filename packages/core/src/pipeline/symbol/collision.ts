@@ -22,10 +22,25 @@ const VIEWPORT_PADDING = VIEW_MARGIN;
 /** Side length of the cells of the grid index, in pixels. */
 const CELL_SIZE = 32;
 
+/**
+ * How a symbol may overlap others (`text-overlap`, `icon-overlap`): `never`; `always`; or
+ * `cooperative`, overlapping those that may be overlapped themselves, but not `never` ones.
+ */
+export type OverlapMode = 'never' | 'always' | 'cooperative';
+
+/**
+ * A symbol's overlap mode as MapLibre reads it (`getOverlapMode`): `*-overlap` if the style
+ * sets it, else `*-allow-overlap`, true meaning `always`.
+ */
+export function overlapMode(overlap: unknown, allowOverlap: unknown): OverlapMode {
+	if (overlap === 'always' || overlap === 'cooperative' || overlap === 'never') return overlap;
+	return allowOverlap === true ? 'always' : 'never';
+}
+
 /** The collision settings of one symbol, from its layer's layout properties. */
 export interface CollisionOptions {
-	textAllowOverlap: boolean;
-	iconAllowOverlap: boolean;
+	textOverlap: OverlapMode;
+	iconOverlap: OverlapMode;
 	textIgnorePlacement: boolean;
 	iconIgnorePlacement: boolean;
 	textOptional: boolean;
@@ -51,23 +66,29 @@ export interface PlacedSymbol {
 }
 
 /**
- * The first of `anchors` whose label (and fitted icon) overlaps nothing placed so far, or
- * with `text-allow-overlap`, the first one, as MapLibre GL JS tries them
- * (`placeBoxForVariableAnchors`). `undefined` if none can be placed.
+ * The first of `anchors` whose label (and fitted icon) overlaps nothing placed so far; else,
+ * if `text-overlap` allows it, the first where it may overlap what is there (with `always`,
+ * the first one), as MapLibre GL JS tries them (`placeBoxForVariableAnchors`). `undefined`
+ * if none can be placed.
  */
 function chooseAnchor(
 	anchors: NonNullable<PlacedSymbol['anchors']>,
 	options: CollisionOptions,
 	index: CollisionIndex,
 ): number | undefined {
+	// A fitted icon that must not overlap anything is placed with its label.
 	const iconFits = (box: Box | undefined): boolean =>
-		box === undefined || options.iconAllowOverlap || !index.collides(box);
-	const found = anchors.findIndex(
-		({ textBoxes, iconBox }) => !textBoxes.some((box) => index.collides(box)) && iconFits(iconBox),
-	);
-	if (found >= 0) return found;
-	// Allowed to overlap, the label (and its fitted icon, placed alike) takes the first place.
-	return options.textAllowOverlap ? 0 : undefined;
+		box === undefined || options.iconOverlap !== 'never' || !index.collides(box);
+	const passes: OverlapMode[] =
+		options.textOverlap === 'never' ? ['never'] : ['never', options.textOverlap];
+	for (const mode of passes) {
+		const found = anchors.findIndex(
+			({ textBoxes, iconBox }) =>
+				!textBoxes.some((box) => index.collides(box, mode)) && iconFits(iconBox),
+		);
+		if (found >= 0) return found;
+	}
+	return undefined;
 }
 
 /** `box` grown by `padding`: a number, or `[top, right, bottom, left]`. */
@@ -237,9 +258,9 @@ export function iconBox(
 	return pad(box, padding);
 }
 
-/** The boxes placed so far, in a grid of cells for quick lookup. */
+/** The boxes placed so far, each with its symbol's overlap mode, in a grid of cells. */
 export class CollisionIndex {
-	readonly #cells = new Map<number, Box[]>();
+	readonly #cells = new Map<number, { box: Box; mode: OverlapMode }[]>();
 	readonly #area: Box;
 
 	/** For an image of `width` × `height` pixels. */
@@ -258,9 +279,15 @@ export class CollisionIndex {
 		return box[0] < area[2] && box[2] > area[0] && box[1] < area[3] && box[3] > area[1];
 	}
 
-	public collides(box: Box): boolean {
+	/**
+	 * Whether `box` overlaps a box placed so far that a symbol with overlap `mode` must not
+	 * overlap: with `never` any, with `cooperative` only those placed with `never`.
+	 */
+	public collides(box: Box, mode: OverlapMode = 'never'): boolean {
+		if (mode === 'always') return false;
 		for (const key of this.#keys(box)) {
-			for (const other of this.#cells.get(key) ?? []) {
+			for (const { box: other, mode: otherMode } of this.#cells.get(key) ?? []) {
+				if (mode === 'cooperative' && otherMode !== 'never') continue;
 				if (box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1]) {
 					return true;
 				}
@@ -269,11 +296,13 @@ export class CollisionIndex {
 		return false;
 	}
 
-	public insert(box: Box): void {
+	/** Records `box`, placed by a symbol with overlap `mode`. */
+	public insert(box: Box, mode: OverlapMode = 'never'): void {
+		const entry = { box, mode };
 		for (const key of this.#keys(box)) {
 			let cell = this.#cells.get(key);
 			if (!cell) this.#cells.set(key, (cell = []));
-			cell.push(box);
+			cell.push(entry);
 		}
 	}
 
@@ -317,10 +346,8 @@ export function placeSymbols(symbols: PlacedSymbol[], index: CollisionIndex): vo
 			continue;
 		}
 		let showText =
-			hasText &&
-			textFits &&
-			(options.textAllowOverlap || !textBoxes.some((box) => index.collides(box)));
-		let showIcon = iconBox !== undefined && (options.iconAllowOverlap || !index.collides(iconBox));
+			hasText && textFits && !textBoxes.some((box) => index.collides(box, options.textOverlap));
+		let showIcon = iconBox !== undefined && !index.collides(iconBox, options.iconOverlap);
 
 		// A label with an icon: both are shown, or neither, unless one is optional. An optional
 		// label lets the icon stand alone, but not the label without the icon, and vice versa.
@@ -334,8 +361,10 @@ export function placeSymbols(symbols: PlacedSymbol[], index: CollisionIndex): vo
 			}
 		}
 
-		if (showText && !options.textIgnorePlacement) for (const box of textBoxes!) index.insert(box);
-		if (showIcon && !options.iconIgnorePlacement) index.insert(iconBox!);
+		if (showText && !options.textIgnorePlacement) {
+			for (const box of textBoxes!) index.insert(box, options.textOverlap);
+		}
+		if (showIcon && !options.iconIgnorePlacement) index.insert(iconBox!, options.iconOverlap);
 		symbol.showText = showText;
 		symbol.showIcon = showIcon;
 	}

@@ -28,6 +28,7 @@ import {
 	layoutText,
 	lineAnchors,
 	measureLine,
+	overlapMode,
 	paddedBox,
 	placeSymbols,
 	pointAt,
@@ -239,8 +240,14 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		const textOverlay = job.labels === 'glyphs-text';
 
 		const options: CollisionOptions = {
-			textAllowOverlap: getLayout('text-allow-overlap', feature) === true,
-			iconAllowOverlap: getLayout('icon-allow-overlap', feature) === true,
+			textOverlap: overlapMode(
+				getLayout('text-overlap', feature),
+				getLayout('text-allow-overlap', feature),
+			),
+			iconOverlap: overlapMode(
+				getLayout('icon-overlap', feature),
+				getLayout('icon-allow-overlap', feature),
+			),
 			textIgnorePlacement: getLayout('text-ignore-placement', feature) === true,
 			iconIgnorePlacement: getLayout('icon-ignore-placement', feature) === true,
 			textOptional: getLayout('text-optional', feature) === true,
