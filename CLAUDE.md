@@ -28,7 +28,7 @@ npm workspace, ESM only except for the plugin's UMD build. All packages share on
 - `npm run docs`: build, then regenerate the graphs and generated README sections. Commit the result.
 - `npm run doc:typescript`: API docs into the gitignored `doc-typescript/`.
 - `npm run bench`, `npm run profile`: see the README. `npm run bench` overwrites the tracked `docs/benchmark.svg`, so revert it unless the chart should change.
-- `npx tsx scripts/generate-glyph-widths.ts`: regenerates `glyph_widths.ts`. Run it after updating `@fontsource/noto-sans`, and don't edit that file by hand.
+- `npx tsx scripts/generate-glyph-widths.ts`: regenerates `glyph_widths.ts`. Run it after updating `@fontsource/noto-sans`, `-arabic` or `-hebrew`, and don't edit that file by hand.
 
 Select screenshot regions by ID with `E2E_REGIONS=parity-features,berlin-vector`. This works on the host and in Docker. With `UPDATE_BASELINE=1`, such a run re-blesses only those regions.
 

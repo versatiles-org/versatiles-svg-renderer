@@ -27,6 +27,21 @@ describe('textWidth', () => {
 		for (const text of ['Łódź', 'Αθήνα', 'Москва', 'Hà Nội']) {
 			expect(textWidth(text, tableMetrics(undefined), 10)).toBeGreaterThan(text.length * 3);
 		}
+		// Measured, not the 600/1000 em of Noto Sans' missing glyph: Alpha is as wide as "A".
+		const regular = tableMetrics(['noto_sans_regular']);
+		expect(regular.advance('Α')).toBe(0.639);
+		expect(regular.advance('Ж')).toBe(0.905);
+	});
+
+	test('covers Hebrew, and Arabic in the shapes it is drawn in', () => {
+		const regular = tableMetrics(['noto_sans_regular']);
+		const bold = tableMetrics(['noto_sans_bold']);
+		expect(regular.advance('א')).toBe(0.632);
+		expect(bold.advance('א')).toBe(0.676);
+		// alef, isolated and final; lam-alef
+		expect(regular.advance(String.fromCodePoint(0xfe8d))).toBe(0.238);
+		expect(regular.advance(String.fromCodePoint(0xfe8e))).toBe(0.291);
+		expect(regular.advance(String.fromCodePoint(0xfefb))).toBe(0.582);
 	});
 
 	test('counts CJK characters as one em, and other unknown ones as an average width', () => {

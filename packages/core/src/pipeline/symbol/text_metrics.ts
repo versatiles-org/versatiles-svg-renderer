@@ -1,6 +1,7 @@
 /**
  * The width of label text, measured without a font engine: from the advance widths of
- * Noto Sans (see `glyph_widths.ts`). It serves collision detection, which both renderers
+ * Noto Sans, Noto Sans Arabic (with the presentation forms Arabic is drawn in, see `script.ts`)
+ * and Noto Sans Hebrew (see `glyph_widths.ts`). It serves collision detection, which both renderers
  * share, so they drop the same labels; the text itself is drawn in whatever font the
  * renderer resolves.
  */

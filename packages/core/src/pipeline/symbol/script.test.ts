@@ -100,6 +100,19 @@ describe('labelLines', () => {
 	it('trims lines and leaves out empty ones', () => {
 		expect(labelLines('  \n Ab  \n\n', metrics, 0)).toEqual([{ text: 'Ab', glyphs: 'Ab' }]);
 	});
+
+	it('breaks Arabic measured with the widths of its shapes, as MapLibre does', () => {
+		// "Great 26th of July Street": MapLibre breaks it into two lines at 4 ems.
+		const street = String.fromCodePoint(
+			...[0x634, 0x627, 0x631, 0x639, 0x20, 0x32, 0x36], // "26th Street"
+			...[0x20, 0x64a, 0x648, 0x644, 0x64a, 0x648], // "of July"
+			...[0x20, 0x627, 0x644, 0x643, 0x628, 0x64a, 0x631], // "the Great"
+		);
+		expect(labelLines(street, metrics, 4).map((line) => line.text)).toEqual([
+			street.slice(0, 7),
+			street.slice(8),
+		]);
+	});
 });
 
 describe('singleLine', () => {

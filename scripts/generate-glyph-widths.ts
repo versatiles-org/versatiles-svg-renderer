@@ -1,40 +1,48 @@
 /**
  * Generates `packages/core/src/pipeline/symbol/glyph_widths.ts`: the advance width of every
- * character Noto Sans covers (Latin, Greek, Cyrillic and Vietnamese; not Devanagari), in
- * regular and bold, so the pipeline can measure label text without a font engine. Both
- * renderers then drop the same labels in collision detection, and the widths match the
- * glyphs MapLibre GL JS uses for styles that name Noto Sans, like the VersaTiles styles.
+ * character Noto Sans covers (Latin, Greek, Cyrillic and Vietnamese; not Devanagari), and of
+ * Arabic, with its presentation forms, and Hebrew from Noto Sans Arabic and Hebrew, in regular
+ * and bold, so the pipeline can measure label text without a font engine. Both renderers then
+ * drop the same labels in collision detection, and the widths match the glyphs MapLibre GL JS
+ * uses for styles that name Noto Sans, like the VersaTiles styles, whose Noto Sans includes
+ * Noto Sans Arabic and Hebrew.
  *
- * Run with `npx tsx scripts/generate-glyph-widths.ts` after updating `@fontsource/noto-sans`.
+ * Run with `npx tsx scripts/generate-glyph-widths.ts` after updating `@fontsource/noto-sans`,
+ * `@fontsource/noto-sans-arabic` or `@fontsource/noto-sans-hebrew`.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 
 const root = resolve(import.meta.dirname, '..');
-const fontsource = resolve(root, 'node_modules/@fontsource/noto-sans');
+const fontsource = resolve(root, 'node_modules/@fontsource');
 const output = resolve(root, 'packages/core/src/pipeline/symbol/glyph_widths.ts');
 
-/** Subsets to measure: every subset but Devanagari, which needs shaping. */
-const SUBSETS = [
-	'latin',
-	'latin-ext',
-	'greek',
-	'greek-ext',
-	'cyrillic',
-	'cyrillic-ext',
-	'vietnamese',
+/**
+ * The fontsource packages to measure, each with the subsets to take from it: of Noto Sans every
+ * subset but Devanagari, which needs shaping. A code point is measured with the first font that
+ * covers it, so Noto Sans Arabic and Hebrew add only their scripts.
+ */
+const FONTS = [
+	{
+		name: 'noto-sans',
+		subsets: ['latin', 'latin-ext', 'greek', 'greek-ext', 'cyrillic', 'cyrillic-ext', 'vietnamese'],
+	},
+	{ name: 'noto-sans-arabic', subsets: ['arabic'] },
+	{ name: 'noto-sans-hebrew', subsets: ['hebrew'] },
 ];
+type Font = (typeof FONTS)[number];
 /** Widths are stored in thousandths of an em. */
 const UNITS = 1000;
 
-/** The code points of `subset`, from the `unicode-range` of its `@font-face` in fontsource's CSS. */
-function codePoints(weight: number): Set<number> {
-	const css = readFileSync(resolve(fontsource, `${String(weight)}.css`), 'utf8');
+/** The code points of `font`'s subsets, from the `unicode-range`s of fontsource's CSS. */
+function codePoints(font: Font, weight: number): Set<number> {
+	const css = readFileSync(resolve(fontsource, font.name, `${String(weight)}.css`), 'utf8');
+	const file = new RegExp(`${font.name}-([a-z-]+)-\\d+-normal\\.woff2`);
 	const result = new Set<number>();
 	for (const face of css.split('@font-face').slice(1)) {
-		const subset = /noto-sans-([a-z-]+)-\d+-normal\.woff2/.exec(face)?.[1];
-		if (!subset || !SUBSETS.includes(subset)) continue;
+		const subset = file.exec(face)?.[1];
+		if (!subset || !font.subsets.includes(subset)) continue;
 		const range = /unicode-range:([^;]*)/.exec(face)?.[1] ?? '';
 		for (const part of range.split(',')) {
 			const [from, to] = part
@@ -51,22 +59,24 @@ function codePoints(weight: number): Set<number> {
 	return result;
 }
 
+/** The width of every code point the fonts cover, in `weight`, by code point. */
 function measure(weight: number): Map<number, number> {
-	const family = `NotoSansMeasure${String(weight)}`;
-	for (const subset of SUBSETS) {
-		GlobalFonts.registerFromPath(
-			resolve(fontsource, `files/noto-sans-${subset}-${String(weight)}-normal.woff2`),
-			family,
-		);
-	}
 	const ctx = createCanvas(10, 10).getContext('2d');
-	ctx.font = `${String(UNITS)}px ${family}`;
 	const widths = new Map<number, number>();
-	for (const c of [...codePoints(weight)].sort((a, b) => a - b)) {
-		// Combining marks and other zero-width characters are kept: they add nothing.
-		widths.set(c, Math.round(ctx.measureText(String.fromCodePoint(c)).width));
+	for (const font of FONTS) {
+		// Each font a family of its own, so that each code point is measured in the font it is from.
+		const family = `Measure ${font.name} ${String(weight)}`;
+		for (const subset of font.subsets) {
+			const file = `${font.name}-${subset}-${String(weight)}-normal.woff2`;
+			GlobalFonts.registerFromPath(resolve(fontsource, font.name, 'files', file), family);
+		}
+		ctx.font = `${String(UNITS)}px "${family}"`;
+		for (const c of codePoints(font, weight)) {
+			// Combining marks and other zero-width characters are kept: they add nothing.
+			if (!widths.has(c)) widths.set(c, Math.round(ctx.measureText(String.fromCodePoint(c)).width));
+		}
 	}
-	return widths;
+	return new Map([...widths].sort(([a], [b]) => a - b));
 }
 
 /** Runs of consecutive code points, as `[first code point, ...widths]`, to keep the file small. */
@@ -92,17 +102,18 @@ const table = (weight: number): string =>
 
 writeFileSync(
 	output,
-	`// Generated by scripts/generate-glyph-widths.ts from Noto Sans (@fontsource/noto-sans). Do not edit.
+	`// Generated by scripts/generate-glyph-widths.ts from Noto Sans, Noto Sans Arabic and Noto Sans Hebrew
+// (@fontsource/noto-sans, -arabic, -hebrew). Do not edit.
 
 /** Advance widths in thousandths of an em, as runs: \`[first code point, ...widths]\`. */
 export type GlyphWidthRuns = number[][];
 
-/** Noto Sans Regular. */
+/** Noto Sans Regular, with Noto Sans Arabic and Hebrew Regular. */
 export const REGULAR: GlyphWidthRuns = [
 ${table(400)}
 ];
 
-/** Noto Sans Bold. */
+/** Noto Sans Bold, with Noto Sans Arabic and Hebrew Bold. */
 export const BOLD: GlyphWidthRuns = [
 ${table(700)}
 ];
