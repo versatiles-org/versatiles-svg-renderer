@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-11-22
+
+### Features
+
+- **png-renderer:** let fonts take several files per name, so that labels in every script are drawn in the style's font ([5f70d14](https://github.com/versatiles-org/versatiles-svg-renderer/commit/5f70d148f73c89642187ddb4694fea1b4a95e5ab))
+- **core:** support text-overlap and icon-overlap, cooperative included, as MapLibre GL JS places symbols ([bc781b2](https://github.com/versatiles-org/versatiles-svg-renderer/commit/bc781b2e6c01dd76a5c1a9df45bd5a4ae2b33d6a))
+- **core:** set Chinese, Japanese and Korean labels vertically along steep lines, as MapLibre GL JS does (#41) ([75f5093](https://github.com/versatiles-org/versatiles-svg-renderer/commit/75f5093d9488ca2dd833e199c776f7307f789913))
+- **core:** set point labels vertically with text-writing-mode, as MapLibre GL JS does, closes #41 ([76366b4](https://github.com/versatiles-org/versatiles-svg-renderer/commit/76366b427fdf5dddf87ec88e8a93e855ae9ceb11))
+
+### Bug Fixes
+
+- **core:** join Arabic letters and draw right-to-left labels in reading order, as MapLibre GL JS does ([90aa75b](https://github.com/versatiles-org/versatiles-svg-renderer/commit/90aa75b6aeadd1cf36290f390b3efc7b82ac46f9))
+- **core:** measure Arabic, Hebrew, Greek and Cyrillic labels with their real widths ([6767dee](https://github.com/versatiles-org/versatiles-svg-renderer/commit/6767dee0290d6481d5cbcbbe7eb61ce4d1674c77))
+- **core:** draw Indic, Thai and other combining scripts as text, as MapLibre GL JS does, measured by the width each letter adds ([1bdc887](https://github.com/versatiles-org/versatiles-svg-renderer/commit/1bdc887151e9ee88e5b9f02b1d9ddf050e5cdc2e))
+- **core:** draw the pieces of a stretched icon overlapping, so that no seams show between them ([c1f83c8](https://github.com/versatiles-org/versatiles-svg-renderer/commit/c1f83c8027be8655305c6047b6f21b565c12e0aa))
+- **core:** place labels drawn as text on the baseline MapLibre GL JS uses, whatever metrics the font engine takes for the font ([4dc6a07](https://github.com/versatiles-org/versatiles-svg-renderer/commit/4dc6a070dc7514cfee2b95ca21a2c044b2b690a9))
+- **core:** draw Chinese, Japanese and Korean labels as text, as MapLibre GL JS draws them with the browser's fonts (#41) ([fc9aa82](https://github.com/versatiles-org/versatiles-svg-renderer/commit/fc9aa82528cbae8a9467dcf71c593ffd63e162ba))
+- **core:** draw label halos as far beyond the letters as MapLibre GL JS does, text-halo-width up to 3/24 em ([8259785](https://github.com/versatiles-org/versatiles-svg-renderer/commit/8259785415667416d0e01b59904cc502d260e465))
+
+### Documentation
+
+- regenerate the dependency graphs and the bundle treemap ([6613a90](https://github.com/versatiles-org/versatiles-svg-renderer/commit/6613a900b0b88baf142c951b2a2eafb94b1cf34f))
+- release without an approval step, with vrt release ([3f5871d](https://github.com/versatiles-org/versatiles-svg-renderer/commit/3f5871d2b556f6654c16f42e481d9c31d10a21eb))
+
+### CI/CD
+
+- release with vrt release and node-release-tool's reusable workflow, like the other Node repos ([74ad3c5](https://github.com/versatiles-org/versatiles-svg-renderer/commit/74ad3c5762d328865bf6eed9004e447037af2981))
+
+### Chores
+
+- update dependencies for improved stability and performance ([3b7a60f](https://github.com/versatiles-org/versatiles-svg-renderer/commit/3b7a60f74fc789b90e67807c3415693b70bbfd51))
+
+### Styles
+
+- **core:** format layer.ts ([6bd377a](https://github.com/versatiles-org/versatiles-svg-renderer/commit/6bd377a7c88b122cce1cd5e267bc9e7f88804f7c))
+
 ## [2.7.0] - 2026-11-19
 
 ### Added
