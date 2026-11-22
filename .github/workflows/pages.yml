@@ -18,7 +18,7 @@ jobs:
   # package.json only carries a `^` range.
   #
   # Pages deploy only after a release succeeds, so the API docs and the demo match the
-  # version on npm. The Release workflow completes only after its npm publish is approved.
+  # version on npm. The Release workflow completes only after it has published to npm.
   # For a tag push, `head_branch` is the tag name (`v2.5.0`). To redeploy a release,
   # re-run its Pages run.
   #

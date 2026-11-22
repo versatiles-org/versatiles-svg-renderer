@@ -130,9 +130,9 @@ Each package's README shows its dependency graph; the plugin's also shows the co
 
 All packages are released together, with one version number, by a GitHub workflow.
 
-1. Describe the changes under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md), and make sure CI is green on `main`.
-2. Run `npm run release <patch|minor|major|x.y.z>` on an up-to-date `main`. Use a version like `2.1.0-rc.0` for a prerelease (published with the npm dist-tag `next`), and add `-- --dry-run` to only see what would happen. The script sets the version in every `package.json`, dates the changelog section, then commits, tags and pushes.
-3. The tag starts the [Release workflow](https://github.com/versatiles-org/versatiles-svg-renderer/actions/workflows/release.yml). It verifies the tag, builds, tests and packs everything, then waits for a maintainer to **approve the `npm` environment**. After approval it publishes to npm (with provenance) and creates the GitHub release with `maplibre-svg-export.tar.gz`.
+1. Write the commit messages for the release notes: the changelog is generated from them.
+2. Run `npm run release [patch|minor|major|x.y.z]` (`vrt release` from [node-release-tool](https://github.com/versatiles-org/node-release-tool#release-workflow)) on an up-to-date `main`. Use a version like `2.1.0-rc.0` for a prerelease (published with the npm dist-tag `next`), and add `-- --dry-run` to only see what would happen. It pushes the commits origin lacks and waits for CI to pass on them, sets the version in every `package.json`, adds a section to [CHANGELOG.md](CHANGELOG.md) generated from the commit messages, then commits and pushes the tag.
+3. The tag starts the [Release workflow](https://github.com/versatiles-org/versatiles-svg-renderer/actions/workflows/release.yml). It verifies the tag, builds, tests and packs everything, publishes to npm (with provenance) and creates the GitHub release with `maplibre-svg-export.tar.gz`.
 
 If the workflow fails, fix the cause and use "Re-run failed jobs": versions already on npm are skipped. Never move or delete a release tag; fix mistakes in the next version.
 
@@ -140,7 +140,7 @@ If the workflow fails, fix the cause and use "Re-run failed jobs": versions alre
 <summary>One-time setup of GitHub and npm</summary>
 
 - **npm**, for each of the three packages: _Settings → Trusted publishing → GitHub Actions_ with repository `versatiles-org/versatiles-svg-renderer`, workflow `release.yml`, environment `npm` and the **publish** permission (`npm trust list <package>` shows it). Then _Settings → Publishing access → "Require two-factor authentication and disallow tokens"_. A package must exist before it can be configured, so publish a new package name once by hand first.
-- **GitHub**: an environment named `npm`, limited to tags matching `v*`, with the maintainers as required reviewers. A tag ruleset for `v*` that restricts creating, updating and deleting release tags.
+- **GitHub**: an environment named `npm`, limited to tags matching `v*`. A tag ruleset for `v*` that restricts creating, updating and deleting release tags.
 
 </details>
 
