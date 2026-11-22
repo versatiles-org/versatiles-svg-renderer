@@ -112,7 +112,7 @@ Below the preview, the panel lists what the SVG leaves out: parts of the style t
 
 [![Bundle composition](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/bundle-treemap.svg)](https://raw.githubusercontent.com/versatiles-org/versatiles-svg-renderer/main/packages/maplibre-svg-export/docs/bundle-treemap.svg)
 
-Sized by the bundle's own source map: **173.3 KB** raw, **46.4 KB** gzipped, across 88 modules.
+Sized by the bundle's own source map: **392.9 KB** raw, **119.8 KB** gzipped, across 184 modules.
 
 ## Dependency Graph
 
