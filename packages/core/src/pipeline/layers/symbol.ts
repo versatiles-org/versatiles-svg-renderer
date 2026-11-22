@@ -13,6 +13,7 @@ import { type Glyph, GLYPH_EM, type GlyphRange, rangeStart } from '../../sources
 import type { StyleLayer } from '../style_layer.js';
 import {
 	allowsLetterSpacing,
+	allowsVerticalWritingMode,
 	anchorOffsets,
 	CollisionIndex,
 	drawnByFontEngine,
@@ -26,6 +27,7 @@ import {
 	labelLines,
 	layoutAlongLine,
 	layoutText,
+	layoutVertically,
 	lineAnchors,
 	measureLine,
 	overlapMode,
@@ -33,14 +35,17 @@ import {
 	placeSymbols,
 	pointAt,
 	radialOffset,
+	runsVertically,
 	singleLine,
 	tableMetrics,
 	traceGlyph,
+	verticalText,
 	type Box,
 	type CollisionOptions,
 	type FontMetrics,
 	type PlacedSymbol,
 	type TextLayout,
+	type VerticalText,
 } from '../symbol/index.js';
 import {
 	evaluateLayer,
@@ -410,7 +415,14 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					layoutText(0, 0, labelStyle, [single], undefined, undefined, metrics).box,
 			);
 		const glyphs = labelStyle && single && glyphAdvances(single.glyphs, metrics, labelStyle.size);
-		const textLength = glyphs ? glyphs.advances.reduce((sum, width) => sum + width, 0) : 0;
+		const keepUpright = getLayout('text-keep-upright', feature) !== false;
+		// Kept upright, a label with Chinese, Japanese or Korean is also set vertically, as in
+		// MapLibre, which spaces and fits its labels along the line by that length then.
+		const vertical =
+			glyphs && textAlongLine && keepUpright && allowsVerticalWritingMode(single.text)
+				? verticalLayout(glyphs.chars, metrics, labelStyle.size)
+				: undefined;
+		const textLength = (vertical ?? glyphs)?.advances.reduce((sum, width) => sum + width, 0) ?? 0;
 		const iconBounds = lineIconStyle && quadsBox(iconQuads(lineIconStyle, sprite!));
 		const iconLength = iconBounds ? iconBounds[2] - iconBounds[0] : 0;
 		const labelLength = Math.max(textLength, iconLength);
@@ -420,7 +432,6 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			(getLayout('symbol-spacing', feature) as number) *
 			2 ** (job.view.zoom - Math.floor(job.view.zoom));
 		const maxAngle = ((getLayout('text-max-angle', feature) as number) * Math.PI) / 180;
-		const keepUpright = getLayout('text-keep-upright', feature) !== false;
 
 		for (const points of feature.geometry) {
 			const line = measureLine(points);
@@ -440,14 +451,29 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 						labelStyle.offset[0] * labelStyle.size,
 						labelStyle.offset[1] * labelStyle.size,
 					];
-					const path = layoutAlongLine(
+					let placed = layoutAlongLine(
 						line,
 						distance,
 						glyphs.chars,
 						glyphs.advances,
 						offset,
 						keepUpright,
-					).map((glyph) => ({
+					);
+					let advances = glyphs.advances;
+					// Along a line that runs more up and down than across, it is set vertically.
+					if (vertical && runsVertically(placed)) {
+						advances = vertical.advances;
+						placed = layoutVertically(
+							line,
+							distance,
+							vertical.chars,
+							advances,
+							vertical.upright,
+							offset,
+							labelStyle.size,
+						);
+					}
+					const path = placed.map((glyph) => ({
 						...glyph,
 						x: glyph.x + textTranslate[0],
 						y: glyph.y + textTranslate[1],
@@ -464,7 +490,7 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 							: { ...labelStyle, path },
 					];
 					textBoxes = path.map((glyph, i) =>
-						glyphBox(glyph, glyphs.advances[i]!, labelStyle.size, textPadding),
+						glyphBox(glyph, advances[i]!, labelStyle.size, textPadding),
 					);
 				} else if (labelStyle && single) {
 					const tx = anchor.x + textTranslate[0];
@@ -503,6 +529,24 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		}
 	}
 	return entries;
+}
+
+/**
+ * A label's graphemes `chars` set vertically (see `verticalText`), with the length each takes
+ * along the line: one em upright, its advance on its side.
+ */
+function verticalLayout(
+	chars: string[],
+	metrics: FontMetrics,
+	size: number,
+): VerticalText & { advances: number[] } {
+	const vertical = verticalText(chars);
+	return {
+		...vertical,
+		advances: vertical.chars.map((char, i) =>
+			vertical.upright[i] ? size : metrics.advance(char) * size,
+		),
+	};
 }
 
 /**

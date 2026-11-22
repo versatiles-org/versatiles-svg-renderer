@@ -113,6 +113,37 @@ export function fitsMaxAngle(
 }
 
 /**
+ * The glyphs of a label, each `lengths[i]` pixels long along the line, centered at `distance`
+ * along `line`: each at its place along the line, turned with it (`reverse`: the other way),
+ * moved `offset` pixels along the line and across it, to the right of the reading direction.
+ */
+function placeAlong(
+	line: MeasuredLine,
+	distance: number,
+	chars: string[],
+	lengths: number[],
+	offset: [number, number],
+	reverse: boolean,
+): GlyphPlacement[] {
+	const labelLength = lengths.reduce((sum, length) => sum + length, 0);
+	const glyphs: GlyphPlacement[] = [];
+	let along = -labelLength / 2 + offset[0];
+	for (let i = 0; i < chars.length; i++) {
+		const center = along + lengths[i]! / 2;
+		along += lengths[i]!;
+		const at = pointAt(line, reverse ? distance - center : distance + center);
+		const angle = reverse ? at.angle + Math.PI : at.angle;
+		glyphs.push({
+			text: chars[i]!,
+			x: at.x - Math.sin(angle) * offset[1],
+			y: at.y + Math.cos(angle) * offset[1],
+			angle: (angle * 180) / Math.PI,
+		});
+	}
+	return glyphs;
+}
+
+/**
  * The glyphs of a label of `chars` (with their `advances` in pixels) centered at
  * `distance` along `line`: each at its place along the line, turned with it, moved
  * `offset` pixels along the line and across it (`text-offset`, in pixels). With
@@ -126,33 +157,76 @@ export function layoutAlongLine(
 	offset: [number, number],
 	keepUpright: boolean,
 ): GlyphPlacement[] {
-	const labelLength = advances.reduce((sum, width) => sum + width, 0);
-	const place = (reverse: boolean): GlyphPlacement[] => {
-		const glyphs: GlyphPlacement[] = [];
-		let along = -labelLength / 2 + offset[0];
-		for (let i = 0; i < chars.length; i++) {
-			const center = along + advances[i]! / 2;
-			along += advances[i]!;
-			const at = pointAt(line, reverse ? distance - center : distance + center);
-			const angle = reverse ? at.angle + Math.PI : at.angle;
-			// The offset across the line points to the right of the reading direction.
-			glyphs.push({
-				text: chars[i]!,
-				x: at.x - Math.sin(angle) * offset[1],
-				y: at.y + Math.cos(angle) * offset[1],
-				angle: (angle * 180) / Math.PI,
-			});
-		}
-		return glyphs;
-	};
-	const glyphs = place(false);
+	const glyphs = placeAlong(line, distance, chars, advances, offset, false);
 	if (keepUpright && glyphs.length > 0) {
 		const first = glyphs[0]!;
 		const last = glyphs[glyphs.length - 1]!;
 		// Upside down: the label reads from right to left (for a single glyph, its angle).
 		const upsideDown =
 			glyphs.length > 1 ? last.x < first.x : Math.cos((first.angle * Math.PI) / 180) < 0;
-		if (upsideDown) return place(true);
+		if (upsideDown) return placeAlong(line, distance, chars, advances, offset, true);
 	}
 	return glyphs;
+}
+
+/**
+ * Whether a label along a line, laid out as `glyphs`, runs more up and down than across on
+ * screen, as MapLibre judges it to set the label vertically: from its first glyph to its last,
+ * or by the angle of a single one.
+ */
+export function runsVertically(glyphs: GlyphPlacement[]): boolean {
+	const first = glyphs[0];
+	const last = glyphs[glyphs.length - 1];
+	if (!first || !last) return false;
+	if (glyphs.length === 1) {
+		const angle = (first.angle * Math.PI) / 180;
+		return Math.abs(Math.sin(angle)) > Math.abs(Math.cos(angle));
+	}
+	return Math.abs(last.y - first.y) > Math.abs(last.x - first.x);
+}
+
+/**
+ * How far MapLibre draws a character standing upright in vertical text from the middle of its
+ * place, towards its top, in ems: its quads are turned around a corner of the em box that
+ * puts them 5 of 24 units along the line, which `halfWidthOffsetCorrection` brings back to 2.
+ */
+const UPRIGHT_SHIFT = 2 / 24;
+
+/**
+ * The glyphs of a label set vertically along `line`, as MapLibre sets a label with Chinese,
+ * Japanese or Korean along a steep line: read from the top, each character that stands
+ * `upright` one em (`size` pixels) long and turned to stand upright on the line, the others on
+ * their side as along any line, each its `advances[i]` long; centered at `distance`, moved
+ * `offset` pixels along the line and across it.
+ */
+export function layoutVertically(
+	line: MeasuredLine,
+	distance: number,
+	chars: string[],
+	advances: number[],
+	upright: boolean[],
+	offset: [number, number],
+	size: number,
+): GlyphPlacement[] {
+	const lengths = advances.map((advance, i) => (upright[i] ? size : advance));
+	let glyphs = placeAlong(line, distance, chars, lengths, offset, false);
+	const first = glyphs[0];
+	const last = glyphs[glyphs.length - 1];
+	// Read from the top: a label that runs up the line runs the other way.
+	const upward =
+		first && last && glyphs.length > 1
+			? last.y < first.y
+			: Math.sin(((first?.angle ?? 0) * Math.PI) / 180) < 0;
+	if (upward) glyphs = placeAlong(line, distance, chars, lengths, offset, true);
+	return glyphs.map((glyph, i) => {
+		if (!upright[i]) return glyph;
+		// Turned back by a right angle; its top lies towards the start of the label.
+		const radians = (glyph.angle * Math.PI) / 180;
+		return {
+			text: glyph.text,
+			x: glyph.x - Math.cos(radians) * UPRIGHT_SHIFT * size,
+			y: glyph.y - Math.sin(radians) * UPRIGHT_SHIFT * size,
+			angle: glyph.angle - 90,
+		};
+	});
 }

@@ -6,7 +6,7 @@
  *
  * | Chinese along a line      | Chinese                   | Chinese along a steep line |
  * | Japanese                  | Korean                    | Chinese, two lines         |
- * | vertical writing mode     | Japanese and Latin        | Japanese, steep line       |
+ * | vertical writing mode     | Japanese and Latin        | Japanese, number, steep    |
  *
  * The lines lie in the corners, away from the tile borders at 0° (see `scripts.ts`).
  *
@@ -47,11 +47,11 @@ export const cells: Cell[] = [
 		layout: { 'text-writing-mode': ['vertical'] },
 	}),
 	scriptCell({ id: 'cjk-mixed', title: 'Japanese and Latin', text: '東京 Tokyo' }),
-	// "Yamate-dōri": kanji and hiragana
+	// "National Route 246": set vertically, the number stands upright, one digit per em.
 	scriptCell({
 		id: 'cjk-japanese-steep',
-		title: 'Japanese, steep line',
-		text: '山手通り',
+		title: 'Japanese with a number, steep line',
+		text: '国道246号',
 		line: 'steep',
 	}),
 ];

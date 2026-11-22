@@ -942,9 +942,9 @@
 		}
 	},
 	"parity-cjk": {
-		"svg": 1.71,
-		"png": 1.59,
-		"drift": 1.28,
+		"svg": 1.64,
+		"png": 1.51,
+		"drift": 1.25,
 		"cells": {
 			"Chinese along a line": {
 				"svg": 1.01,
@@ -957,9 +957,9 @@
 				"drift": 1.15
 			},
 			"Chinese along a steep line": {
-				"svg": 1.51,
-				"png": 1.51,
-				"drift": 0.79
+				"svg": 0.96,
+				"png": 1.01,
+				"drift": 0.76
 			},
 			"Japanese": {
 				"svg": 1.28,
@@ -986,10 +986,10 @@
 				"png": 1.62,
 				"drift": 1.06
 			},
-			"Japanese, steep line": {
-				"svg": 1.85,
-				"png": 1.83,
-				"drift": 1.09
+			"Japanese with a number, steep line": {
+				"svg": 1.75,
+				"png": 1.59,
+				"drift": 0.94
 			}
 		}
 	}

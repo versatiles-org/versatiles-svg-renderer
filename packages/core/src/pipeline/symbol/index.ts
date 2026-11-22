@@ -15,7 +15,15 @@ export {
 } from './collision.js';
 export { traceGlyph } from './glyph_outline.js';
 export { labelAnchors } from './label_anchors.js';
-export { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
+export {
+	fitsMaxAngle,
+	layoutAlongLine,
+	layoutVertically,
+	lineAnchors,
+	measureLine,
+	pointAt,
+	runsVertically,
+} from './line_labels.js';
 export {
 	breakLines,
 	glyphAdvances,
@@ -32,3 +40,4 @@ export {
 	type LabelLine,
 } from './script.js';
 export { anchorOffsets, radialOffset } from './variable_anchor.js';
+export { allowsVerticalWritingMode, verticalText, type VerticalText } from './vertical.js';

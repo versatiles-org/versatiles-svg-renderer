@@ -1,7 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import { Point2D } from '../../geo/index.js';
 import type { GlyphPlacement } from '../../types.js';
-import { fitsMaxAngle, layoutAlongLine, lineAnchors, measureLine, pointAt } from './line_labels.js';
+import {
+	fitsMaxAngle,
+	layoutAlongLine,
+	layoutVertically,
+	lineAnchors,
+	measureLine,
+	pointAt,
+	runsVertically,
+} from './line_labels.js';
 
 const line = (points: [number, number][]) => measureLine(points.map(([x, y]) => new Point2D(x, y)));
 const round = (v: number): number => Math.round(v * 100) / 100;
@@ -126,5 +134,53 @@ describe('layoutAlongLine', () => {
 	test('moves the label by its offset: along the line, and to the right of it', () => {
 		const glyphs = layoutAlongLine(eastward, 50, ['a'], [10], [5, 3], true);
 		expect(rounded(glyphs)).toEqual([{ text: 'a', x: 55, y: 3, angle: 0 }]);
+	});
+});
+
+describe('runsVertically', () => {
+	const at = (x: number, y: number, angle = 0) => ({ text: 'a', x, y, angle });
+
+	test('compares how far the label runs down with how far across', () => {
+		expect(runsVertically([at(0, 0), at(10, 11)])).toBe(true);
+		expect(runsVertically([at(0, 0), at(-11, -10)])).toBe(false);
+		expect(runsVertically([])).toBe(false);
+	});
+
+	test('takes the angle of a single glyph', () => {
+		expect(runsVertically([at(0, 0, 100)])).toBe(true);
+		expect(runsVertically([at(0, 0, 170)])).toBe(false);
+	});
+});
+
+describe('layoutVertically', () => {
+	const southward = line([
+		[0, 0],
+		[0, 100],
+	]);
+	const northward = line([
+		[0, 100],
+		[0, 0],
+	]);
+
+	test('reads from the top, upright characters one em long and turned upright', () => {
+		for (const l of [southward, northward]) {
+			const glyphs = layoutVertically(l, 50, ['北', 'x'], [24, 10], [true, false], [0, 0], 24);
+			const normalized = rounded(glyphs).map((g) => ({
+				...g,
+				x: g.x + 0,
+				angle: (g.angle + 360) % 360,
+			}));
+			expect(normalized).toEqual([
+				// 2/24 em above the middle of its place, from 33 to 57
+				{ text: '北', x: 0, y: 43, angle: 0 },
+				// on its side, its top to the right
+				{ text: 'x', x: 0, y: 62, angle: 90 },
+			]);
+		}
+	});
+
+	test('moves the label by its offset: along the line, and across it', () => {
+		const glyphs = layoutVertically(southward, 50, ['北'], [24], [true], [5, 3], 24);
+		expect(rounded(glyphs)).toEqual([{ text: '北', x: -3, y: 53, angle: 0 }]);
 	});
 });

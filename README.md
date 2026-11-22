@@ -204,7 +204,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Right to left, Arabic letters joined  | ✅  | ✅  |       |
 | Indic, Thai, letters with marks⁴      | ✅  | ✅  |       |
 | Chinese, Japanese, Korean⁴            | ✅  | ✅  |       |
-| Vertical text                         | ❌  | ❌  | [#41] |
+| Vertical text along steep lines       | ✅  | ✅  |       |
+| `text-writing-mode`                   | ❌  | ❌  | [#41] |
 | `format` expressions                  | ⚠️¹ | ⚠️¹ | [#42] |
 | **Expressions**                       |     |     |       |
 | Filters, zoom expressions             | ✅  | ✅  |       |

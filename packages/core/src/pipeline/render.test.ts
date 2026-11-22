@@ -962,6 +962,106 @@ describe('renderMap', () => {
 			expect(street0![1].path!.map((g) => g.text).join('')).toBe('Unter den Linden');
 		});
 
+		test('sets Chinese vertically along a steep line, and along a gentle one as any text', async () => {
+			const street = (name: string, points: [number, number][]) =>
+				makeLineFeature([points], { name });
+			setLayerFeatures(
+				new Map([
+					[
+						'l',
+						makeFeatures({
+							linestrings: [
+								street('长安街', [
+									[40, 0],
+									[60, 256],
+								]),
+								street('长安街', [
+									[0, 200],
+									[256, 230],
+								]),
+								street('Main', [
+									[150, 0],
+									[150, 256],
+								]),
+							],
+						}),
+					],
+				]),
+			);
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'streets',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'l',
+						layout: {
+							'text-field': '{name}',
+							'symbol-placement': 'line-center',
+							'text-allow-overlap': true,
+						},
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+			const [steep, gentle, latin] = drawLabels.mock.calls
+				.find(([id]) => id === 'streets-labels')![1]
+				.map(([, style]) => style.path!);
+			// Read from the top, each character upright on the line (turned with it by 4.5°), one em
+			// (16 px) below the one before.
+			expect(steep!.map((g) => Math.round(g.angle))).toEqual([-4, -4, -4]);
+			expect(steep![1]!.y - steep![0]!.y).toBeCloseTo(16 * Math.cos(Math.atan2(20, 256)));
+			// Along a gentle line, and in Latin letters, the text runs along the line.
+			expect(gentle!.map((g) => Math.round(g.angle))).toEqual([7, 7, 7]);
+			expect(latin!.map((g) => Math.round(g.angle))).toEqual([90, 90, 90, 90]);
+		});
+
+		test('fits a label that may be set vertically by its length set so, as MapLibre', async () => {
+			// 86 px: "国道246号" is 75 px long across, 96 px set vertically (each character one em).
+			const street = (name: string, y: number) =>
+				makeLineFeature(
+					[
+						[
+							[80, y],
+							[166, y],
+						],
+					],
+					{ name },
+				);
+			setLayerFeatures(
+				new Map([
+					['l', makeFeatures({ linestrings: [street('国道246号', 50), street('Main St', 150)] })],
+				]),
+			);
+			const style = (keepUpright: boolean) =>
+				makeStyle([
+					{
+						id: 'streets',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'l',
+						layout: {
+							'text-field': '{name}',
+							'symbol-placement': 'line',
+							'text-keep-upright': keepUpright,
+						},
+					},
+				]);
+			const placed = async (keepUpright: boolean) => {
+				const job = makeJob(style(keepUpright), 10, { renderLabels: true });
+				const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+				await renderMap(job);
+				const labels = drawLabels.mock.calls.find(([id]) => id === 'streets-labels')?.[1] ?? [];
+				return labels.map(([, label]) => label.text);
+			};
+			expect(await placed(true)).toEqual(['Main St']);
+			// Not kept upright, it is never set vertically.
+			expect(await placed(false)).toEqual(['国道246号', 'Main St']);
+		});
+
 		test('draws Arabic and Hebrew as glyphs shaped and from the right, as text as written', async () => {
 			const point = makePointFeature([[[128, 128]]], { name: '\u0633\u0644\u0627\u0645' });
 			const street = makeLineFeature(
