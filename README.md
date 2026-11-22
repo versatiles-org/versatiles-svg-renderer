@@ -205,7 +205,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | Indic, Thai, letters with marks⁴      | ✅  | ✅  |       |
 | Chinese, Japanese, Korean⁴            | ✅  | ✅  |       |
 | Vertical text along steep lines       | ✅  | ✅  |       |
-| `text-writing-mode`                   | ❌  | ❌  | [#41] |
+| `text-writing-mode`                   | ✅  | ✅  |       |
 | `format` expressions                  | ⚠️¹ | ⚠️¹ | [#42] |
 | **Expressions**                       |     |     |       |
 | Filters, zoom expressions             | ✅  | ✅  |       |
@@ -223,7 +223,6 @@ Labels and icons are only drawn with the `labels` option. Interaction, animation
 
 [parity]: https://github.com/versatiles-org/versatiles-svg-renderer/issues?q=is%3Aopen+label%3Amaplibre-parity
 [#37]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/37
-[#41]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/41
 [#42]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/42
 [#45]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/45
 [#46]: https://github.com/versatiles-org/versatiles-svg-renderer/issues/46

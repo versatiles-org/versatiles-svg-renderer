@@ -1,8 +1,13 @@
 /**
  * Labels set vertically, as MapLibre GL JS sets a label with Chinese, Japanese or Korean along
- * a line that runs more up and down than across (`shaping.ts`, `tagged_string.ts`): which of
- * its characters stand upright, and its punctuation in the forms vertical text uses.
+ * a line that runs more up and down than across, and a point label with `text-writing-mode`
+ * (`shaping.ts`, `tagged_string.ts`, `quads.ts`): which of its characters stand upright, its
+ * punctuation in the forms vertical text uses, and where a point label's characters go.
  */
+import type { GlyphPlacement, SymbolStyle } from '../../types.js';
+import { layoutText, paddedBox, type Box } from './collision.js';
+import type { LabelLine } from './script.js';
+import type { FontMetrics } from './text_metrics.js';
 
 /**
  * The characters that stand upright in vertical text (MapLibre's
@@ -25,6 +30,8 @@ const UPPERCASE = /\p{Lu}/u;
 const PUNCTUATION_OR_SYMBOL = /[\p{P}\p{S}]/u;
 const WHITE_SPACE = /\s/u;
 const ARABIC = /\p{sc=Arab}/u;
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 /** Punctuation and symbols in the forms vertical text uses (MapLibre's `verticalizedCharacterMap`). */
 const VERTICAL_FORMS = new Map(
@@ -153,6 +160,45 @@ export interface VerticalText {
 }
 
 /**
+ * How far MapLibre draws a character standing upright in vertical text from the middle of its
+ * place, towards its top, in ems: its quads are turned around a corner of the em box that
+ * puts them 5 of 24 units along the line, which `halfWidthOffsetCorrection` brings back to 2.
+ */
+export const UPRIGHT_SHIFT = 2 / 24;
+
+/**
+ * The graphemes `chars` with punctuation and symbols in their vertical forms where neither
+ * neighbour lies on its side, as MapLibre writes text it sets vertically
+ * (`verticalizePunctuation`).
+ */
+export function verticalPunctuation(chars: readonly string[]): string[] {
+	const besideSideways = (grapheme: string | undefined): boolean =>
+		grapheme !== undefined && isSideways(grapheme) && !VERTICAL_FORMS.has(grapheme);
+	return chars.map((char, i) =>
+		besideSideways(chars[i - 1]) || besideSideways(chars[i + 1])
+			? char
+			: (VERTICAL_FORMS.get(char) ?? char),
+	);
+}
+
+/** `text` with its punctuation in vertical forms (see `verticalPunctuation`). */
+export function withVerticalPunctuation(text: string): string {
+	return verticalPunctuation(Array.from(graphemes.segment(text), ({ segment }) => segment)).join(
+		'',
+	);
+}
+
+/**
+ * Whether a grapheme of a point label set vertically (`text-writing-mode`) stands upright, as
+ * MapLibre's `isLineVertical` decides with vertical placement allowed: all but white space and
+ * Arabic, which lie on their side.
+ */
+export function uprightAtPoint(grapheme: string): boolean {
+	const char = first(grapheme);
+	return !WHITE_SPACE.test(char) && !ARABIC.test(char);
+}
+
+/**
  * The graphemes `chars` of a label set vertically, as MapLibre sets them without fonts of its
  * own (`font-faces`): punctuation and symbols in their vertical forms where neither neighbour
  * lies on its side; upright what always stands upright (ideographs, kana, Hangul), the digits
@@ -160,13 +206,7 @@ export interface VerticalText {
  * side everything else (words in Latin letters, white space).
  */
 export function verticalText(chars: readonly string[]): VerticalText {
-	const besideSideways = (grapheme: string | undefined): boolean =>
-		grapheme !== undefined && isSideways(grapheme) && !VERTICAL_FORMS.has(grapheme);
-	const drawn = chars.map((char, i) =>
-		besideSideways(chars[i - 1]) || besideSideways(chars[i + 1])
-			? char
-			: (VERTICAL_FORMS.get(char) ?? char),
-	);
+	const drawn = verticalPunctuation(chars);
 
 	const upright = drawn.map(isUpright);
 	const inRun = (i: number): boolean => !upright[i] && !WHITE_SPACE.test(drawn[i]!);
@@ -192,4 +232,59 @@ export function verticalText(chars: readonly string[]): VerticalText {
 		}
 	}
 	return { chars: drawn, upright };
+}
+
+/** A point label set vertically: each grapheme where it is drawn, and the box it covers. */
+export interface VerticalLayout {
+	path: GlyphPlacement[];
+	box: Box;
+}
+
+/**
+ * A point label set vertically around its point `x`, `y`, as MapLibre sets it with
+ * `text-writing-mode: vertical`: its `lines` are laid out as across, left-justified, with
+ * each upright grapheme one em long, then the whole label is turned a right angle clockwise
+ * (with `text-rotate`) and each upright grapheme back, so that the lines read from the top
+ * and follow each other to the left. `text-anchor` and `text-offset` apply before the turn.
+ * The box is the block's turned with it, grown by `padding`.
+ */
+export function layoutVerticalText(
+	x: number,
+	y: number,
+	style: SymbolStyle,
+	lines: readonly LabelLine[],
+	lineHeight: number,
+	metrics: FontMetrics,
+	padding: number,
+): VerticalLayout {
+	const { size } = style;
+	const spacing = (style.letterSpacing ?? 0) * size;
+	const lengths: FontMetrics = {
+		advance: (grapheme) => (uprightAtPoint(grapheme) ? 1 : metrics.advance(grapheme)),
+	};
+	const layout = layoutText(x, y, style, lines, lineHeight, 'left', lengths);
+	const turn = style.rotate + 90;
+	const cos = Math.cos((turn * Math.PI) / 180);
+	const sin = Math.sin((turn * Math.PI) / 180);
+	const path: GlyphPlacement[] = [];
+	for (const line of layout.lineBoxes) {
+		let pen = line.left;
+		for (const { segment } of graphemes.segment(line.glyphs)) {
+			const advance = lengths.advance(segment) * size;
+			const upright = uprightAtPoint(segment);
+			if (!WHITE_SPACE.test(segment)) {
+				// Before the turn: an upright grapheme's top lies towards the start of its line.
+				const dx = pen + advance / 2 - (upright ? UPRIGHT_SHIFT * size : 0) - x;
+				const dy = line.y - y;
+				path.push({
+					text: segment,
+					x: x + dx * cos - dy * sin,
+					y: y + dx * sin + dy * cos,
+					angle: upright ? turn - 90 : turn,
+				});
+			}
+			pen += advance + spacing;
+		}
+	}
+	return { path, box: paddedBox(layout.box, { ...style, rotate: turn }, x, y, padding) };
 }

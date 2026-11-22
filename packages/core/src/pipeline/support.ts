@@ -110,6 +110,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-translate-anchor',
 		'text-variable-anchor',
 		'text-variable-anchor-offset',
+		'text-writing-mode',
 	],
 };
 

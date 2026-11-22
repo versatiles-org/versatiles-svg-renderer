@@ -1019,6 +1019,50 @@ describe('renderMap', () => {
 			expect(latin!.map((g) => Math.round(g.angle))).toEqual([90, 90, 90, 90]);
 		});
 
+		test('sets a point label vertically with text-writing-mode, if it does not fit across', async () => {
+			// "北京" is 32 px wide set across, 16 px set vertically: "X" right of it blocks only
+			// the first.
+			const points = [
+				makePointFeature([[[150, 100]]], { name: 'X', rank: 1 }),
+				makePointFeature([[[128, 100]]], { name: '北京', rank: 2 }),
+				makePointFeature([[[60, 60]]], { name: 'Paris', rank: 3 }),
+			];
+			setLayerFeatures(new Map([['l', makeFeatures({ points })]]));
+			const labels = async (modes: ('horizontal' | 'vertical')[]) => {
+				const job = makeJob(
+					makeStyle([
+						{
+							id: 'places',
+							type: 'symbol',
+							source: 'src',
+							'source-layer': 'l',
+							layout: {
+								'text-field': '{name}',
+								'text-writing-mode': modes,
+								'symbol-sort-key': ['get', 'rank'],
+							},
+						},
+					]),
+					10,
+					{ renderLabels: true },
+				);
+				const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+				await renderMap(job);
+				return drawLabels.mock.calls
+					.find(([id]) => id === 'places-labels')![1]
+					.map(([, style]) =>
+						style.path
+							? style.path.map((g) => `${g.text}@${String(Math.round(g.y))}`).join(' ')
+							: style.text,
+					);
+			};
+			expect(await labels(['horizontal'])).toEqual(['X', 'Paris']);
+			// Set vertically, it reads from the top, one em (16 px) per character; Latin labels
+			// are set across.
+			expect(await labels(['horizontal', 'vertical'])).toEqual(['X', '北@91 京@107', 'Paris']);
+			expect(await labels(['vertical'])).toEqual(['X', '北@91 京@107', 'Paris']);
+		});
+
 		test('fits a label that may be set vertically by its length set so, as MapLibre', async () => {
 			// 86 px: "国道246号" is 75 px long across, 96 px set vertically (each character one em).
 			const street = (name: string, y: number) =>

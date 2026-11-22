@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { allowsVerticalWritingMode, verticalText } from './vertical.js';
+import type { SymbolStyle } from '../../types.js';
+import type { FontMetrics } from './text_metrics.js';
+import {
+	allowsVerticalWritingMode,
+	layoutVerticalText,
+	uprightAtPoint,
+	verticalText,
+	withVerticalPunctuation,
+} from './vertical.js';
 
 const set = (text: string) => verticalText(Array.from(text));
 
@@ -63,5 +71,52 @@ describe('verticalText', () => {
 			chars: ['東', '(', 'T', 'o', 'k', 'y', 'o', ')'],
 			upright: [true, false, false, false, false, false, false, false],
 		});
+	});
+});
+
+describe('withVerticalPunctuation', () => {
+	it('puts punctuation in its vertical form unless a neighbour lies on its side', () => {
+		expect(withVerticalPunctuation('「東京」')).toBe('﹁東京﹂');
+		expect(withVerticalPunctuation('東京 (Tokyo)')).toBe('東京 (Tokyo)');
+	});
+});
+
+describe('uprightAtPoint', () => {
+	it('is true for all but white space and Arabic', () => {
+		expect(['北', 'A', '1', '!'].map(uprightAtPoint)).toEqual([true, true, true, true]);
+		expect([' ', '\u0628'].map(uprightAtPoint)).toEqual([false, false]);
+	});
+});
+
+describe('layoutVerticalText', () => {
+	/** Every grapheme one em wide. */
+	const ems: FontMetrics = { advance: () => 1 };
+	const style = { size: 24, anchor: 'center', offset: [0, 0], rotate: 0 } as SymbolStyle;
+	const line = (text: string) => ({ text, glyphs: text });
+	const round = (v: number): number => Math.round(v * 10) / 10;
+
+	it('reads from the top, each character upright, 2/24 em above its place', () => {
+		const { path, box } = layoutVerticalText(100, 100, style, [line('北 京')], 1.2, ems, 0);
+		// The space takes its em, but is not drawn.
+		expect(path.map((g) => [g.text, round(g.x), round(g.y), g.angle])).toEqual([
+			['北', 100, 74, 0],
+			['京', 100, 122, 0],
+		]);
+		expect(box.map(round)).toEqual([85.6, 64, 114.4, 136]);
+	});
+
+	it('puts each line to the left of the one before', () => {
+		const { path } = layoutVerticalText(100, 100, style, [line('北'), line('京')], 1.2, ems, 0);
+		expect(path.map((g) => [g.text, round(g.x), round(g.y)])).toEqual([
+			['北', 114.4, 98],
+			['京', 85.6, 98],
+		]);
+	});
+
+	it('anchors and offsets the label before turning it, and turns it with text-rotate', () => {
+		const moved = { ...style, anchor: 'left', offset: [1, 0] as [number, number], rotate: 90 };
+		const { path } = layoutVerticalText(100, 100, moved, [line('北')], 1.2, ems, 0);
+		// Across, the character would be 24 to 48 px right of the point; turned twice, left of it.
+		expect(path.map((g) => [round(g.x), round(g.y), g.angle])).toEqual([[66, 100, 90]]);
 	});
 });

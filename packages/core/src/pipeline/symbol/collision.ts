@@ -56,11 +56,12 @@ export interface PlacedSymbol {
 	showText: boolean;
 	showIcon: boolean;
 	/**
-	 * With `text-variable-anchor`: the label's boxes at each place to try, in order, and the
-	 * icon's where it is fitted to the label. Placement picks one (`anchor`) and puts its
-	 * boxes into `textBoxes` and `iconBox`.
+	 * With `text-variable-anchor` or `text-writing-mode`: the label's boxes at each place to
+	 * try, in order, and the icon's where it is fitted to the label. Placement picks one
+	 * (`anchor`) and puts its boxes into `textBoxes` and `iconBox`. Places of a later `group`
+	 * (writing mode) are tried only if none of an earlier one can be placed.
 	 */
-	anchors?: { textBoxes: Box[]; iconBox?: Box }[];
+	anchors?: { textBoxes: Box[]; iconBox?: Box; group?: number }[];
 	/** The one of `anchors` placed, or the first if none could be. */
 	anchor?: number;
 }
@@ -68,8 +69,9 @@ export interface PlacedSymbol {
 /**
  * The first of `anchors` whose label (and fitted icon) overlaps nothing placed so far; else,
  * if `text-overlap` allows it, the first where it may overlap what is there (with `always`,
- * the first one), as MapLibre GL JS tries them (`placeBoxForVariableAnchors`). `undefined`
- * if none can be placed.
+ * the first one), as MapLibre GL JS tries them (`placeBoxForVariableAnchors`); so group by
+ * group, as it tries each writing mode (`placeTextForPlacementModes`). `undefined` if none
+ * can be placed.
  */
 function chooseAnchor(
 	anchors: NonNullable<PlacedSymbol['anchors']>,
@@ -81,12 +83,16 @@ function chooseAnchor(
 		box === undefined || options.iconOverlap !== 'never' || !index.collides(box);
 	const passes: OverlapMode[] =
 		options.textOverlap === 'never' ? ['never'] : ['never', options.textOverlap];
-	for (const mode of passes) {
-		const found = anchors.findIndex(
-			({ textBoxes, iconBox }) =>
-				!textBoxes.some((box) => index.collides(box, mode)) && iconFits(iconBox),
-		);
-		if (found >= 0) return found;
+	for (const group of new Set(anchors.map((anchor) => anchor.group ?? 0))) {
+		for (const mode of passes) {
+			const found = anchors.findIndex(
+				({ textBoxes, iconBox, group: of }) =>
+					(of ?? 0) === group &&
+					!textBoxes.some((box) => index.collides(box, mode)) &&
+					iconFits(iconBox),
+			);
+			if (found >= 0) return found;
+		}
 	}
 	return undefined;
 }

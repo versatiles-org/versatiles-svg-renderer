@@ -28,6 +28,7 @@ import {
 	layoutAlongLine,
 	layoutText,
 	layoutVertically,
+	layoutVerticalText,
 	lineAnchors,
 	measureLine,
 	overlapMode,
@@ -40,11 +41,14 @@ import {
 	tableMetrics,
 	traceGlyph,
 	verticalText,
+	withVerticalPunctuation,
 	type Box,
 	type CollisionOptions,
 	type FontMetrics,
 	type PlacedSymbol,
+	type LabelLine,
 	type TextLayout,
+	type VerticalLayout,
 	type VerticalText,
 } from '../symbol/index.js';
 import {
@@ -346,6 +350,23 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 				);
 			// Only an icon fitted to its label moves with it.
 			const icons = textFit === 'none' ? [iconFor(styles[0])] : styles.map(iconFor);
+			// `text-writing-mode`, for a label that may be set vertically: across, vertically, or
+			// one if the other cannot be placed. Set vertically, punctuation takes its vertical
+			// forms before the label is broken into lines.
+			const modes = writingModesOf(getLayout('text-writing-mode', feature));
+			const verticalLines =
+				labelStyle &&
+				placement === 'point' &&
+				modes.includes('vertical') &&
+				allowsVerticalWritingMode(labelStyle.text)
+					? labelLines(
+							withVerticalPunctuation(labelStyle.text),
+							metrics,
+							getLayout('text-max-width', feature) as number,
+							labelStyle.letterSpacing,
+						)
+					: undefined;
+			const writingModes = verticalLines ? modes : ['horizontal'];
 			for (const point of labelAnchors(feature)) {
 				// text-translate and icon-translate move the label and the icon, and what they block.
 				const tx = point.x + textTranslate[0];
@@ -374,19 +395,71 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 						icon: [pointAtAnchor(ix, iy), icon] as [LayerFeature, IconStyle],
 						iconBox: iconBox(ix, iy, icon, sprite!, iconPadding),
 					};
-				const first = styles[0] && placeLabel(styles[0]);
+				// Set vertically: at the label's anchor, or centered and moved to each place by its
+				// box turned upright, as MapLibre moves it (`calculateVariableRenderShift`). An icon
+				// fitted to the label stays fitted to it set across.
+				const placeVertically = (style: SymbolStyle, lines: LabelLine[]) => {
+					const placeAt = ({ path, box }: VerticalLayout) => ({
+						label: [
+							pointAtAnchor(tx, ty),
+							asGlyphs
+								? {
+										...style,
+										path,
+										glyphs: glyphsAlongPath(path, style, outlineOf, metrics),
+										textOverlay,
+									}
+								: { ...style, path },
+						] as [LayerFeature, SymbolStyle],
+						textBoxes: [box],
+					});
+					const layout = (offset: [number, number]) =>
+						layoutVerticalText(
+							tx,
+							ty,
+							{ ...style, offset },
+							lines,
+							lineHeight,
+							metrics,
+							textPadding,
+						);
+					if (!places) return [placeAt(layout(style.offset))];
+					const centered = layout([0, 0]);
+					const [left, top, right, bottom] = centered.box;
+					return places.map(({ anchor, offset }) => {
+						const across = anchor.endsWith('left') ? 0 : anchor.endsWith('right') ? 1 : 0.5;
+						const down = anchor.startsWith('top') ? 0 : anchor.startsWith('bottom') ? 1 : 0.5;
+						const dx = (0.5 - across) * (right - left) + offset[0] * style.size;
+						const dy = (0.5 - down) * (bottom - top) + offset[1] * style.size;
+						return placeAt({
+							path: centered.path.map((glyph) => ({ ...glyph, x: glyph.x + dx, y: glyph.y + dy })),
+							box: [left + dx, top + dy, right + dx, bottom + dy],
+						});
+					});
+				};
+				const across = styles.flatMap((style, i) =>
+					style
+						? [{ ...placeLabel(style), ...(textFit === 'none' ? {} : placeIcon(icons[i])) }]
+						: [],
+				);
+				// Each writing mode's places, tried one mode after the other.
+				const tries = writingModes.flatMap((mode, group) =>
+					(mode === 'vertical' && lineStyle && verticalLines
+						? placeVertically(lineStyle, verticalLines)
+						: across
+					).map((place) => ({ ...place, group })),
+				);
+				const first = tries[0];
 				const firstIcon = placeIcon(icons[0]);
 				entries.push({
 					icon: firstIcon?.icon,
 					label: first?.label,
 					iconBox: firstIcon?.iconBox,
 					textBoxes: first?.textBoxes,
-					anchors: places
-						? styles.map((style, i) => ({
-								...placeLabel(style!),
-								...(textFit === 'none' ? {} : placeIcon(icons[i])),
-							}))
-						: undefined,
+					anchors:
+						places || writingModes.length !== 1 || writingModes[0] !== 'horizontal'
+							? tries
+							: undefined,
 					options,
 					showIcon: false,
 					showText: false,
@@ -529,6 +602,17 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		}
 	}
 	return entries;
+}
+
+/**
+ * The writing modes of `text-writing-mode`, each once, in order: across only if not given.
+ */
+function writingModesOf(value: unknown): string[] {
+	if (!Array.isArray(value)) return ['horizontal'];
+	const modes = (value as unknown[]).filter(
+		(mode): mode is string => mode === 'horizontal' || mode === 'vertical',
+	);
+	return [...new Set(modes)];
 }
 
 /**

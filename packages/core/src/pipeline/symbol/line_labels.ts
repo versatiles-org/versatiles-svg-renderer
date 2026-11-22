@@ -6,6 +6,7 @@
  */
 import type { Point2D } from '../../geo/index.js';
 import type { GlyphPlacement } from '../../types.js';
+import { UPRIGHT_SHIFT } from './vertical.js';
 
 /** A line with the distance of each vertex from its start, in pixels. */
 export interface MeasuredLine {
@@ -184,13 +185,6 @@ export function runsVertically(glyphs: GlyphPlacement[]): boolean {
 	}
 	return Math.abs(last.y - first.y) > Math.abs(last.x - first.x);
 }
-
-/**
- * How far MapLibre draws a character standing upright in vertical text from the middle of its
- * place, towards its top, in ems: its quads are turned around a corner of the em box that
- * puts them 5 of 24 units along the line, which `halfWidthOffsetCorrection` brings back to 2.
- */
-const UPRIGHT_SHIFT = 2 / 24;
 
 /**
  * The glyphs of a label set vertically along `line`, as MapLibre sets a label with Chinese,

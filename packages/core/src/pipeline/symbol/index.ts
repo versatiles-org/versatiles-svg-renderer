@@ -40,4 +40,11 @@ export {
 	type LabelLine,
 } from './script.js';
 export { anchorOffsets, radialOffset } from './variable_anchor.js';
-export { allowsVerticalWritingMode, verticalText, type VerticalText } from './vertical.js';
+export {
+	allowsVerticalWritingMode,
+	layoutVerticalText,
+	verticalText,
+	withVerticalPunctuation,
+	type VerticalLayout,
+	type VerticalText,
+} from './vertical.js';

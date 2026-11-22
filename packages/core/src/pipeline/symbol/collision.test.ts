@@ -223,6 +223,24 @@ describe('placeSymbols', () => {
 			expect(overlaps.anchor).toBe(1);
 		});
 
+		test('tries writing modes one after the other, each where it may overlap too', () => {
+			const modes = (overrides: Partial<CollisionOptions>): PlacedSymbol => ({
+				...symbol({ text: B }, overrides),
+				anchors: [
+					{ textBoxes: [B], group: 0 },
+					{ textBoxes: [C], group: 1 },
+				],
+			});
+			// It fits only set vertically.
+			const never = modes({});
+			expect(place(symbol({ text: A }), never)).toEqual(['T', 'T']);
+			expect(never.anchor).toBe(1);
+			// Set across, it may overlap: so it is, as in MapLibre, though it would fit vertically.
+			const always = modes({ textOverlap: 'always' });
+			expect(place(symbol({ text: A }), always)).toEqual(['T', 'T']);
+			expect(always.anchor).toBe(0);
+		});
+
 		test('moves an icon fitted to the label with it, and needs room for both', () => {
 			const label = variable([
 				{ text: C, icon: B },

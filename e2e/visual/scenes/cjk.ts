@@ -40,11 +40,12 @@ export const cells: Cell[] = [
 		text: '中国国家博物馆',
 		layout: { 'text-max-width': 4 },
 	}),
+	// Set vertically in two columns, read from the right.
 	scriptCell({
 		id: 'cjk-vertical',
 		title: 'vertical writing mode',
-		text: '北京市',
-		layout: { 'text-writing-mode': ['vertical'] },
+		text: '中国国家博物馆',
+		layout: { 'text-writing-mode': ['vertical'], 'text-max-width': 4 },
 	}),
 	scriptCell({ id: 'cjk-mixed', title: 'Japanese and Latin', text: '東京 Tokyo' }),
 	// "National Route 246": set vertically, the number stands upright, one digit per em.

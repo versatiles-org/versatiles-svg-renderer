@@ -942,9 +942,9 @@
 		}
 	},
 	"parity-cjk": {
-		"svg": 1.64,
-		"png": 1.51,
-		"drift": 1.25,
+		"svg": 1.74,
+		"png": 1.59,
+		"drift": 1.42,
 		"cells": {
 			"Chinese along a line": {
 				"svg": 1.01,
@@ -977,9 +977,9 @@
 				"drift": 2.93
 			},
 			"vertical writing mode": {
-				"svg": 2.29,
-				"png": 2.07,
-				"drift": 1.18
+				"svg": 3.16,
+				"png": 2.79,
+				"drift": 2.63
 			},
 			"Japanese and Latin": {
 				"svg": 1.93,
