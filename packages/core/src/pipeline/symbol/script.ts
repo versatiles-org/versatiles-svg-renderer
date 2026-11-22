@@ -27,7 +27,9 @@ export interface LabelLine {
 /**
  * `text` broken into lines (see `breakLineRanges`) and each line put into the order it is
  * drawn, as MapLibre does: the text is shaped first, then broken, and every line is reordered
- * within the paragraph it belongs to. `maxWidth` and `letterSpacing` are in ems.
+ * within the paragraph it belongs to. `maxWidth` and `letterSpacing` are in ems. Characters
+ * `metrics` has no glyph for are left out of the lines as drawn; if that leaves nothing to draw,
+ * MapLibre draws no label, and there are no lines.
  */
 export function labelLines(
 	text: string,
@@ -37,6 +39,12 @@ export function labelLines(
 ): LabelLine[] {
 	const shaped = shapeArabic(text);
 	const levels = RTL.test(shaped.text) ? bidi.getEmbeddingLevels(shaped.text) : undefined;
+	const drawn = (glyphs: string): string =>
+		metrics.has
+			? Array.from(glyphs)
+					.filter((char) => metrics.has!(char))
+					.join('')
+			: glyphs;
 	const lines: LabelLine[] = [];
 	for (let [start, end] of breakLineRanges(shaped.text, metrics, maxWidth, letterSpacing)) {
 		while (start < end && /\s/.test(shaped.text[start]!)) start++;
@@ -46,12 +54,14 @@ export function labelLines(
 		const to = end < shaped.text.length ? shaped.source[end]! : text.length;
 		lines.push({
 			text: text.slice(from, to).trim(),
-			glyphs: levels
-				? reorderLine(shaped.text, levels, start, end)
-				: shaped.text.slice(start, end).replace(BIDI_CONTROLS_ALL, ''),
+			glyphs: drawn(
+				levels
+					? reorderLine(shaped.text, levels, start, end)
+					: shaped.text.slice(start, end).replace(BIDI_CONTROLS_ALL, ''),
+			),
 		});
 	}
-	return lines;
+	return lines.some((line) => line.glyphs !== '') ? lines : [];
 }
 
 /** `text` as one line, as along a line: all white space a single space. */

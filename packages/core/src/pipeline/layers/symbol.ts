@@ -222,17 +222,19 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			: undefined;
 		if (!iconStyle && !labelStyle) continue;
 
-		// The label's glyphs, if all of them could be loaded and MapLibre draws it with them: then
-		// it is measured with their metrics and drawn as them; else measured with Noto Sans and
+		// The label's glyphs, if all their ranges could be loaded and MapLibre draws it with them:
+		// then it is measured with their metrics and drawn as them, without the characters the
+		// ranges have no glyph for, as MapLibre leaves those out; else measured with Noto Sans and
 		// drawn as text.
 		const fontStack = labelStyle?.font.join(',') ?? '';
-		const glyphAt = (codePoint: number): Glyph | undefined =>
-			glyphRanges.get(`${fontStack}\0${String(rangeStart(codePoint))}`)?.get(codePoint);
+		const rangeOf = (codePoint: number): GlyphRange | undefined =>
+			glyphRanges.get(`${fontStack}\0${String(rangeStart(codePoint))}`);
+		const glyphAt = (codePoint: number): Glyph | undefined => rangeOf(codePoint)?.get(codePoint);
 		const asGlyphs =
 			glyphMode &&
 			labelStyle !== undefined &&
 			!drawnByFontEngine(labelStyle.text) &&
-			hasAllGlyphs(drawnCharacters(labelStyle.text), glyphAt);
+			hasGlyphRanges(drawnCharacters(labelStyle.text), rangeOf);
 		const fallbackMetrics = tableMetrics(labelStyle?.font);
 		const metrics = asGlyphs ? glyphMetrics(glyphAt, fallbackMetrics) : fallbackMetrics;
 		const outlineOf = (codePoint: number): GlyphOutline | undefined => {
@@ -634,12 +636,15 @@ function verticalLayout(
 }
 
 /**
- * Whether every character of `text` (as drawn, see `drawnCharacters`) has a glyph, except
- * white space, which needs none.
+ * Whether the glyph range of every character of `text` (as drawn, see `drawnCharacters`) could
+ * be loaded, except for white space, which needs no glyph.
  */
-function hasAllGlyphs(text: string, glyphAt: (codePoint: number) => Glyph | undefined): boolean {
+function hasGlyphRanges(
+	text: string,
+	rangeOf: (codePoint: number) => GlyphRange | undefined,
+): boolean {
 	for (const char of text) {
-		if (!/\s/.test(char) && !glyphAt(char.codePointAt(0)!)) return false;
+		if (!/\s/.test(char) && !rangeOf(char.codePointAt(0)!)) return false;
 	}
 	return true;
 }

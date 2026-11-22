@@ -16,6 +16,7 @@ import { cells as dashCells, dashesStyle } from './scenes/dashes.js';
 import { cells as imageCells, images as sceneImages, imagesStyle } from './scenes/images.js';
 import { cells as patternCells, patternsStyle } from './scenes/patterns.js';
 import { cells as scriptCells, scriptsStyle } from './scenes/scripts.js';
+import { cells as missingGlyphCells, missingGlyphsStyle } from './scenes/missing-glyphs.js';
 import { cells as combiningCells, combiningStyle } from './scenes/combining.js';
 import { cells as overlapCells, overlapStyle } from './scenes/overlap.js';
 import { cells as cjkCells, cjkStyle } from './scenes/cjk.js';
@@ -137,6 +138,8 @@ async function buildStyle(
 			return imagesStyle();
 		case 'scripts':
 			return scriptsStyle();
+		case 'missing-glyphs':
+			return missingGlyphsStyle();
 		case 'combining':
 			return combiningStyle();
 		case 'overlap':
@@ -163,6 +166,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'anchors') return anchorCells;
 	if (name === 'images') return imageCells;
 	if (name === 'scripts') return scriptCells;
+	if (name === 'missing-glyphs') return missingGlyphCells;
 	if (name === 'combining') return combiningCells;
 	if (name === 'overlap') return overlapCells;
 	if (name === 'cjk') return cjkCells;

@@ -1044,5 +1044,52 @@
 				"drift": 0.07
 			}
 		}
+	},
+	"parity-missing-glyphs": {
+		"svg": 0.03,
+		"png": 0.03,
+		"drift": 0,
+		"cells": {
+			"Tifinagh and Latin along a line": {
+				"svg": 0.13,
+				"png": 0.12,
+				"drift": 0
+			},
+			"Tifinagh, Arabic and Latin": {
+				"svg": 0.04,
+				"png": 0.04,
+				"drift": 0
+			},
+			"Tifinagh along a line": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"Tifinagh": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"three lines, the middle one Tifinagh": {
+				"svg": 0.07,
+				"png": 0.07,
+				"drift": 0
+			},
+			"Latin and Tifinagh with letter spacing": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"Arabic and Tifinagh along a line": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"Tifinagh between Arabic letters": {
+				"svg": 0.01,
+				"png": 0.01,
+				"drift": 0
+			}
+		}
 	}
 }

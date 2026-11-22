@@ -324,14 +324,34 @@ describe('SVGMapRenderer', () => {
 			);
 		});
 
-		test('draws a label as text if one of its glyphs is missing', async () => {
+		test('leaves out the glyphs the glyph server lacks, as MapLibre does', async () => {
+			const render = (letters: string, labels: 'glyphs' | 'glyphs-text' = 'glyphs') =>
+				new SVGMapRenderer({
+					style: labelStyle(),
+					labels,
+					fetch: glyphFetch(letters),
+					onWarning: vi.fn(),
+				}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			// "A" alone, centred where the label is.
+			const svg = await render('A');
+			expect(svg.match(/<path id="glyph-\d"/g)).toHaveLength(1);
+			expect(svg).toContain('translate(100,100)');
+			expect(svg).not.toContain('<text');
+			// The invisible text is the whole label, as written.
+			expect(await render('A', 'glyphs-text')).toMatch(/<text [^>]*fill-opacity="0">AB</);
+			// Without any of its glyphs, the label is not drawn at all.
+			expect(await render('')).not.toMatch(/<text|#glyph/);
+		});
+
+		test('draws a label as text if one of its glyph ranges cannot be loaded', async () => {
 			const svg = await new SVGMapRenderer({
-				style: labelStyle(),
+				// "Ł" is in the range from 256, which the glyph server does not have.
+				style: labelStyle(true, 'AŁ'),
 				labels: 'glyphs',
 				fetch: glyphFetch('A'),
 				onWarning: vi.fn(),
 			}).renderSVG({ width: 200, height: 200, zoom: 3 });
-			expect(svg).toMatch(/<text[^>]*>AB<\/text>/);
+			expect(svg).toMatch(/<text[^>]*>AŁ<\/text>/);
 			expect(svg).not.toContain('#glyph');
 		});
 

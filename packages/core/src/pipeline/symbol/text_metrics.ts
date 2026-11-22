@@ -65,6 +65,12 @@ export function glyphAdvances(
 /** How wide characters are: the advance of a grapheme, in ems. */
 export interface FontMetrics {
 	advance(grapheme: string): number;
+	/**
+	 * Whether there is a glyph for `char`. A character without one is left out, with no advance
+	 * and no letter spacing, as MapLibre leaves out the glyphs its glyph server lacks. Without
+	 * this, every character has one.
+	 */
+	has?(char: string): boolean;
 }
 
 /** Metrics from the widths of Noto Sans built into the package, in the weight `fonts` asks for. */
@@ -84,8 +90,8 @@ export function tableMetrics(fonts: readonly string[] | undefined): FontMetrics 
 
 /**
  * Metrics from a style's glyphs (MapLibre's own): `glyphAt` gives the glyph of a code point,
- * with its advance in pixels at 24 px per em. Characters without a glyph are measured by
- * `fallback`.
+ * with its advance in pixels at 24 px per em. A character without a glyph is left out (see
+ * `FontMetrics.has`), except white space, which is measured by `fallback`.
  */
 export function glyphMetrics(
 	glyphAt: (codePoint: number) => { advance: number } | undefined,
@@ -96,10 +102,12 @@ export function glyphMetrics(
 			let total = 0;
 			for (const char of grapheme) {
 				const glyph = glyphAt(char.codePointAt(0)!);
-				total += glyph ? glyph.advance / 24 : fallback.advance(char);
+				if (glyph) total += glyph.advance / 24;
+				else if (/\s/.test(char)) total += fallback.advance(char);
 			}
 			return total;
 		},
+		has: (char) => /\s/.test(char) || glyphAt(char.codePointAt(0)!) !== undefined,
 	};
 }
 
@@ -213,7 +221,9 @@ export function breakLineRanges(
 ): [number, number][] {
 	const chars = Array.from(graphemes.segment(text), ({ segment }) => segment);
 	const codes = chars.map((char) => char.codePointAt(0)!);
-	const advances = chars.map((char) => metrics.advance(char) + letterSpacing);
+	const advances = chars.map((char) =>
+		metrics.has?.(char) === false ? 0 : metrics.advance(char) + letterSpacing,
+	);
 	// Where each grapheme starts, in code units, and where the text ends.
 	const offsets = [0];
 	for (const char of chars) offsets.push(offsets[offsets.length - 1]! + char.length);

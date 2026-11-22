@@ -196,6 +196,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 | `icon-text-fit`, stretchable icons    | ✅  | ✅  |       |
 | Point labels                          | ✅  | ✅  |       |
 | Letter shapes of the style's glyphs   | ✅  | ✅  |       |
+| Letters the glyphs lack⁵              | ✅  | ✅  |       |
 | Dropping overlaps, `text-overlap`     | ✅  | ✅  |       |
 | Labels along lines                    | ✅  | ✅  |       |
 | Label position in polygons            | ✅  | ✅  |       |
@@ -218,6 +219,8 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 ³ Given to the renderer as the `images` option.
 
 ⁴ As MapLibre draws them with the browser's fonts rather than the style's glyphs, they are always drawn as text, which the viewer shapes; their letters are measured by the width each adds to its cluster, CJK characters as one em.
+
+⁵ With `labels: 'glyphs'` or `'glyphs-text'`, a letter the style's glyph server has no glyph for (such as Tifinagh in the VersaTiles glyphs) is left out, as MapLibre leaves it out. If a glyph range cannot be loaded at all, the label is drawn as text.
 
 Labels and icons are only drawn with the `labels` option. Interaction, animation and `feature-state` do not apply to a static image.
 

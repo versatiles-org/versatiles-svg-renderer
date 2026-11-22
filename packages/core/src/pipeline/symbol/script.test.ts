@@ -116,6 +116,36 @@ describe('labelLines', () => {
 	});
 });
 
+describe('labelLines without some glyphs', () => {
+	/** Without glyphs for Tifinagh (U+2D30 to U+2D7F), as the VersaTiles glyph server. */
+	const withoutTifinagh: FontMetrics = {
+		advance: (grapheme) => metrics.advance(grapheme),
+		has: (char) => !/[\u2d30-\u2d7f]/.test(char),
+	};
+
+	it('leaves the characters out as drawn, after Arabic is shaped and reordered', () => {
+		// "Libya" in Tifinagh, Arabic and Latin: the space after the Tifinagh stays.
+		const [line] = labelLines('ⵍⵉⴱⵢⴰ ليبيا Libya', withoutTifinagh, 0);
+		expect(line!.text).toBe('ⵍⵉⴱⵢⴰ ليبيا Libya');
+		// alef final, yeh medial, beh medial, yeh medial, lam initial
+		expect(codePoints(line!.glyphs)).toEqual([
+			0x20, 0xfe8e, 0xfef4, 0xfe92, 0xfef4, 0xfedf, 0x20, 0x4c, 0x69, 0x62, 0x79, 0x61,
+		]);
+	});
+
+	it('keeps a line with nothing to draw, if another has something', () => {
+		expect(labelLines('Libya\nⵍⵉⴱⵢⴰ', withoutTifinagh, 0)).toEqual([
+			{ text: 'Libya', glyphs: 'Libya' },
+			{ text: 'ⵍⵉⴱⵢⴰ', glyphs: '' },
+		]);
+	});
+
+	it('has no lines if there is nothing to draw', () => {
+		expect(labelLines('ⵍⵉⴱⵢⴰ\nⵍⵉⴱⵢⴰ', withoutTifinagh, 0)).toEqual([]);
+		expect(singleLine('ⵍⵉⴱⵢⴰ', withoutTifinagh)).toBeUndefined();
+	});
+});
+
 describe('singleLine', () => {
 	it('is the whole label on one line', () => {
 		expect(singleLine('רחוב\nהרצל', metrics)).toEqual({

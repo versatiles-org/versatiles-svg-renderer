@@ -77,12 +77,17 @@ describe('textWidth', () => {
 });
 
 describe('glyphMetrics', () => {
-	test("measures with the glyphs' advances, and without a glyph by the fallback", () => {
+	test("measures with the glyphs' advances, leaving out characters without a glyph", () => {
 		const glyphs = new Map([[65, { advance: 15 }]]); // "A": 15 px at 24 px per em
 		const metrics = glyphMetrics((c) => glyphs.get(c), tableMetrics(undefined));
 		expect(metrics.advance('A')).toBe(15 / 24);
-		expect(metrics.advance('B')).toBeCloseTo(tableMetrics(undefined).advance('B'));
 		expect(textWidth('AA', metrics, 24)).toBe(30);
+		expect(metrics.has!('A')).toBe(true);
+		expect(metrics.has!('B')).toBe(false);
+		expect(metrics.advance('B')).toBe(0);
+		// White space needs no glyph: without one, it is measured by the fallback.
+		expect(metrics.has!(' ')).toBe(true);
+		expect(metrics.advance(' ')).toBeCloseTo(tableMetrics(undefined).advance(' '));
 	});
 });
 
@@ -168,6 +173,21 @@ describe('breakLineRanges', () => {
 		expect(breakLineRanges('a\nb', ems, 0)).toEqual([
 			[0, 2],
 			[2, 3],
+		]);
+	});
+
+	test('counts no width and no letter spacing for characters without a glyph', () => {
+		// Without its "x"s, "xxxxxx aa bb" is 6 ems wide with spacing: two lines of 3 at most.
+		const lacksX = { advance: () => 1, has: (char: string) => char !== 'x' };
+		expect(breakLineRanges('xxxxxx aa bb', lacksX, 3, 0.5)).toEqual([
+			[0, 10],
+			[10, 12],
+		]);
+		// With them, the "x"s are a line of their own.
+		expect(breakLineRanges('xxxxxx aa bb', { advance: () => 1 }, 3, 0.5)).toEqual([
+			[0, 7],
+			[7, 10],
+			[10, 12],
 		]);
 	});
 });

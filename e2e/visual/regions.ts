@@ -19,7 +19,7 @@ export interface View {
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`,
- *   `images`, `scripts`, `combining`, `cjk`, `overlap`, `halos`:
+ *   `images`, `scripts`, `missing-glyphs`, `combining`, `cjk`, `overlap`, `halos`:
  *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
@@ -37,6 +37,7 @@ export type StyleName =
 	| 'seams'
 	| 'images'
 	| 'scripts'
+	| 'missing-glyphs'
 	| 'combining'
 	| 'cjk'
 	| 'overlap'
@@ -142,6 +143,8 @@ export const regions: Region[] = [
 	{ id: 'parity-anchors', style: 'anchors', view: scene, labels: true },
 	// Labels written right to left: Arabic joined, text in the order it is drawn.
 	{ id: 'parity-scripts', style: 'scripts', view: scene, labels: true },
+	// Labels with letters the glyph server lacks: drawn without them, as MapLibre draws them.
+	{ id: 'parity-missing-glyphs', style: 'missing-glyphs', view: scene, labels: true },
 	// Labels in scripts whose letters combine: drawn as text, as MapLibre draws them locally.
 	{ id: 'parity-combining', style: 'combining', view: scene, labels: true },
 	// Labels in Chinese, Japanese and Korean: drawn as text, as MapLibre draws them locally.
