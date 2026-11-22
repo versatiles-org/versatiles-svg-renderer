@@ -149,12 +149,20 @@ describe('drawnByFontEngine', () => {
 		expect(drawnByFontEngine(text(0x628, 0x64e))).toBe(true); // Arabic beh with fatha
 	});
 
+	it('is true for Chinese, Japanese and Korean, as MapLibre draws them with local fonts', () => {
+		expect(drawnByFontEngine(text(0x6771, 0x4eac))).toBe(true); // Tōkyō, in kanji
+		expect(drawnByFontEngine(text(0x30bf, 0x30ef, 0x30fc))).toBe(true); // katakana "tawā"
+		expect(drawnByFontEngine(text(0xc11c, 0xc6b8))).toBe(true); // Hangul "Seoul"
+		expect(drawnByFontEngine(text(0x20b9f))).toBe(true); // an ideograph beyond U+FFFF
+		expect(drawnByFontEngine(`${text(0x6771, 0x4eac)} Tokyo`)).toBe(true);
+		expect(drawnByFontEngine(text(0xff21))).toBe(true); // a full-width A
+	});
+
 	it('is false for letters glyphs show as they are', () => {
 		expect(drawnByFontEngine('Brandenburger Tor')).toBe(false);
 		expect(drawnByFontEngine(text(0xe9))).toBe(false); // é, one character
 		expect(drawnByFontEngine(text(0x5ea, 0x5dc))).toBe(false); // Hebrew
 		expect(drawnByFontEngine(text(0x627, 0x644, 0x642))).toBe(false); // Arabic
-		expect(drawnByFontEngine(text(0x6771, 0x4eac))).toBe(false); // Tōkyō, in CJK
 		expect(drawnByFontEngine(text(0x1f600))).toBe(false); // one character beyond U+FFFF
 		expect(drawnByFontEngine('one\r\ntwo')).toBe(false);
 	});

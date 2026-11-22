@@ -110,7 +110,7 @@ const fonts = {
 };
 ```
 
-Scripts whose letters combine, such as Devanagari or Thai, are drawn in these fonts in every `labels` mode, as MapLibre GL JS draws them with the browser's fonts rather than the style's glyphs.
+Scripts whose letters combine, such as Devanagari or Thai, and Chinese, Japanese and Korean are drawn in these fonts in every `labels` mode, as MapLibre GL JS draws them with the browser's fonts rather than the style's glyphs. Without a file that has them, Skia falls back to a font of the system.
 
 ## API
 

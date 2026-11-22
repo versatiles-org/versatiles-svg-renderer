@@ -82,10 +82,12 @@ export function allowsLetterSpacing(text: string): boolean {
  * has a letter of a script whose letters combine (Indic scripts, Thai, Lao, Tibetan, Myanmar,
  * Khmer and others), or a grapheme of several characters, such as a letter with its marks.
  * Glyphs set one per character side by side cannot show what such letters combine into, so
- * the renderers draw these labels as text too.
+ * the renderers draw these labels as text too. So are labels with Chinese, Japanese or Korean
+ * characters, which MapLibre draws with the browser's fonts by default
+ * (`localIdeographFontFamily`).
  */
 export function drawnByFontEngine(text: string): boolean {
-	if (COMPLEX.test(text)) return true;
+	if (COMPLEX.test(text) || LOCAL_IDEOGRAPHS.test(text)) return true;
 	for (const { segment } of graphemes.segment(text)) {
 		if (segment.codePointAt(0)! > 0xffff ? segment.length > 2 : segment.length > 1) {
 			// A line break of two characters (CR LF) is not a letter.
@@ -101,6 +103,14 @@ export function drawnByFontEngine(text: string): boolean {
  */
 const COMPLEX =
 	/[\u0900-\u109F\u1700-\u17FF\u1900-\u194F\u19E0-\u1AAF\u1CC0-\u1CCF\uA800-\uA82F\uA930-\uA95F\uABC0-\uABFF]|[\u1B00-\u1C4F]|[\uA880-\uA8FF]|[\uA980-\uAAFF]|\uD802[\uDE00-\uDE5F]|\uD804[\uDC00-\uDCCF\uDD00-\uDD4F\uDD80-\uDE4F\uDEB0-\uDFFF]|\uD805[\uDC00-\uDCDF\uDD80-\uDE5F\uDE80-\uDF4F]|\uD806[\uDC00-\uDC4F\uDD00-\uDD5F\uDDA0-\uDEAF\uDF00-\uDF7F]|\uD807[\uDC00-\uDCBF\uDD00-\uDDAF\uDEE0-\uDF5F\uDFC0-\uDFFF]|\uD818[\uDD00-\uDD3F]/;
+
+/**
+ * The characters MapLibre draws with `localIdeographFontFamily`
+ * (`codePointUsesLocalIdeographFontFamily`): CJK ideographs, kana, Hangul, Bopomofo, Yi, CJK
+ * symbols and punctuation, vertical and full-width forms, and their astral blocks.
+ */
+const LOCAL_IDEOGRAPHS =
+	/[\u02EA\u02EB\u1100-\u11FF\u2E80-\u2FDF\u3000-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u4DBF\u4E00-\uA48C\uA490-\uA4C6\uA960-\uA97C\uAC00-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFE10-\uFE1F\uFE30-\uFE4F\uFF00-\uFFEF]|\uD81B[\uDFE0-\uDFFF]|[\uD81C-\uD822\uD840-\uD868\uD86A-\uD86D\uD86F-\uD872\uD874-\uD879\uD880-\uD883\uD885-\uD88C][\uDC00-\uDFFF]|\uD823[\uDC00-\uDCD5\uDCFF-\uDD1E\uDD80-\uDDF2]|\uD82B[\uDFF0-\uDFFF]|\uD82C[\uDC00-\uDEFB]|\uD83C[\uDE00-\uDEFF]|\uD869[\uDC00-\uDEDF\uDF00-\uDFFF]|\uD86E[\uDC00-\uDC1D\uDC20-\uDFFF]|\uD873[\uDC00-\uDEAD\uDEB0-\uDFFF]|\uD87A[\uDC00-\uDFE0\uDFF0-\uDFFF]|\uD87B[\uDC00-\uDE5D]|\uD87E[\uDC00-\uDE1D]|\uD884[\uDC00-\uDF4A\uDF50-\uDFFF]|\uD88D[\uDC00-\uDC79]/;
 
 /** Scripts written cursively (MapLibre's `codePointIsInCursiveScript`). */
 const CURSIVE =

@@ -940,5 +940,57 @@
 				"drift": 0.09
 			}
 		}
+	},
+	"parity-cjk": {
+		"svg": 1.71,
+		"png": 1.59,
+		"drift": 1.28,
+		"cells": {
+			"Chinese along a line": {
+				"svg": 1.01,
+				"png": 1.01,
+				"drift": 0.85
+			},
+			"Chinese": {
+				"svg": 1.3,
+				"png": 1.1,
+				"drift": 1.15
+			},
+			"Chinese along a steep line": {
+				"svg": 1.51,
+				"png": 1.51,
+				"drift": 0.79
+			},
+			"Japanese": {
+				"svg": 1.28,
+				"png": 1.09,
+				"drift": 1.27
+			},
+			"Korean": {
+				"svg": 1.19,
+				"png": 1.57,
+				"drift": 1.26
+			},
+			"Chinese, two lines": {
+				"svg": 3.05,
+				"png": 2.52,
+				"drift": 2.93
+			},
+			"vertical writing mode": {
+				"svg": 2.29,
+				"png": 2.07,
+				"drift": 1.18
+			},
+			"Japanese and Latin": {
+				"svg": 1.93,
+				"png": 1.62,
+				"drift": 1.06
+			},
+			"Japanese, steep line": {
+				"svg": 1.85,
+				"png": 1.83,
+				"drift": 1.09
+			}
+		}
 	}
 }

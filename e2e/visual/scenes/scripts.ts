@@ -14,13 +14,16 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { collection, feature, gridStyle, type Cell } from './grid.js';
 
-/** A label `text` at the cell's center, or along a line through it (drawn below it). */
+/**
+ * A label `text` at the cell's center, or along a line through it (drawn below it): a gentle
+ * one, or with `'steep'`, one that runs mostly north to south.
+ */
 export function scriptCell(options: {
 	id: string;
 	title: string;
 	text: string;
 	layout?: Record<string, unknown>;
-	line?: boolean;
+	line?: boolean | 'steep';
 }): Cell {
 	const { id, title, text, layout = {}, line = false } = options;
 	return {
@@ -32,10 +35,16 @@ export function scriptCell(options: {
 						line
 							? {
 									type: 'LineString',
-									coordinates: [
-										[x - 0.021, y - 0.004],
-										[x + 0.021, y + 0.004],
-									],
+									coordinates:
+										line === 'steep'
+											? [
+													[x - 0.004, y - 0.014],
+													[x + 0.004, y + 0.014],
+												]
+											: [
+													[x - 0.021, y - 0.004],
+													[x + 0.021, y + 0.004],
+												],
 								}
 							: { type: 'Point', coordinates: [x, y] },
 					),
