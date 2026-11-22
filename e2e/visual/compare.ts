@@ -53,6 +53,7 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	combining: 0.035,
 	overlap: 0.035,
 	cjk: 0.035,
+	halos: 0.035,
 	satellite: 0.11,
 };
 

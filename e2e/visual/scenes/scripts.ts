@@ -16,16 +16,18 @@ import { collection, feature, gridStyle, type Cell } from './grid.js';
 
 /**
  * A label `text` at the cell's center, or along a line through it (drawn below it): a gentle
- * one, or with `'steep'`, one that runs mostly north to south.
+ * one, or with `'steep'`, one that runs mostly north to south. `layout` and `paint` add to or
+ * replace the label's properties.
  */
 export function scriptCell(options: {
 	id: string;
 	title: string;
 	text: string;
 	layout?: Record<string, unknown>;
+	paint?: Record<string, unknown>;
 	line?: boolean | 'steep';
 }): Cell {
-	const { id, title, text, layout = {}, line = false } = options;
+	const { id, title, text, layout = {}, paint = {}, line = false } = options;
 	return {
 		title,
 		build: (x, y) => ({
@@ -77,6 +79,7 @@ export function scriptCell(options: {
 						'text-color': '#000000',
 						'text-halo-color': '#ffcc00',
 						'text-halo-width': 2,
+						...paint,
 					},
 				},
 			],

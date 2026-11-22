@@ -1365,8 +1365,9 @@ describe('SVGRenderer', () => {
 			// Each on the baseline below its place, turned with it: 7/24 of 16 px.
 			const glyphs =
 				'<text transform="translate(10,20)" y="4.7">A</text><text transform="translate(20,25) rotate(30)" y="4.7">B</text>';
+			// 2 px beyond the outlines, as MapLibre draws halos: a stroke 4 px wide.
 			expect(svg).toContain(
-				`<g fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round">${glyphs}</g>`,
+				`<g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round">${glyphs}</g>`,
 			);
 			expect(svg).toContain(`<g fill="#`);
 			expect(svg.indexOf('stroke="#FFFFFF"')).toBeLessThan(svg.lastIndexOf(glyphs));
@@ -1412,8 +1413,9 @@ describe('SVGRenderer', () => {
 			).toHaveLength(1);
 			expect(svg.match(/<use xlink:href="#glyph-0"/g)).toHaveLength(4);
 			expect(svg).toContain('transform="translate(20,20) rotate(30) scale(0.5)"');
-			// The halo is 2 px on screen: 4 in the outlines' units, scaled by 0.5.
-			expect(svg).toContain('stroke="#FFFFFF" stroke-width="4"');
+			// The halo reaches 2 px beyond the outlines on screen: a stroke 4 px wide, 8 in the
+			// outlines' units, scaled by 0.5.
+			expect(svg).toContain('stroke="#FFFFFF" stroke-width="8"');
 			// The invisible text, as wide as the glyphs, on their baseline.
 			expect(svg).toMatch(
 				/<text x="15" y="24.7" textLength="12" lengthAdjust="spacingAndGlyphs" [^>]*fill-opacity="0">AA<\/text>/,

@@ -5,6 +5,7 @@ import {
 	chainSegments,
 	closingLength,
 	dashOffset,
+	haloStroke,
 	iconQuads,
 	overlapQuads,
 	JUSTIFY_ANCHOR,
@@ -747,7 +748,7 @@ export class CanvasRenderer implements Renderer {
 			ctx.textAlign = 'center';
 			ctx.textBaseline = 'alphabetic';
 			ctx.strokeStyle = haloColor.hex;
-			ctx.lineWidth = roundToTenths(style.haloWidth);
+			ctx.lineWidth = roundToTenths(haloStroke(style.haloWidth, style.size));
 			ctx.lineJoin = 'round';
 			ctx.fillStyle = color.hex;
 			// The baseline, below each place in the glyph's own turned frame.
@@ -793,7 +794,7 @@ export class CanvasRenderer implements Renderer {
 					}
 					if (pass === 'halo') {
 						// The outlines are scaled; the halo's width is on screen.
-						ctx.lineWidth = style.haloWidth / glyph.scale;
+						ctx.lineWidth = haloStroke(style.haloWidth, style.size) / glyph.scale;
 						ctx.stroke();
 					} else {
 						ctx.fill('evenodd');
@@ -860,7 +861,7 @@ export class CanvasRenderer implements Renderer {
 				// SVG backend, so the halo stays behind the glyph.
 				if (style.haloWidth > 0 && haloColor.alpha > 0) {
 					ctx.strokeStyle = haloColor.hex;
-					ctx.lineWidth = roundToTenths(style.haloWidth);
+					ctx.lineWidth = roundToTenths(haloStroke(style.haloWidth, style.size));
 					ctx.lineJoin = 'round';
 					for (const line of lines) ctx.strokeText(line.text, line.x, line.y);
 				}

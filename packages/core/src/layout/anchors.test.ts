@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { haloStroke, mapIconAnchor, mapTextAnchor } from './anchors.js';
 
 describe('mapTextAnchor', () => {
 	test.each([
@@ -34,5 +34,17 @@ describe('mapIconAnchor', () => {
 		['anything else', [-5, -10]],
 	])('%s offsets the icon by %s', (anchor, offset) => {
 		expect(mapIconAnchor(anchor, 10, 20)).toEqual(offset);
+	});
+});
+
+describe('haloStroke', () => {
+	test('reaches the halo width beyond the outline: a stroke twice as wide', () => {
+		expect(haloStroke(2, 24)).toBe(4);
+		expect(haloStroke(0, 24)).toBe(0);
+	});
+
+	test('reaches no further than the glyphs do, 3 of 24 px per em', () => {
+		expect(haloStroke(6, 24)).toBe(6);
+		expect(haloStroke(2, 12)).toBe(3);
 	});
 });

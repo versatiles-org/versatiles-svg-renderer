@@ -4,6 +4,7 @@ import {
 	chainSegments,
 	closingLength,
 	dashOffset,
+	haloStroke,
 	iconQuads,
 	overlapQuads,
 	JUSTIFY_ANCHOR,
@@ -567,7 +568,7 @@ export class SVGRenderer {
 			}
 			const haloColor = new Color(style.haloColor);
 			if (style.haloWidth > 0 && haloColor.alpha > 0) {
-				const haloWidth = formatScaled(style.haloWidth);
+				const haloWidth = formatScaled(haloStroke(style.haloWidth, style.size));
 				attrs.push(
 					'paint-order="stroke fill"',
 					`stroke="${haloColor.rgb}"`,
@@ -618,7 +619,7 @@ export class SVGRenderer {
 		const haloColor = new Color(style.haloColor);
 		if (style.haloWidth > 0 && haloColor.alpha > 0) {
 			parts.push(
-				`<g fill="none" ${strokeAttr(haloColor, formatScaled(style.haloWidth))} stroke-linejoin="round">${glyphs}</g>`,
+				`<g fill="none" ${strokeAttr(haloColor, formatScaled(haloStroke(style.haloWidth, style.size)))} stroke-linejoin="round">${glyphs}</g>`,
 			);
 		}
 		parts.push(`<g ${fillAttr(color)}>${glyphs}</g>`, '</g>');
@@ -645,7 +646,7 @@ export class SVGRenderer {
 		if (style.haloWidth > 0 && haloColor.alpha > 0) {
 			// The outlines are scaled; the halo's width is on screen.
 			parts.push(
-				`<g fill="none" stroke="${haloColor.rgb}" stroke-width="${formatScale(style.haloWidth / scale)}"${opacityAttr('stroke-opacity', haloColor.opacity)} stroke-linejoin="round">${uses}</g>`,
+				`<g fill="none" stroke="${haloColor.rgb}" stroke-width="${formatScale(haloStroke(style.haloWidth, style.size) / scale)}"${opacityAttr('stroke-opacity', haloColor.opacity)} stroke-linejoin="round">${uses}</g>`,
 			);
 		}
 		parts.push(`<g ${fillAttr(color)}>${uses}</g>`, '</g>');

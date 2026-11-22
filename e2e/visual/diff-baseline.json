@@ -30,9 +30,9 @@
 		"drift": 0.55
 	},
 	"berlin-labels-vector": {
-		"svg": 5.24,
-		"png": 5.1,
-		"drift": 0.9
+		"svg": 5.31,
+		"png": 5.02,
+		"drift": 0.69
 	},
 	"berlin-outlines-vector": {
 		"svg": 1.07,
@@ -45,9 +45,9 @@
 		"drift": 0.42
 	},
 	"berlin-labels-rotated-vector": {
-		"svg": 5.08,
-		"png": 4.89,
-		"drift": 0.98
+		"svg": 5.05,
+		"png": 4.72,
+		"drift": 0.73
 	},
 	"berlin-rotated-satellite": {
 		"svg": 0.22,
@@ -796,106 +796,106 @@
 		}
 	},
 	"parity-scripts": {
-		"svg": 0.79,
-		"png": 0.91,
-		"drift": 0.03,
+		"svg": 0.1,
+		"png": 0.1,
+		"drift": 0,
 		"cells": {
 			"Hebrew along a line": {
-				"svg": 0.64,
-				"png": 0.72,
-				"drift": 0.02
+				"svg": 0.07,
+				"png": 0.06,
+				"drift": 0
 			},
 			"Hebrew, Latin, brackets": {
-				"svg": 1.14,
-				"png": 1.28,
-				"drift": 0.02
+				"svg": 0.12,
+				"png": 0.1,
+				"drift": 0
 			},
 			"Arabic along a line": {
-				"svg": 0.73,
-				"png": 0.84,
-				"drift": 0.03
+				"svg": 0.09,
+				"png": 0.08,
+				"drift": 0.01
 			},
 			"Arabic": {
-				"svg": 0.53,
-				"png": 0.63,
-				"drift": 0.02
+				"svg": 0.11,
+				"png": 0.1,
+				"drift": 0
 			},
 			"Arabic over Latin": {
-				"svg": 0.94,
-				"png": 1.12,
-				"drift": 0.03
+				"svg": 0.15,
+				"png": 0.15,
+				"drift": 0
 			},
 			"Persian": {
-				"svg": 0.52,
-				"png": 0.6,
-				"drift": 0.02
+				"svg": 0.08,
+				"png": 0.08,
+				"drift": 0
 			},
 			"Arabic with digits along a line": {
-				"svg": 0.94,
-				"png": 1.08,
-				"drift": 0.04
+				"svg": 0.11,
+				"png": 0.11,
+				"drift": 0.01
 			},
 			"Arabic on several lines": {
-				"svg": 1.19,
-				"png": 1.36,
-				"drift": 0.03
+				"svg": 0.12,
+				"png": 0.12,
+				"drift": 0
 			},
 			"Arabic with letter spacing": {
-				"svg": 0.49,
-				"png": 0.54,
-				"drift": 0.03
+				"svg": 0.09,
+				"png": 0.09,
+				"drift": 0
 			}
 		}
 	},
 	"parity-combining": {
-		"svg": 1.35,
-		"png": 1.14,
-		"drift": 0.43,
+		"svg": 0.57,
+		"png": 0.39,
+		"drift": 0.1,
 		"cells": {
 			"Devanagari along a line": {
-				"svg": 2.06,
-				"png": 2.06,
-				"drift": 0.44
+				"svg": 1.38,
+				"png": 1.31,
+				"drift": 0.09
 			},
 			"Devanagari": {
-				"svg": 1.55,
-				"png": 1.28,
-				"drift": 0.24
+				"svg": 0.67,
+				"png": 0.45,
+				"drift": 0.04
 			},
 			"Thai along a line": {
-				"svg": 1.13,
-				"png": 1.16,
-				"drift": 0.11
+				"svg": 0.27,
+				"png": 0.26,
+				"drift": 0.02
 			},
 			"Bengali": {
-				"svg": 0.62,
-				"png": 0.39,
-				"drift": 0.29
+				"svg": 0.2,
+				"png": 0.04,
+				"drift": 0.07
 			},
 			"Thai": {
-				"svg": 2.52,
-				"png": 1.76,
-				"drift": 1.35
+				"svg": 1.44,
+				"png": 0.5,
+				"drift": 0.51
 			},
 			"Tamil": {
-				"svg": 1.45,
-				"png": 1.18,
-				"drift": 0.52
+				"svg": 0.28,
+				"png": 0.14,
+				"drift": 0.05
 			},
 			"Hebrew with points along a line": {
-				"svg": 1.03,
-				"png": 1.03,
-				"drift": 0.22
+				"svg": 0.56,
+				"png": 0.58,
+				"drift": 0.08
 			},
 			"Khmer": {
-				"svg": 0.85,
-				"png": 0.69,
-				"drift": 0.29
+				"svg": 0.16,
+				"png": 0.15,
+				"drift": 0.07
 			},
 			"Myanmar": {
-				"svg": 1.03,
-				"png": 0.73,
-				"drift": 0.43
+				"svg": 0.21,
+				"png": 0.04,
+				"drift": 0.04
 			}
 		}
 	},
@@ -942,54 +942,106 @@
 		}
 	},
 	"parity-cjk": {
-		"svg": 1.74,
-		"png": 1.59,
-		"drift": 1.42,
+		"svg": 0.59,
+		"png": 0.89,
+		"drift": 0.79,
 		"cells": {
 			"Chinese along a line": {
-				"svg": 1.01,
-				"png": 1.01,
-				"drift": 0.85
+				"svg": 0.28,
+				"png": 0.35,
+				"drift": 0.41
 			},
 			"Chinese": {
-				"svg": 1.3,
-				"png": 1.1,
-				"drift": 1.15
+				"svg": 0.52,
+				"png": 0.54,
+				"drift": 0.64
 			},
 			"Chinese along a steep line": {
-				"svg": 0.96,
-				"png": 1.01,
-				"drift": 0.76
+				"svg": 0.21,
+				"png": 0.35,
+				"drift": 0.35
 			},
 			"Japanese": {
-				"svg": 1.28,
-				"png": 1.09,
-				"drift": 1.27
+				"svg": 0.22,
+				"png": 0.57,
+				"drift": 0.87
 			},
 			"Korean": {
-				"svg": 1.19,
-				"png": 1.57,
-				"drift": 1.26
+				"svg": 0.16,
+				"png": 1.09,
+				"drift": 1.05
 			},
 			"Chinese, two lines": {
-				"svg": 3.05,
-				"png": 2.52,
-				"drift": 2.93
+				"svg": 0.83,
+				"png": 1.31,
+				"drift": 1.62
 			},
 			"vertical writing mode": {
-				"svg": 3.16,
-				"png": 2.79,
-				"drift": 2.63
+				"svg": 0.94,
+				"png": 1.58,
+				"drift": 1.39
 			},
 			"Japanese and Latin": {
-				"svg": 1.93,
-				"png": 1.62,
-				"drift": 1.06
+				"svg": 1.2,
+				"png": 1.24,
+				"drift": 0.41
 			},
 			"Japanese with a number, steep line": {
-				"svg": 1.75,
-				"png": 1.59,
-				"drift": 0.94
+				"svg": 0.93,
+				"png": 1,
+				"drift": 0.46
+			}
+		}
+	},
+	"parity-halos": {
+		"svg": 0.25,
+		"png": 0.22,
+		"drift": 0.02,
+		"cells": {
+			"12 px, halo 1": {
+				"svg": 0.19,
+				"png": 0.17,
+				"drift": 0.07
+			},
+			"12 px, halo 3 (capped)": {
+				"svg": 0.14,
+				"png": 0.13,
+				"drift": 0
+			},
+			"24 px, halo 1": {
+				"svg": 0.12,
+				"png": 0.11,
+				"drift": 0
+			},
+			"24 px, halo 3": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"24 px, halo 6 (capped)": {
+				"svg": 0.58,
+				"png": 0.56,
+				"drift": 0
+			},
+			"40 px, halo 2": {
+				"svg": 0.02,
+				"png": 0.02,
+				"drift": 0
+			},
+			"40 px, halo 8 (capped)": {
+				"svg": 0.91,
+				"png": 0.87,
+				"drift": 0
+			},
+			"translucent halo": {
+				"svg": 0.05,
+				"png": 0.05,
+				"drift": 0
+			},
+			"Thai, 24 px, halo 3": {
+				"svg": 0.23,
+				"png": 0.04,
+				"drift": 0.07
 			}
 		}
 	}

@@ -19,7 +19,7 @@ export interface View {
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`,
- *   `images`, `scripts`, `combining`, `cjk`, `overlap`:
+ *   `images`, `scripts`, `combining`, `cjk`, `overlap`, `halos`:
  *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
@@ -39,7 +39,8 @@ export type StyleName =
 	| 'scripts'
 	| 'combining'
 	| 'cjk'
-	| 'overlap';
+	| 'overlap'
+	| 'halos';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -145,6 +146,7 @@ export const regions: Region[] = [
 	{ id: 'parity-combining', style: 'combining', view: scene, labels: true },
 	// Labels in Chinese, Japanese and Korean: drawn as text, as MapLibre draws them locally.
 	{ id: 'parity-cjk', style: 'cjk', view: scene, labels: true },
+	{ id: 'parity-halos', style: 'halos', view: scene, labels: true },
 	// Labels and icons that may overlap others: `text-overlap`, `icon-overlap`.
 	{ id: 'parity-overlap', style: 'overlap', view: scene, labels: true },
 	{ id: 'parity-sources', style: 'sources', view: scene },

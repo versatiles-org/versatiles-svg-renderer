@@ -213,7 +213,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 
 ¹ The text is drawn, its formatting is lost.
 
-² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones.
+² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones. A halo wider than 3/24 of the text size, which MapLibre fills out to the box of each glyph, follows the letters.
 
 ³ Given to the renderer as the `images` option.
 

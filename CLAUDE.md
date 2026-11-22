@@ -67,7 +67,7 @@ Only when asked. The user runs `npm run release [patch|minor|major|x.y.z]`, whic
 - Host screenshots aren't a valid measurement. `npm run test:e2e:screenshots` on macOS moves some regions by whole percentage points, so it can also fail inside `npm run check` without a real regression. Trust and bless the Docker numbers.
 - Docker runs as x86-64 like CI, emulated on Apple silicon. `E2E_DOCKER_PLATFORM=linux/arm64` is faster but moves `png` and `drift` by up to 0.05 points, so don't bless from it.
 - `svg` varies by up to 0.08 points between runs of the same commit in the container. If a re-blessed value fails on CI, keep the higher figure.
-- Labels are off in all regions except `berlin-labels-vector` with its rotated twin, `parity-symbols`, `parity-anchors`, `parity-images`, `parity-scripts`, `parity-combining`, `parity-cjk` and `parity-overlap`. A label change won't show up elsewhere.
+- Labels are off in all regions except `berlin-labels-vector` with its rotated twin, `parity-symbols`, `parity-anchors`, `parity-images`, `parity-scripts`, `parity-combining`, `parity-cjk`, `parity-overlap` and `parity-halos`. A label change won't show up elsewhere.
 - `core`, `svg-renderer` and `maplibre-svg-export` run in browsers, so they must not import `node:*`. Outside its tests, core only has type imports of `@napi-rs/canvas`; png-renderer injects the factory.
 - A library bundled into the packages belongs in the root `devDependencies`, not in a package's `dependencies`. Public `.d.ts` files inline those types, so each package must still typecheck for consumers. `npm run test:pack` checks that.
 - The plugin has no runtime dependency on `maplibre-gl`. Its e2e test runs on MapLibre GL JS 5 with the ES module and on 6 with the UMD build, so both must keep working.
