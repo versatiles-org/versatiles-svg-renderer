@@ -4,6 +4,7 @@ import {
 	chainSegments,
 	closingLength,
 	dashOffset,
+	haloLevelOpacities,
 	haloStroke,
 	iconQuads,
 	overlapQuads,
@@ -647,8 +648,14 @@ export class SVGRenderer {
 		const parts = [`<g${opacity}>`];
 		const haloColor = new Color(style.haloColor);
 		if (style.haloWidth > 0 && haloColor.alpha > 0) {
-			// Each glyph's halo is an outline of its own, traced as MapLibre draws it.
-			parts.push(`<g ${fillAttr(haloColor)}>${uses((glyph) => glyph.halo)}</g>`);
+			// Each glyph's halo is an outline of its own, traced as MapLibre draws it; a blurred
+			// one is several, level over level, each adding a step of the halo's opacity.
+			const levels = Math.max(0, ...glyphs.map((glyph) => glyph.halo?.length ?? 0));
+			haloLevelOpacities(haloColor.opacity, levels).forEach((levelOpacity, k) => {
+				parts.push(
+					`<g fill="${haloColor.rgb}"${opacityAttr('fill-opacity', levelOpacity)}>${uses((glyph) => glyph.halo?.[k])}</g>`,
+				);
+			});
 		}
 		parts.push(`<g ${fillAttr(color)}>${uses((glyph) => glyph.outline)}</g>`, '</g>');
 		return parts.join('');

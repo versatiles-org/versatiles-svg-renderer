@@ -1091,5 +1091,57 @@
 				"drift": 0
 			}
 		}
+	},
+	"parity-halo-blur": {
+		"svg": 0.26,
+		"png": 0.25,
+		"drift": 0.01,
+		"cells": {
+			"12 px, halo 2, blur 1": {
+				"svg": 0.19,
+				"png": 0.19,
+				"drift": 0
+			},
+			"14 px, halo 2, blur 1, translucent": {
+				"svg": 0.29,
+				"png": 0.3,
+				"drift": 0.02
+			},
+			"24 px, halo 1, blur 1": {
+				"svg": 0.33,
+				"png": 0.3,
+				"drift": 0.01
+			},
+			"24 px, halo 3, blur 1": {
+				"svg": 0.09,
+				"png": 0.08,
+				"drift": 0
+			},
+			"24 px, halo 3, blur 3": {
+				"svg": 0.26,
+				"png": 0.24,
+				"drift": 0
+			},
+			"40 px, halo 2, blur 2": {
+				"svg": 0.59,
+				"png": 0.6,
+				"drift": 0.03
+			},
+			"40 px, halo 8, blur 4": {
+				"svg": 0.03,
+				"png": 0.03,
+				"drift": 0
+			},
+			"24 px, halo 0.5, blur 1": {
+				"svg": 0.33,
+				"png": 0.35,
+				"drift": 0
+			},
+			"along a line, halo 2, blur 1": {
+				"svg": 0.22,
+				"png": 0.2,
+				"drift": 0
+			}
+		}
 	}
 }

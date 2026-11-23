@@ -81,8 +81,12 @@ export interface GlyphOutline {
 /** A glyph of a label drawn as glyphs: its outline, its middle on screen, angle and scale. */
 export interface PlacedGlyph {
 	outline: GlyphOutline;
-	/** The outline of its halo, in the same frame, if the label has one. */
-	halo?: GlyphOutline;
+	/**
+	 * The outlines of its halo, in the same frame, if the label has one: one for a sharp halo;
+	 * for a blurred one, nested levels, outermost first, each drawn over the ones before with
+	 * a step of the halo's opacity (see `haloLevelOpacities`).
+	 */
+	halo?: GlyphOutline[];
 	/** Where the middle of the glyph's advance lies, in the middle of its line of text. */
 	x: number;
 	y: number;
@@ -254,6 +258,11 @@ export interface SymbolStyle {
 	opacity: number;
 	haloColor: MaplibreColor;
 	haloWidth: number;
+	/**
+	 * `text-halo-blur`, in pixels. Labels drawn as glyphs fade their halos with it, as
+	 * MapLibre does; labels drawn as text leave it out.
+	 */
+	haloBlur?: number;
 }
 
 export interface IconStyle {

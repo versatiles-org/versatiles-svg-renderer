@@ -22,6 +22,7 @@ import {
 	glyphAdvances,
 	glyphBox,
 	glyphMetrics,
+	haloEdges,
 	iconBox,
 	labelAnchors,
 	labelLines,
@@ -209,6 +210,7 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					opacity: getPaint('text-opacity', feature) as number,
 					haloColor: getPaint('text-halo-color', feature) as MaplibreColor,
 					haloWidth: getPaint('text-halo-width', feature) as number,
+					haloBlur: getPaint('text-halo-blur', feature) as number,
 					// As in MapLibre, letters of a cursive script are not spaced apart.
 					letterSpacing: allowsLetterSpacing(text)
 						? (getLayout('text-letter-spacing', feature) as number)
@@ -246,16 +248,19 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			}
 			return outline;
 		};
-		const outlineOf: OutlineOf = (codePoint, haloWidth) => {
+		const outlineOf: OutlineOf = (codePoint, haloWidth, haloBlur) => {
 			const glyph = glyphAt(codePoint);
 			if (!glyph) return undefined;
 			const key = `${fontStack}\0${String(codePoint)}`;
 			const outline = traced(key, () => traceGlyph(glyph, key));
-			// The halo's width in pixels at 24 px per em, to a hundredth: outlines are drawn no finer.
-			const width = Math.round(haloWidth * 100) / 100;
-			if (width <= 0) return { outline };
-			const haloKey = `${key}\0halo ${String(width)}`;
-			return { outline, halo: traced(haloKey, () => traceHalo(glyph, haloKey, width)) };
+			if (haloWidth <= 0) return { outline };
+			const halo = haloEdges(haloWidth, haloBlur).map((value) => {
+				// To a tenth of the field's 255 steps, a 300th of a pixel at 24 px per em.
+				const edge = Math.round(value * 10) / 10;
+				const haloKey = `${key}\0halo ${String(edge)}`;
+				return traced(haloKey, () => traceHalo(glyph, haloKey, edge));
+			});
+			return { outline, halo };
 		};
 		const textOverlay = job.labels === 'glyphs-text';
 
@@ -684,12 +689,13 @@ function drawnLines(
 }
 
 /**
- * A glyph's outline, and its halo's if `haloWidth` (in pixels at 24 px per em) is above 0;
- * nothing if the glyph server has no glyph for `codePoint`.
+ * A glyph's outline, and its halo's if `haloWidth` is above 0, blurred by `haloBlur` (both in
+ * pixels at 24 px per em); nothing if the glyph server has no glyph for `codePoint`.
  */
 type OutlineOf = (
 	codePoint: number,
 	haloWidth: number,
+	haloBlur: number,
 ) => Pick<PlacedGlyph, 'outline' | 'halo'> | undefined;
 
 /**
@@ -706,6 +712,7 @@ function glyphsOfLines(
 ): PlacedGlyph[] {
 	const scale = style.size / GLYPH_EM;
 	const haloWidth = style.haloWidth / scale;
+	const haloBlur = (style.haloBlur ?? 0) / scale;
 	const spacing = (style.letterSpacing ?? 0) * style.size;
 	const radians = (style.rotate * Math.PI) / 180;
 	const cos = Math.cos(radians);
@@ -715,7 +722,7 @@ function glyphsOfLines(
 		let pen = line.left;
 		for (const char of line.glyphs) {
 			const advance = metrics.advance(char) * style.size;
-			const glyph = outlineOf(char.codePointAt(0)!, haloWidth);
+			const glyph = outlineOf(char.codePointAt(0)!, haloWidth, haloBlur);
 			if (glyph) {
 				const dx = pen + advance / 2 - x;
 				const dy = line.y - y;
@@ -745,13 +752,14 @@ function glyphsAlongPath(
 ): PlacedGlyph[] {
 	const scale = style.size / GLYPH_EM;
 	const haloWidth = style.haloWidth / scale;
+	const haloBlur = (style.haloBlur ?? 0) / scale;
 	const placed: PlacedGlyph[] = [];
 	for (const grapheme of path) {
 		const radians = (grapheme.angle * Math.PI) / 180;
 		let along = -(metrics.advance(grapheme.text) * style.size) / 2;
 		for (const char of grapheme.text) {
 			const advance = metrics.advance(char) * style.size;
-			const glyph = outlineOf(char.codePointAt(0)!, haloWidth);
+			const glyph = outlineOf(char.codePointAt(0)!, haloWidth, haloBlur);
 			if (glyph) {
 				const offset = along + advance / 2;
 				placed.push({

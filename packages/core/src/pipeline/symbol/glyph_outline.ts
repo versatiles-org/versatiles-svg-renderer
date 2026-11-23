@@ -24,15 +24,41 @@ export function traceGlyph(glyph: Glyph, key: string): GlyphOutline {
 	return traceAt(glyph, key, EDGE);
 }
 
+/** How many outlines draw a blurred halo, each a step of its fading opacity. */
+export const HALO_LEVELS = 4;
+
 /**
- * Traces the outline of `glyph`'s halo, `width` pixels at 24 px per em beyond its edge, as
- * MapLibre draws it (`symbol_sdf.fragment.glsl`): where the field exceeds (6 − width) / 8.
- * MapLibre draws no further than the glyph's bitmap and the pixel of empty padding around it
- * in its atlas, and the field reaches only 3 pixels beyond the glyph's ink: a halo wider than
- * that fills more and more of the box, and one 6 pixels wide or more all of it.
+ * The field's values where a halo `width` pixels wide, blurred by `blur` pixels (both at 24
+ * px per em), has its edges, as MapLibre draws it (`symbol_sdf.fragment.glsl`): it draws
+ * the halo where the field exceeds (6 − width) / 8, faded by a smoothstep (1.19 · blur) / 8
+ * to either side. A sharp halo has one edge; a blurred one {@link HALO_LEVELS}, outermost
+ * first, where the smoothstep passes ½ / levels, 1½ / levels, …: the halo drawn
+ * level over level, each adding 1 / levels of its opacity (see `haloLevelOpacities`).
  */
-export function traceHalo(glyph: Glyph, key: string, width: number): GlyphOutline {
-	return traceAt(glyph, key, (255 * (6 - width)) / SDF_PX);
+export function haloEdges(width: number, blur: number): number[] {
+	const edge = (6 - width) / SDF_PX;
+	if (blur <= 0) return [255 * edge];
+	const gamma = (1.19 * blur) / SDF_PX;
+	return Array.from({ length: HALO_LEVELS }, (_, k) => {
+		const step = smoothstepInverse((k + 0.5) / HALO_LEVELS);
+		return 255 * (edge - gamma + 2 * gamma * step);
+	});
+}
+
+/** Where `smoothstep(0, 1, x)` is `y`. */
+function smoothstepInverse(y: number): number {
+	return 0.5 - Math.sin(Math.asin(1 - 2 * y) / 3);
+}
+
+/**
+ * Traces the outline of `glyph`'s halo, where its field exceeds `edge` (see
+ * {@link haloEdges}). MapLibre draws no further than the glyph's bitmap and the pixel of
+ * empty padding around it in its atlas, and the field reaches only 3 pixels beyond the
+ * glyph's ink: a halo wider than that fills more and more of the box, and one 6 pixels wide
+ * or more all of it.
+ */
+export function traceHalo(glyph: Glyph, key: string, edge: number): GlyphOutline {
+	return traceAt(glyph, key, edge);
 }
 
 /** Traces where `glyph`'s field exceeds `edge`, in MapLibre's glyph frame. */

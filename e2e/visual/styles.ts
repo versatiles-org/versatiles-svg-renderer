@@ -21,6 +21,7 @@ import { cells as combiningCells, combiningStyle } from './scenes/combining.js';
 import { cells as overlapCells, overlapStyle } from './scenes/overlap.js';
 import { cells as cjkCells, cjkStyle } from './scenes/cjk.js';
 import { cells as haloCells, halosStyle } from './scenes/halos.js';
+import { cells as haloBlurCells, haloBlurStyle } from './scenes/halo-blur.js';
 import { cells as sourceCells, sourcesStyle } from './scenes/sources.js';
 import { cells as symbolCells, symbolsStyle } from './scenes/symbols.js';
 
@@ -148,6 +149,8 @@ async function buildStyle(
 			return cjkStyle();
 		case 'halos':
 			return halosStyle();
+		case 'halo-blur':
+			return haloBlurStyle();
 	}
 }
 
@@ -171,6 +174,7 @@ export function sceneCells(name: StyleName): Cell[] | undefined {
 	if (name === 'overlap') return overlapCells;
 	if (name === 'cjk') return cjkCells;
 	if (name === 'halos') return haloCells;
+	if (name === 'halo-blur') return haloBlurCells;
 	return undefined;
 }
 

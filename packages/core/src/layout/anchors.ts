@@ -89,3 +89,15 @@ export const TEXT_BASELINE = { server: 7 / 24, local: 10.5 / 24 } as const;
 export function haloStroke(haloWidth: number, size: number): number {
 	return 2 * Math.max(0, Math.min(haloWidth, (size * 3) / 24));
 }
+
+/**
+ * The opacity of each of a halo's `levels` outlines (`PlacedGlyph.halo`), outermost first,
+ * for a halo `opacity` opaque: where `k` levels lie over each other, the halo is `k / levels`
+ * of it, each level adding its step over the ones below. One level is the halo itself.
+ */
+export function haloLevelOpacities(opacity: number, levels: number): number[] {
+	return Array.from(
+		{ length: levels },
+		(_, k) => 1 - (1 - (opacity * (k + 1)) / levels) / (1 - (opacity * k) / levels),
+	);
+}

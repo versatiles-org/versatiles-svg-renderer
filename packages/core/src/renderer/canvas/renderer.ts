@@ -5,6 +5,7 @@ import {
 	chainSegments,
 	closingLength,
 	dashOffset,
+	haloLevelOpacities,
 	haloStroke,
 	iconQuads,
 	overlapQuads,
@@ -775,11 +776,18 @@ export class CanvasRenderer implements Renderer {
 		const haloColor = new Color(style.haloColor);
 		const hasHalo = style.haloWidth > 0 && haloColor.alpha > 0;
 		this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
-			// Each glyph's halo is an outline of its own, traced as MapLibre draws it.
-			const passes: [string, (glyph: PlacedGlyph) => GlyphOutline | undefined][] = [
-				[color.hex, (glyph) => glyph.outline],
-			];
-			if (hasHalo) passes.unshift([haloColor.hex, (glyph) => glyph.halo]);
+			// Each glyph's halo is an outline of its own, traced as MapLibre draws it; a blurred
+			// one is several, level over level, each adding a step of the halo's opacity.
+			const passes: [string, (glyph: PlacedGlyph) => GlyphOutline | undefined][] = [];
+			if (hasHalo) {
+				const levels = Math.max(0, ...glyphs.map((glyph) => glyph.halo?.length ?? 0));
+				haloLevelOpacities(haloColor.opacity, levels).forEach((levelOpacity, k) => {
+					const levelColor = haloColor.clone();
+					levelColor.alpha = Math.round(levelOpacity * 255);
+					passes.push([levelColor.hex, (glyph) => glyph.halo?.[k]]);
+				});
+			}
+			passes.push([color.hex, (glyph) => glyph.outline]);
 			for (const [fill, outlineOf] of passes) {
 				ctx.fillStyle = fill;
 				for (const glyph of glyphs) {

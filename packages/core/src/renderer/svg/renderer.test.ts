@@ -1399,8 +1399,8 @@ describe('SVGRenderer', () => {
 				advance: 0.5,
 			};
 			const glyphs = [
-				{ outline, halo, x: 10, y: 20, angle: 0, scale: 0.5 },
-				{ outline, halo, x: 20, y: 20, angle: 30, scale: 0.5 },
+				{ outline, halo: [halo], x: 10, y: 20, angle: 0, scale: 0.5 },
+				{ outline, halo: [halo], x: 20, y: 20, angle: 30, scale: 0.5 },
 			];
 			const feature = new Feature({
 				type: 'Point',

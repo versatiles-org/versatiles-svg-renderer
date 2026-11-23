@@ -1081,7 +1081,7 @@ describe('CanvasRenderer', () => {
 			});
 			// At scale 0.5: the glyph 6 px around (100, 100), its halo 12 px.
 			const glyphs = [
-				{ outline: square(12, 'g'), halo: square(24, 'h'), x: 100, y: 100, angle: 0, scale: 0.5 },
+				{ outline: square(12, 'g'), halo: [square(24, 'h')], x: 100, y: 100, angle: 0, scale: 0.5 },
 			];
 			r.drawLabels('l', [
 				[makePointFeature([[0, 0]]), symbolStyle({ glyphs, textOverlay: true, haloWidth: 6 })],

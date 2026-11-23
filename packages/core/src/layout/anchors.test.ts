@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { haloStroke, mapIconAnchor, mapTextAnchor } from './anchors.js';
+import { haloLevelOpacities, haloStroke, mapIconAnchor, mapTextAnchor } from './anchors.js';
 
 describe('mapTextAnchor', () => {
 	test.each([
@@ -46,5 +46,22 @@ describe('haloStroke', () => {
 	test('reaches no further than the glyphs do, 3 of 24 px per em', () => {
 		expect(haloStroke(6, 24)).toBe(6);
 		expect(haloStroke(2, 12)).toBe(3);
+	});
+});
+
+describe('haloLevelOpacities', () => {
+	test('stacks up to k / levels of the opacity where k levels lie over each other', () => {
+		for (const opacity of [1, 0.8, 0.3]) {
+			const opacities = haloLevelOpacities(opacity, 4);
+			let transparent = 1;
+			opacities.forEach((levelOpacity, k) => {
+				transparent *= 1 - levelOpacity;
+				expect(1 - transparent).toBeCloseTo((opacity * (k + 1)) / 4);
+			});
+		}
+	});
+
+	test('draws a halo of one level with its own opacity', () => {
+		expect(haloLevelOpacities(0.8, 1)).toEqual([0.8]);
 	});
 });

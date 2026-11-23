@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { traceContours, traceGlyph, traceHalo } from './glyph_outline.js';
+import { HALO_LEVELS, haloEdges, traceContours, traceGlyph, traceHalo } from './glyph_outline.js';
 import { rectangleSdf } from '../../sources/__fixtures__/glyphs.js';
+
+/** The field's value at the edge of a sharp halo `width` pixels wide. */
+const sharp = (width: number): number => haloEdges(width, 0)[0]!;
 
 /** The bounding box of rings. */
 const bounds = (rings: [number, number][][]) => {
@@ -69,7 +72,7 @@ describe('traceGlyph', () => {
 			advance: 6,
 		};
 		expect(traceGlyph(space, 's')).toEqual({ key: 's', rings: [], advance: 0.25 });
-		expect(traceHalo(space, 's', 2)).toEqual({ key: 's', rings: [], advance: 0.25 });
+		expect(traceHalo(space, 's', sharp(2))).toEqual({ key: 's', rings: [], advance: 0.25 });
 	});
 });
 
@@ -86,14 +89,14 @@ describe('traceHalo', () => {
 	};
 
 	test('without a width, traces the outline of the glyph itself', () => {
-		expect(traceHalo(glyph, 'h', 0).rings).toEqual(traceGlyph(glyph, 'g').rings);
+		expect(traceHalo(glyph, 'h', sharp(0)).rings).toEqual(traceGlyph(glyph, 'g').rings);
 	});
 
 	test("traces where the field exceeds MapLibre's halo edge, (6 − width) / 8", () => {
 		// Width 1: the edge 255 / 8 lower, which the test field (24 per pixel) reaches 255 / 8 / 24
 		// pixels beyond the rectangle's outline.
 		const beyond = 255 / 8 / 24;
-		const [x0, y0, x1, y1] = bounds(traceHalo(glyph, 'h', 1).rings);
+		const [x0, y0, x1, y1] = bounds(traceHalo(glyph, 'h', sharp(1)).rings);
 		expect(x0).toBeCloseTo(-6 - beyond, 1);
 		expect(y0).toBeCloseTo(-12 - beyond, 1);
 		expect(x1).toBeCloseTo(4 + beyond, 1);
@@ -103,14 +106,14 @@ describe('traceHalo', () => {
 	test('fills the bitmap and its pixel of padding, no further, when the halo is wider than the field', () => {
 		// Width 4.5: the field ends 3 px beyond the outline, at the bitmap's edge, before the halo
 		// does. The halo fades into the padding.
-		const [x0, y0, x1, y1] = bounds(traceHalo(glyph, 'h', 4.5).rings);
+		const [x0, y0, x1, y1] = bounds(traceHalo(glyph, 'h', sharp(4.5)).rings);
 		expect(x0).toBeLessThan(-9);
 		expect(x0).toBeGreaterThan(-10);
 		expect(y0).toBeLessThan(-15);
 		expect(y1).toBeGreaterThan(3);
 		expect(x1).toBeLessThan(8);
 		// Width 6 or more: all of it, a box.
-		const box = traceHalo(glyph, 'h', 8);
+		const box = traceHalo(glyph, 'h', sharp(8));
 		expect(box.key).toBe('h');
 		expect(box.rings).toEqual([
 			[
@@ -120,5 +123,25 @@ describe('traceHalo', () => {
 				[-10, 4],
 			],
 		]);
+	});
+});
+
+describe('haloEdges', () => {
+	test("puts a sharp halo's edge where MapLibre does: 1/8 of the field lower per pixel", () => {
+		expect(haloEdges(0, 0)).toEqual([0.75 * 255]);
+		expect(haloEdges(2, 0)).toEqual([(255 * 4) / 8]);
+	});
+
+	test('steps a blurred halo through its fade, outermost first, around the sharp edge', () => {
+		const edges = haloEdges(2, 1);
+		expect(edges).toHaveLength(HALO_LEVELS);
+		// Falling field values: each level lies inside the one before.
+		for (let k = 1; k < edges.length; k++) expect(edges[k]!).toBeGreaterThan(edges[k - 1]!);
+		// Symmetric around the sharp edge, within MapLibre's fade, (1.19 · blur) / 8 to either side.
+		const [sharpEdge] = haloEdges(2, 0);
+		const gamma = (255 * 1.19) / 8;
+		expect((edges[0]! + edges[HALO_LEVELS - 1]!) / 2).toBeCloseTo(sharpEdge!);
+		expect(edges[0]!).toBeGreaterThan(sharpEdge! - gamma);
+		expect(edges[HALO_LEVELS - 1]!).toBeLessThan(sharpEdge! + gamma);
 	});
 });

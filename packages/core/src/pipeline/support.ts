@@ -87,6 +87,7 @@ export const SUPPORTED_PROPERTIES: Readonly<Record<string, readonly string[]>> =
 		'text-color',
 		'text-field',
 		'text-font',
+		'text-halo-blur',
 		'text-halo-color',
 		'text-halo-width',
 		'text-ignore-placement',

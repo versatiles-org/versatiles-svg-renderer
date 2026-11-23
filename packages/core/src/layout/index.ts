@@ -3,6 +3,7 @@
  * pipeline, which lays features out, and every renderer, which draws them.
  */
 export {
+	haloLevelOpacities,
 	haloStroke,
 	JUSTIFY_ANCHOR,
 	letterSpacingShift,
