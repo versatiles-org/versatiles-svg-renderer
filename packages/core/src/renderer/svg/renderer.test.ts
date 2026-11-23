@@ -823,7 +823,7 @@ describe('SVGRenderer', () => {
 			r.drawLineStrings('line-test', [[feature, lineStyle({ blur: 3 })]]);
 			const svg = r.getString();
 			expect(svg).toContain('feGaussianBlur');
-			expect(svg).toContain('stdDeviation="0.5"'); // blur 3 * stdFactor 0.15 = 0.45
+			expect(svg).toContain('stdDeviation="0.45"'); // blur 3 * stdFactor 0.15
 			// userSpaceOnUse region so axis-aligned lines aren't clipped away
 			expect(svg).toContain('filterUnits="userSpaceOnUse"');
 			expect(svg).toContain('filter="url(#line-blur-0)"');
@@ -1095,7 +1095,7 @@ describe('SVGRenderer', () => {
 			);
 			// … clipped to the (slightly grown) target triangle.
 			expect(svg).toContain(
-				'<clipPath id="raster-clip-0"><path d="M9.5,19.5h101.3L9.5,222.1z"/></clipPath>',
+				'<clipPath id="raster-clip-0"><path d="M9.5,19.5h101.31L9.5,222.12z"/></clipPath>',
 			);
 			expect(svg).toContain('<g clip-path="url(#raster-clip-0)">');
 			expect(svg.match(/<use /g)).toHaveLength(1);
@@ -1305,7 +1305,7 @@ describe('SVGRenderer', () => {
 			// Not the font's own middle, which differs between font engines.
 			expect(svg).not.toContain('dominant-baseline');
 			expect(svg).toContain(
-				'<text x="100" y="54.7" font-family="Arial, Helvetica, Arial, sans-serif" font-size="16" text-anchor="start"',
+				'<text x="100" y="54.67" font-family="Arial, Helvetica, Arial, sans-serif" font-size="16" text-anchor="start"',
 			);
 			expect(svg).toContain('<text x="100" y="58" ');
 		});
@@ -1364,7 +1364,7 @@ describe('SVGRenderer', () => {
 			const svg = r.getString();
 			// Each on the baseline below its place, turned with it: 7/24 of 16 px.
 			const glyphs =
-				'<text transform="translate(10,20)" y="4.7">A</text><text transform="translate(20,25) rotate(30)" y="4.7">B</text>';
+				'<text transform="translate(10,20)" y="4.67">A</text><text transform="translate(20,25) rotate(30)" y="4.67">B</text>';
 			// 2 px beyond the outlines, as MapLibre draws halos: a stroke 4 px wide.
 			expect(svg).toContain(
 				`<g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round">${glyphs}</g>`,
@@ -1435,7 +1435,7 @@ describe('SVGRenderer', () => {
 			expect(svg).not.toContain('stroke=');
 			// The invisible text, as wide as the glyphs, on their baseline.
 			expect(svg).toMatch(
-				/<text x="15" y="24.7" textLength="12" lengthAdjust="spacingAndGlyphs" [^>]*fill-opacity="0">AA<\/text>/,
+				/<text x="15" y="24.67" textLength="12" lengthAdjust="spacingAndGlyphs" [^>]*fill-opacity="0">AA<\/text>/,
 			);
 		});
 
@@ -1469,7 +1469,7 @@ describe('SVGRenderer', () => {
 			]);
 			const svg = r.getString();
 			expect(svg).toContain(
-				'<tspan x="100" y="44.7">Museum für</tspan><tspan x="100" y="59.7">Naturkunde</tspan>',
+				'<tspan x="100" y="44.67">Museum für</tspan><tspan x="100" y="59.67">Naturkunde</tspan>',
 			);
 			expect(svg).toContain('text-anchor="end" fill="#333333">');
 		});
@@ -1498,7 +1498,7 @@ describe('SVGRenderer', () => {
 			const r = makeRenderer();
 			r.drawLabels('symbol-test', [[feature, defaultSymbolStyle()]]);
 			const svg = r.getString();
-			expect(svg).toContain('<text x="50" y="64.7" ');
+			expect(svg).toContain('<text x="50" y="64.67" ');
 			expect(svg).toContain('text-anchor="middle"');
 		});
 
@@ -1590,7 +1590,7 @@ describe('SVGRenderer', () => {
 			const svg = r.getString();
 			// Three pieces of the image, each defined once, drawn in one group; each reaching a
 			// pixel into the next, against seams: 1 px of the image, and 1/4 px of the stretch zone.
-			for (const piece of ['0-0-90-320', '80-0-163-320', '240-0-80-320']) {
+			for (const piece of ['0-0-900-3200', '800-0-1625-3200', '2400-0-800-3200']) {
 				expect(svg).toContain(`<symbol id="sprite-airport-${piece}">`);
 			}
 			expect(svg.match(/<use xlink:href="#sprite-airport-/g)).toHaveLength(3);

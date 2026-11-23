@@ -60,6 +60,7 @@ Only when asked. The user runs `npm run release [patch|minor|major|x.y.z]`, whic
 - Renderer options: `labels` (which replaced the deprecated `renderLabels`) and `fonts` per instance, `scale` per view.
 - The tile cache remembers 404 and 204 as missing and never caches failed fetches.
 - `SVGExportControl` uses `renderToSVG`, not a long-lived `SVGMapRenderer`.
+- SVG coordinates are written in hundredths of a pixel (`UNITS_PER_PIXEL`), not tenths: about 11 % larger files for SVG diffs about 0.15 points closer to MapLibre (`berlin-vector` 1.26 → 1.12 %).
 
 ## Pitfalls
 

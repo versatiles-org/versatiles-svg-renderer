@@ -8,7 +8,14 @@ import type { FillPattern, GlyphOutline, LinePattern, SpriteEntry } from '../../
 import type { ClipCircle } from '../../geo/index.js';
 import type { Color } from '../color.js';
 import type { CircleGradientStop } from '../circle.js';
-import { escapeXml, formatNum, formatScale, formatScaled, formatUnit } from './format.js';
+import {
+	escapeXml,
+	formatNum,
+	formatScale,
+	formatScaled,
+	formatUnit,
+	UNITS_PER_PIXEL,
+} from './format.js';
 
 export class SvgDefs {
 	readonly #spriteSheetDefs = new Map<
@@ -48,16 +55,16 @@ export class SvgDefs {
 		if (!sheetDef) {
 			sheetDef = {
 				defId: `sprite-sheet-${String(this.#spriteSheetDefs.size)}`,
-				width: Math.round(sprite.sheetWidth * 10),
-				height: Math.round(sprite.sheetHeight * 10),
+				width: Math.round(sprite.sheetWidth * UNITS_PER_PIXEL),
+				height: Math.round(sprite.sheetHeight * UNITS_PER_PIXEL),
 				href: sprite.sheetDataUri,
 			};
 			this.#spriteSheetDefs.set(sheetKey, sheetDef);
 		}
-		const x = Math.round(source.x * 10);
-		const y = Math.round(source.y * 10);
-		const width = Math.round(source.width * 10);
-		const height = Math.round(source.height * 10);
+		const x = Math.round(source.x * UNITS_PER_PIXEL);
+		const y = Math.round(source.y * UNITS_PER_PIXEL);
+		const width = Math.round(source.width * UNITS_PER_PIXEL);
+		const height = Math.round(source.height * UNITS_PER_PIXEL);
 		// The whole image, or a piece of it (see `iconQuads`).
 		const whole =
 			source.x === sprite.x &&

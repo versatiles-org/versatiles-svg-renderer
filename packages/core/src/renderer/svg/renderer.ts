@@ -390,7 +390,7 @@ export class SVGRenderer {
 
 		const fill = this.#defs.linePattern(pattern, style.width);
 		const parts = strips.map(({ matrix, polygon }) => {
-			// The path is in tenths of a pixel (see `roundXY`), which `formatScaled` undoes.
+			// The path is in hundredths of a pixel (see `roundXY`), which `formatScaled` undoes.
 			const [a, b, c, dd, e, f] = matrix;
 			const transform =
 				[a, b, c, dd].map(formatUnit).join(',') + ',' + formatScaled(e) + ',' + formatScaled(f);

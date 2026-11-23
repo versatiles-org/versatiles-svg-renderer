@@ -1,11 +1,12 @@
 /**
  * How the SVG backend writes numbers, coordinates and attributes. Coordinates are kept in
- * tenths of a pixel (see `roundXY`) and written with `formatNum`.
+ * hundredths of a pixel (see `roundXY`) and written with `formatNum`: coarser, they would
+ * move the edges of thin lines and dashes visibly in a sharp image.
  */
 import type { Segment } from '../../layout/index.js';
 import type { Color } from '../color.js';
 
-/** The `d` of a `<path>` tracing `chains`, in tenths of a pixel; `close` closes each one. */
+/** The `d` of a `<path>` tracing `chains`, in hundredths of a pixel; `close` closes each one. */
 export function segmentsToPath(chains: Segment[], close = false): string {
 	let d = '';
 	for (const chain of chains) {
@@ -40,14 +41,12 @@ export function segmentsToPath(chains: Segment[], close = false): string {
 	return d;
 }
 
-/** Tenths of a pixel, as a number of pixels. */
-export function formatNum(tenths: number): string {
-	if (tenths % 10 === 0) return String(tenths / 10);
-	const negative = tenths < 0;
-	if (negative) tenths = -tenths;
-	const whole = Math.floor(tenths / 10);
-	const frac = tenths % 10;
-	return (negative ? '-' : '') + String(whole) + '.' + String(frac);
+/** How many units of the coordinates the SVG backend keeps make a pixel. */
+export const UNITS_PER_PIXEL = 100;
+
+/** Hundredths of a pixel, as a number of pixels. */
+export function formatNum(units: number): string {
+	return String(units / UNITS_PER_PIXEL);
 }
 
 /** ` name="opacity"`, or nothing for a fully opaque value. */
@@ -68,7 +67,7 @@ export function strokeAttr(color: Color, width: string): string {
 }
 
 export function formatScaled(v: number): string {
-	return formatNum(Math.round(v * 10));
+	return formatNum(Math.round(v * UNITS_PER_PIXEL));
 }
 
 /** How far into its dash pattern a line starts, in hundredths of a pixel. */
@@ -85,7 +84,7 @@ export function formatScale(v: number): string {
 }
 
 export function roundXY(x: number, y: number): [number, number] {
-	return [Math.round(x * 10), Math.round(y * 10)];
+	return [Math.round(x * UNITS_PER_PIXEL), Math.round(y * UNITS_PER_PIXEL)];
 }
 
 export function formatPoint(p: [number, number]): string {

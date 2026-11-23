@@ -296,7 +296,7 @@ describe('SVGMapRenderer', () => {
 				}).renderSVG({ width: 200, height: 200, zoom: 3 });
 			// The label's line is in the middle of the image, 16 px high. The glyph server's
 			// baseline is 7/24 em below its middle.
-			expect(await render(true, 'AB', 'text')).toContain('<text x="100" y="104.7" ');
+			expect(await render(true, 'AB', 'text')).toContain('<text x="100" y="104.67" ');
 			// MapLibre draws the glyphs itself without the style's glyphs, and for Thai: 10.5/24 em.
 			expect(await render(false, 'AB', 'glyphs')).toContain('<text x="100" y="107" ');
 			expect(await render(true, 'กรุงเทพ', 'glyphs')).toContain('<text x="100" y="107" ');
