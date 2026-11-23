@@ -40,44 +40,61 @@ describe('lineAnchors', () => {
 		[0, 0],
 		[1000, 0],
 	]);
+	const short = line([
+		[0, 0],
+		[60, 0],
+	]);
+	/** Anchors for a label `labelLength` long, two ems of 10 px beyond its half, every 250 px. */
+	const anchors = (
+		l: ReturnType<typeof line>,
+		labelLength: number,
+		options: Partial<Parameters<typeof lineAnchors>[2]> = {},
+		placement = 'line',
+	) =>
+		lineAnchors(l, placement, {
+			labelLength,
+			spacing: 250,
+			extraOffset: 20,
+			continued: false,
+			overscaling: 1,
+			...options,
+		});
 
 	test('repeats anchors every `spacing` pixels where the label fits', () => {
 		// First anchor: (50 / 2 + 2 × 10) % 250 = 45.
-		expect(lineAnchors(straight, 50, 250, 10, 'line')).toEqual([45, 295, 545, 795]);
+		expect(anchors(straight, 50)).toEqual([45, 295, 545, 795]);
 	});
 
 	test('gives a long label more room', () => {
 		// 250 - 220 < 250 / 4: the spacing grows to 220 + 62.5.
-		expect(lineAnchors(straight, 220, 250, 10, 'line')).toEqual(
-			[130, 412.5, 695, 977.5].filter((d) => d + 110 <= 1000),
-		);
+		expect(anchors(straight, 220)).toEqual([130, 412.5, 695]);
 	});
 
-	test('places one in the middle of a line too short for the spacing', () => {
-		const short = line([
-			[0, 0],
-			[60, 0],
-		]);
-		expect(lineAnchors(short, 50, 250, 10, 'line')).toEqual([30]);
+	test('starts half the spacing in on a line that goes on from the next tile', () => {
+		expect(anchors(straight, 50, { continued: true })).toEqual([125, 375, 625, 875]);
+	});
+
+	test('lays out a tile shown beyond its zoom as the tile it comes from', () => {
+		// Twice the offset, (50 / 2 + 20) × 2 = 90; half the spacing twice is the spacing: 0.
+		expect(anchors(straight, 50, { overscaling: 2 })).toEqual([90, 340, 590, 840]);
+		expect(anchors(straight, 50, { continued: true, overscaling: 2 })).toEqual([250, 500, 750]);
+	});
+
+	test('places one in the middle where none fits at the spacing, unless the line goes on', () => {
+		expect(anchors(short, 50)).toEqual([30]);
+		expect(anchors(short, 50, { continued: true })).toEqual([]);
+		// Also where the line bends too much at every place but the middle.
+		expect(anchors(straight, 50, { accept: (d) => d === 500 })).toEqual([500]);
+		expect(anchors(straight, 50, { accept: (d) => d === 295 })).toEqual([295]);
 	});
 
 	test('places none on a line shorter than the label', () => {
-		expect(
-			lineAnchors(
-				line([
-					[0, 0],
-					[40, 0],
-				]),
-				50,
-				250,
-				10,
-				'line',
-			),
-		).toEqual([]);
+		expect(anchors(short, 70)).toEqual([]);
 	});
 
 	test('places only the middle one for line-center', () => {
-		expect(lineAnchors(straight, 50, 250, 10, 'line-center')).toEqual([500]);
+		expect(anchors(straight, 50, {}, 'line-center')).toEqual([500]);
+		expect(anchors(straight, 50, { accept: () => false }, 'line-center')).toEqual([]);
 	});
 });
 

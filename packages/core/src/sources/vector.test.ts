@@ -143,6 +143,9 @@ describe('loadVectorSource', () => {
 		const [line] = layerFeatures.get('roads')!.linestrings;
 		expect(line!.geometry).toHaveLength(2);
 		expect(line!.lineStarts).toEqual([100, 0]);
+		// The first line, clipped, starts on the tile's border: it goes on from the next tile.
+		expect(line!.lineContinued).toEqual([true, false]);
+		expect(line!.tile).toMatch(/^\d+\/\d+\/\d+$/);
 	});
 
 	test('loads point features from vector tile', async () => {

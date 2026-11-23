@@ -45,36 +45,68 @@ export function pointAt(
 	};
 }
 
+/** How labels are spaced along a line (see {@link lineAnchors}), in pixels. */
+export interface LineAnchorOptions {
+	/**
+	 * How long the label is: MapLibre places labels along lines by their length at the text
+	 * size of zoom 18 (`textMaxSize`), whatever size they are drawn at.
+	 */
+	labelLength: number;
+	/** `symbol-spacing`. */
+	spacing: number;
+	/** How far beyond half the label the first anchor lies: two ems of that text size. */
+	extraOffset: number;
+	/** Whether the line starts on its tile's border, going on from the next tile. */
+	continued: boolean;
+	/**
+	 * How many times the tile's zoom level the zoom level is, that the labels are laid out
+	 * for: MapLibre lays out the labels of a tile it shows beyond the source's maximum zoom
+	 * where they would lie in the tile it comes from.
+	 */
+	overscaling: number;
+	/** Whether a label fits at this distance (e.g. bends no more than it may, `fitsMaxAngle`). */
+	accept?: (distance: number) => boolean;
+}
+
 /**
- * The distances along `line` where labels of `labelLength` pixels are placed: every
- * `spacing` pixels where the whole label fits on the line, as MapLibre's `getAnchors`;
- * where none fits that way but the line is long enough, once in its middle. `"line-center"`
- * places only the middle one. `textSize` sets the offset of the first anchor.
+ * The distances along `line`, a line in its tile, where labels are placed, as MapLibre's
+ * `getAnchors` places them: every `spacing` pixels, from half the label plus `extraOffset`
+ * in, or from half the spacing in where the line goes on from the next tile; wherever the
+ * whole label fits on the line and is accepted. Where no label is, on a line that does not
+ * go on from the next tile, in its middle if it fits there. `"line-center"` places only the
+ * middle one.
  */
 export function lineAnchors(
 	line: MeasuredLine,
-	labelLength: number,
-	spacing: number,
-	textSize: number,
 	placement: string,
+	options: LineAnchorOptions,
 ): number[] {
+	const { labelLength, extraOffset, continued, overscaling, accept = () => true } = options;
 	const { length } = line;
 	if (length < labelLength || length <= 0) return [];
-	if (placement === 'line-center') return [length / 2];
+	if (placement === 'line-center') return accept(length / 2) ? [length / 2] : [];
 
 	// A label long relative to the spacing gets more room.
+	let { spacing } = options;
 	if (spacing - labelLength < spacing / 4) spacing = labelLength + spacing / 4;
-	// The first anchor: half the label plus two ems from the start (MapLibre's offset for a
-	// line that is not continued from another tile).
-	const offset = (labelLength / 2 + textSize * 2) % spacing;
-	const anchors: number[] = [];
-	for (let distance = offset; distance <= length; distance += spacing) {
-		if (distance - labelLength / 2 >= 0 && distance + labelLength / 2 <= length) {
-			anchors.push(distance);
+	const offset = continued
+		? ((spacing / 2) * overscaling) % spacing
+		: ((labelLength / 2 + extraOffset) * overscaling) % spacing;
+
+	const resample = (start: number, middle: boolean): number[] => {
+		const anchors: number[] = [];
+		for (let distance = start; distance < length; distance += spacing) {
+			if (
+				distance - labelLength / 2 >= 0 &&
+				distance + labelLength / 2 <= length &&
+				accept(distance)
+			) {
+				anchors.push(distance);
+			}
 		}
-	}
-	if (anchors.length === 0) anchors.push(length / 2);
-	return anchors;
+		return anchors.length === 0 && !middle && !continued ? resample(length / 2, true) : anchors;
+	};
+	return resample(offset, false);
 }
 
 /**

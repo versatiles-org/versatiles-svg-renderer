@@ -118,6 +118,15 @@ export class Feature implements MapLibreFeature {
 	 */
 	public readonly lineStarts?: number[];
 
+	/**
+	 * For each line of the geometry, whether it starts on its tile's border: it goes on from
+	 * the next tile, and MapLibre starts its labels along it half their spacing in.
+	 */
+	public readonly lineContinued?: boolean[];
+
+	/** The tile the feature was read from, as `z/x/y`, for features read from tiles. */
+	public readonly tile?: string;
+
 	#bbox: Bbox | undefined;
 
 	public constructor(opt: {
@@ -129,6 +138,8 @@ export class Feature implements MapLibreFeature {
 		outline?: Geometry;
 		fillGeometry?: Geometry;
 		lineStarts?: number[];
+		lineContinued?: boolean[];
+		tile?: string;
 	}) {
 		this.type = opt.type;
 		this.id = opt.id;
@@ -138,6 +149,8 @@ export class Feature implements MapLibreFeature {
 		this.outline = opt.outline;
 		this.fillGeometry = opt.fillGeometry;
 		this.lineStarts = opt.lineStarts;
+		this.lineContinued = opt.lineContinued;
+		this.tile = opt.tile;
 	}
 
 	public getBbox(): Bbox {

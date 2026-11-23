@@ -69,7 +69,7 @@ function decodeVectorTile(buffer: ArrayBuffer, encoding?: string): Record<string
 /** Adds the features of one vector tile's layers, projected to the screen. */
 function addTileFeatures(
 	layers: Record<string, TileLayer>,
-	{ project, clipToTile, pixelsPerUnit, fillBox }: TileProjection,
+	{ x: tileX, y: tileY, z: tileZ, project, clipToTile, pixelsPerUnit, fillBox }: TileProjection,
 	layerFeatures: LayerFeatures,
 	width: number,
 	height: number,
@@ -132,6 +132,10 @@ function addTileFeatures(
 					}
 				}
 			}
+			// Where a line starts on the tile's border, it goes on from the next tile: MapLibre
+			// starts its labels along it half their spacing in (`getAnchors`).
+			const lineContinued =
+				type === 'LineString' ? rings.map((line) => onTileBorder(line[0])) : undefined;
 			const geometry = project(type, rings);
 			if (geometry.length === 0) continue;
 
@@ -153,6 +157,9 @@ function addTileFeatures(
 					outline,
 					fillGeometry,
 					lineStarts,
+					// On the globe, projecting may split or drop lines: then no line is taken as continued.
+					lineContinued: lineContinued?.length === geometry.length ? lineContinued : undefined,
+					tile: `${String(tileZ)}/${String(tileX)}/${String(tileY)}`,
 					id: featureSrc.id,
 					properties: featureSrc.properties,
 				});
@@ -302,4 +309,14 @@ function pixelAlignedBox(project: TileProjection['project']): Box | undefined {
 	const [minY, maxY] = widen(origin!.y, down!.y);
 	if (minX === 0 && minY === 0 && maxX === TILE_EXTENT && maxY === TILE_EXTENT) return undefined;
 	return [minX, minY, maxX, maxY];
+}
+
+/**
+ * Whether `point` (in tile units) lies on the tile's border, as MapLibre checks it
+ * (`getAnchors`), allowing for the rounding of clipping to it.
+ */
+function onTileBorder(point: XY | undefined): boolean {
+	if (!point) return false;
+	const on = (v: number): boolean => Math.abs(v) < 1e-6 || Math.abs(v - TILE_EXTENT) < 1e-6;
+	return on(point.x) || on(point.y);
 }

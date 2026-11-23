@@ -129,6 +129,24 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 	if (filtered.length === 0) return [];
 
 	const { getPaint, getLayout } = evaluateLayer(layer);
+	// The text size of zoom 18, by which MapLibre places labels along lines.
+	const { getLayout: layoutAt18 } = evaluateLayer(layer, 18);
+	// The anchors of each text along lines in each tile, so far (`anchorIsTooClose`).
+	const anchorsOfText = new Map<string, { x: number; y: number }[]>();
+	const tooClose = (
+		tile: string | undefined,
+		text: string,
+		anchor: { x: number; y: number },
+		distance: number,
+	): boolean => {
+		const key = `${tile ?? ''}\0${text}`;
+		const anchors = anchorsOfText.get(key) ?? anchorsOfText.set(key, []).get(key)!;
+		if (anchors.some((other) => Math.hypot(anchor.x - other.x, anchor.y - other.y) < distance)) {
+			return true;
+		}
+		anchors.push(anchor);
+		return false;
+	};
 	const symbolFeatures = sortByKey(filtered, (feature) => getLayout('symbol-sort-key', feature));
 	const labelText = (feature: LayerFeature): string => {
 		const textField = getLayout('text-field', feature);
@@ -514,22 +532,44 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		const textLength = (vertical ?? glyphs)?.advances.reduce((sum, width) => sum + width, 0) ?? 0;
 		const iconBounds = lineIconStyle && quadsBox(iconQuads(lineIconStyle, sprite!));
 		const iconLength = iconBounds ? iconBounds[2] - iconBounds[0] : 0;
-		const labelLength = Math.max(textLength, iconLength);
 		const textSize = labelStyle?.size ?? (getLayout('text-size', feature) as number);
-		// Spacing is in pixels of the tile's zoom level, whose tiles a fractional zoom enlarges.
-		const spacing =
-			(getLayout('symbol-spacing', feature) as number) *
-			2 ** (job.view.zoom - Math.floor(job.view.zoom));
+		// MapLibre spaces and fits labels along lines in pixels of the tile's zoom level, whose
+		// tiles a fractional zoom enlarges, and by their size at zoom 18 (`textMaxSize`),
+		// whatever size they are drawn at. (It measures an icon by that size, too.)
+		const enlarged = 2 ** (job.view.zoom - Math.floor(job.view.zoom));
+		const maxSize = (layoutAt18('text-size', feature) as number | undefined) ?? textSize;
+		const toPlacing = (maxSize / textSize) * enlarged;
+		const placingLength = Math.max(textLength, iconLength) * toPlacing;
+		const symbolSpacing = (getLayout('symbol-spacing', feature) as number) * enlarged;
 		const maxAngle = ((getLayout('text-max-angle', feature) as number) * Math.PI) / 180;
+		// A tile shown beyond the source's maximum zoom (`overscaling`).
+		const tileZoom = feature.tile ? Number(feature.tile.split('/')[0]) : Math.floor(job.view.zoom);
+		const overscaling = 2 ** Math.max(0, Math.floor(job.view.zoom) - tileZoom);
 
-		for (const points of feature.geometry) {
+		feature.geometry.forEach((points, lineIndex) => {
 			const line = measureLine(points);
-			for (const distance of lineAnchors(line, labelLength, spacing, textSize, placement)) {
+			const distances = lineAnchors(line, placement, {
+				labelLength: placingLength,
+				spacing: symbolSpacing,
+				extraOffset: 2 * maxSize * enlarged,
+				continued: feature.lineContinued?.[lineIndex] ?? false,
+				overscaling,
 				// MapLibre leaves out a label where its line bends too sharply.
-				if (textAlongLine && !fitsMaxAngle(line, distance, textLength, textSize * 0.6, maxAngle)) {
+				accept: (distance) =>
+					!glyphs ||
+					fitsMaxAngle(line, distance, placingLength, 0.6 * maxSize * enlarged, maxAngle),
+			});
+			for (const distance of distances) {
+				const anchor = pointAt(line, distance);
+				// In a tile, MapLibre leaves out a label next to one with the same text, less than
+				// half the spacing away (`anchorIsTooClose`); not so with `"line-center"`.
+				if (
+					placement === 'line' &&
+					labelStyle &&
+					tooClose(feature.tile, labelStyle.text, anchor, symbolSpacing / 2)
+				) {
 					continue;
 				}
-				const anchor = pointAt(line, distance);
 				const at = pointAtAnchor(anchor.x, anchor.y);
 				const lineAngle = (anchor.angle * 180) / Math.PI;
 
@@ -615,7 +655,7 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 					showText: false,
 				});
 			}
-		}
+		});
 	}
 	return entries;
 }

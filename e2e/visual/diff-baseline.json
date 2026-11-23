@@ -30,9 +30,9 @@
 		"drift": 0.55
 	},
 	"berlin-labels-vector": {
-		"svg": 5.31,
-		"png": 5.02,
-		"drift": 0.69
+		"svg": 2.59,
+		"png": 2.21,
+		"drift": 0.66
 	},
 	"berlin-outlines-vector": {
 		"svg": 1.07,
@@ -45,9 +45,9 @@
 		"drift": 0.42
 	},
 	"berlin-labels-rotated-vector": {
-		"svg": 5.05,
-		"png": 4.72,
-		"drift": 0.73
+		"svg": 2.38,
+		"png": 1.96,
+		"drift": 0.68
 	},
 	"berlin-rotated-satellite": {
 		"svg": 0.22,

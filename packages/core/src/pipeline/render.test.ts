@@ -10,7 +10,7 @@ import {
 	type SourceFeatures,
 } from '../geo/index.js';
 import type { Glyph } from '../sources/index.js';
-import type { IconStyle, LineStyle, PlacedGlyph, SymbolStyle } from '../types.js';
+import type { GlyphPlacement, IconStyle, LineStyle, PlacedGlyph, SymbolStyle } from '../types.js';
 import { createRenderContext } from './context.js';
 
 vi.mock(import('../sources/index.js'), async (importOriginal) => ({
@@ -1017,6 +1017,54 @@ describe('renderMap', () => {
 			// Along a gentle line, and in Latin letters, the text runs along the line.
 			expect(gentle!.map((g) => Math.round(g.angle))).toEqual([7, 7, 7]);
 			expect(latin!.map((g) => Math.round(g.angle))).toEqual([90, 90, 90, 90]);
+		});
+
+		test('spaces labels along lines by their size at zoom 18, and once per text nearby, as MapLibre', async () => {
+			const street = (y: number) =>
+				makeLineFeature(
+					[
+						[
+							[0, y],
+							[1000, y],
+						],
+					],
+					{ name: 'Main' },
+				);
+			// Two carriageways of one street, 10 px apart.
+			setLayerFeatures(new Map([['l', makeFeatures({ linestrings: [street(100), street(110)] })]]));
+			const job = makeJob(
+				makeStyle([
+					{
+						id: 'streets',
+						type: 'symbol',
+						source: 'src',
+						'source-layer': 'l',
+						layout: {
+							'text-field': '{name}',
+							'symbol-placement': 'line',
+							'text-allow-overlap': true,
+							// 10 px now, 40 px at zoom 18.
+							'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 18, 40],
+						},
+					},
+				]),
+				10,
+				{ renderLabels: true },
+			);
+			const drawLabels = vi.spyOn(job.renderer, 'drawLabels');
+			await renderMap(job);
+			const paths = drawLabels.mock.calls
+				.find(([id]) => id === 'streets-labels')![1]
+				.map(([, style]) => style.path!);
+			// The second carriageway's labels are each less than half the spacing from one of the
+			// first's: left out.
+			expect(paths.every((path) => path.every((glyph) => Math.round(glyph.y) === 100))).toBe(true);
+			// The first anchor lies half the label plus two ems in, both at 40 px: about 48 + 80 px
+			// for "Main", not 12 + 20 as at the 10 px it is drawn at.
+			const middle = (path: GlyphPlacement[]) =>
+				path.reduce((sum, glyph) => sum + glyph.x, 0) / path.length;
+			expect(middle(paths[0]!)).toBeGreaterThan(110);
+			expect(middle(paths[0]!)).toBeLessThan(140);
 		});
 
 		test('sets a point label vertically with text-writing-mode, if it does not fit across', async () => {
