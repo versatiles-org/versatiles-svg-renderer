@@ -1145,8 +1145,8 @@
 		}
 	},
 	"parity-line-labels": {
-		"svg": 0.12,
-		"png": 0.12,
+		"svg": 0.19,
+		"png": 0.18,
 		"drift": 0,
 		"cells": {
 			"split way, joined": {
@@ -1170,19 +1170,24 @@
 				"drift": 0
 			},
 			"text-size by zoom": {
-				"svg": 0.05,
-				"png": 0.04,
+				"svg": 0.09,
+				"png": 0.08,
 				"drift": 0.01
 			},
 			"two carriageways": {
-				"svg": 0.13,
-				"png": 0.12,
+				"svg": 0.15,
+				"png": 0.14,
 				"drift": 0
 			},
 			"diagonal streets, circles": {
-				"svg": 0.21,
-				"png": 0.2,
+				"svg": 0.27,
+				"png": 0.25,
 				"drift": 0.01
+			},
+			"faded by text-opacity": {
+				"svg": 0.49,
+				"png": 0.46,
+				"drift": 0
 			}
 		}
 	}

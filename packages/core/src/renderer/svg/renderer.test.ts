@@ -1502,12 +1502,17 @@ describe('SVGRenderer', () => {
 			expect(svg).toContain('text-anchor="middle"');
 		});
 
-		test('applies opacity attribute when < 1', () => {
+		test('fades the text and its halo each with text-opacity, as MapLibre does', () => {
 			const r = makeRenderer();
 			const feature = makePointFeature([[100, 50]]);
-			r.drawLabels('symbol-test', [[feature, defaultSymbolStyle({ opacity: 0.5 })]]);
+			r.drawLabels('symbol-test', [
+				[feature, defaultSymbolStyle({ opacity: 0.5, haloWidth: 2, haloColor: mc('#FFFFFF') })],
+			]);
 			const svg = r.getString();
-			expect(svg).toContain('opacity="0.500"');
+			// Not the label as a whole, which would let the ground show through the text, not the halo.
+			expect(svg).not.toMatch(/ opacity="/);
+			expect(svg).toMatch(/stroke-opacity="0\.50\d"/);
+			expect(svg).toMatch(/fill-opacity="0\.50\d"/);
 		});
 	});
 

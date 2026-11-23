@@ -6,7 +6,7 @@
  *
  * | split way, joined          | roundabout of four arcs   | split way, one reversed   |
  * | three parts out of order   | text-size by zoom         | two carriageways          |
- * | diagonal streets, circles  |                           |                           |
+ * | diagonal streets, circles  | faded by text-opacity     |                           |
  *
  * Each line lies on one side of 0°, a tile border at zoom 12, where MapLibre would place a
  * label on each tile's part of the line.
@@ -23,8 +23,11 @@ function lineCell(options: {
 	text: string;
 	lines: (x: number, y: number) => Line[];
 	layout?: Record<string, unknown>;
+	paint?: Record<string, unknown>;
+	/** Adds to or replaces the paint of the lines. */
+	linePaint?: Record<string, unknown>;
 }): Cell {
-	const { id, title, text, lines, layout = {} } = options;
+	const { id, title, text, lines, layout = {}, paint = {}, linePaint = {} } = options;
 	return {
 		title,
 		build: (x, y) => ({
@@ -38,7 +41,7 @@ function lineCell(options: {
 					id: `${id}-line`,
 					type: 'line',
 					source: id,
-					paint: { 'line-color': '#bbbbbb', 'line-width': 2 },
+					paint: { 'line-color': '#bbbbbb', 'line-width': 2, ...linePaint },
 				},
 				{
 					id,
@@ -56,6 +59,7 @@ function lineCell(options: {
 						'text-color': '#000000',
 						'text-halo-color': '#ffcc00',
 						'text-halo-width': 2,
+						...paint,
 					},
 				},
 			],
@@ -175,6 +179,21 @@ export const cells: Cell[] = [
 			};
 		},
 	},
+	// Faded, its halo shows through the text, as MapLibre fades each; not the line below it.
+	lineCell({
+		id: 'line-faded',
+		title: 'faded by text-opacity',
+		text: 'Faded',
+		lines: (x, y) => [
+			[
+				[x + 0.001, y - 0.004],
+				[x + 0.021, y - 0.004],
+			],
+		],
+		layout: { 'text-size': 24 },
+		paint: { 'text-opacity': 0.5 },
+		linePaint: { 'line-color': '#3366ff', 'line-width': 16 },
+	}),
 ];
 
 export function lineLabelsStyle(): StyleSpecification {

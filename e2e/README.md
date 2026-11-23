@@ -85,7 +85,8 @@ among its own kind, below `never` and `always` symbols and with variable anchors
 other widths, sizes and blurs, translucent and along a line), and `visual/scenes/line-labels.ts`
 (labels along lines: ways of a street joined end to start, also a roundabout of four arcs, but
 not one running the other way; two carriageways labelled once; `text-size` by zoom, spaced by
-its size at zoom 18; two diagonal streets close together, tested by circles along them, not boxes).
+its size at zoom 18; two diagonal streets close together, tested by circles along them, not boxes; a label faded by `text-opacity`, its halo showing
+through).
 Each cell is one object: a title, and a function that builds its sources and layers around
 the cell's center. When a renderer gains a feature MapLibre has, give it a cell in a scene
 (or start a new scene, with a region of its own), so its diff is measured without the

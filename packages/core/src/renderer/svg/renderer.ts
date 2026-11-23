@@ -58,6 +58,7 @@ import {
 	type Triangle,
 } from '../raster.js';
 import { fontFamily } from '../text.js';
+import { Color as MaplibreColor } from '@maplibre/maplibre-gl-style-spec';
 
 // line-blur approximates MapLibre's edge-feather blur, which keeps an opaque core
 // and feathers over ~`blur` px with a hard cutoff. feGaussianBlur alone conserves
@@ -494,8 +495,9 @@ export class SVGRenderer {
 		if (features.length === 0) return;
 
 		this.#svg.push(`<g id="${escapeXml(id)}">`);
-		for (const [feature, style] of features) {
-			if (style.opacity <= 0 || !style.text) continue;
+		for (const [feature, labelStyle] of features) {
+			if (labelStyle.opacity <= 0 || !labelStyle.text) continue;
+			const style = labelStyle.opacity < 1 ? fadeLabel(labelStyle) : labelStyle;
 
 			const color = new Color(style.color);
 			if (color.alpha <= 0) continue;
@@ -795,4 +797,20 @@ export class SVGRenderer {
 		parts.push(...this.#svg, '</g>', '</svg>');
 		return parts.join('\n');
 	}
+}
+
+/**
+ * A label faded by `text-opacity` as MapLibre fades it: its text and its halo each, so that
+ * the halo shows through the faded text. (An SVG group's `opacity` would fade them together,
+ * the text covering its halo, and the ground show through instead.)
+ */
+function fadeLabel(style: LabelStyle): LabelStyle {
+	const fade = (color: MaplibreColor): MaplibreColor =>
+		new MaplibreColor(
+			color.r * style.opacity,
+			color.g * style.opacity,
+			color.b * style.opacity,
+			color.a * style.opacity,
+		);
+	return { ...style, opacity: 1, color: fade(style.color), haloColor: fade(style.haloColor) };
 }
