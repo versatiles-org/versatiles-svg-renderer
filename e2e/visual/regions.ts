@@ -19,7 +19,7 @@ export interface View {
  * - `pmtiles`, `mlt`: the VersaTiles vector style, with its tiles read from a PMTiles
  *   archive, as they are or converted to MLT;
  * - `geojson`, `features`, `symbols`, `sources`, `patterns`, `dashes`, `anchors`, `seams`,
- *   `images`, `scripts`, `missing-glyphs`, `combining`, `cjk`, `overlap`, `halos`, `halo-blur`:
+ *   `images`, `scripts`, `missing-glyphs`, `combining`, `cjk`, `overlap`, `halos`, `halo-blur`, `line-labels`:
  *   hand-made scenes, in `scenes/`.
  */
 export type StyleName =
@@ -42,7 +42,8 @@ export type StyleName =
 	| 'cjk'
 	| 'overlap'
 	| 'halos'
-	| 'halo-blur';
+	| 'halo-blur'
+	| 'line-labels';
 
 export interface Region {
 	/** Unique; also the region's key in `diff-baseline.json`. */
@@ -153,6 +154,8 @@ export const regions: Region[] = [
 	{ id: 'parity-halos', style: 'halos', view: scene, labels: true },
 	// Blurred halos: faded level by level, as MapLibre fades them.
 	{ id: 'parity-halo-blur', style: 'halo-blur', view: scene, labels: true },
+	// Labels along lines: ways joined, carriageways labelled once, spaced by their size at zoom 18.
+	{ id: 'parity-line-labels', style: 'line-labels', view: scene, labels: true },
 	// Labels and icons that may overlap others: `text-overlap`, `icon-overlap`.
 	{ id: 'parity-overlap', style: 'overlap', view: scene, labels: true },
 	{ id: 'parity-sources', style: 'sources', view: scene },

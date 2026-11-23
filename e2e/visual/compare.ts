@@ -56,6 +56,7 @@ const PIXELMATCH_THRESHOLD: Record<StyleName, number> = {
 	cjk: 0.035,
 	halos: 0.035,
 	'halo-blur': 0.035,
+	'line-labels': 0.035,
 	satellite: 0.11,
 };
 

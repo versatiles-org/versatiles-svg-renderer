@@ -32,6 +32,7 @@ import {
 	layoutVerticalText,
 	lineAnchors,
 	measureLine,
+	mergeLines,
 	overlapMode,
 	paddedBox,
 	placeSymbols,
@@ -147,7 +148,6 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 		anchors.push(anchor);
 		return false;
 	};
-	const symbolFeatures = sortByKey(filtered, (feature) => getLayout('symbol-sort-key', feature));
 	const labelText = (feature: LayerFeature): string => {
 		const textField = getLayout('text-field', feature);
 		const textRaw = textField != null ? (textField as { toString(): string }).toString() : '';
@@ -156,6 +156,10 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			getLayout('text-transform', feature),
 		);
 	};
+	// Along lines, MapLibre first joins the lines of a text that meet, in each tile.
+	const merged =
+		getLayout('symbol-placement') === 'line' ? mergeLines(filtered, labelText) : filtered;
+	const symbolFeatures = sortByKey(merged, (feature) => getLayout('symbol-sort-key', feature));
 
 	// Drawn as glyphs, labels need the style's glyphs before they are laid out, with their
 	// metrics: all ranges the layer's labels use (Arabic in its shapes), loaded together; not

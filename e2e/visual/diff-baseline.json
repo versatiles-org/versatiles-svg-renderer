@@ -30,9 +30,9 @@
 		"drift": 0.55
 	},
 	"berlin-labels-vector": {
-		"svg": 2.59,
-		"png": 2.21,
-		"drift": 0.66
+		"svg": 2.38,
+		"png": 1.98,
+		"drift": 0.65
 	},
 	"berlin-outlines-vector": {
 		"svg": 1.07,
@@ -45,9 +45,9 @@
 		"drift": 0.42
 	},
 	"berlin-labels-rotated-vector": {
-		"svg": 2.38,
-		"png": 1.96,
-		"drift": 0.68
+		"svg": 2.29,
+		"png": 1.87,
+		"drift": 0.69
 	},
 	"berlin-rotated-satellite": {
 		"svg": 0.22,
@@ -1140,6 +1140,43 @@
 			"along a line, halo 2, blur 1": {
 				"svg": 0.22,
 				"png": 0.2,
+				"drift": 0
+			}
+		}
+	},
+	"parity-line-labels": {
+		"svg": 0.09,
+		"png": 0.09,
+		"drift": 0,
+		"cells": {
+			"split way, joined": {
+				"svg": 0.16,
+				"png": 0.15,
+				"drift": 0
+			},
+			"roundabout of four arcs": {
+				"svg": 0.17,
+				"png": 0.17,
+				"drift": 0.01
+			},
+			"split way, one reversed": {
+				"svg": 0,
+				"png": 0,
+				"drift": 0
+			},
+			"three parts out of order": {
+				"svg": 0.07,
+				"png": 0.07,
+				"drift": 0
+			},
+			"text-size by zoom": {
+				"svg": 0.04,
+				"png": 0.04,
+				"drift": 0
+			},
+			"two carriageways": {
+				"svg": 0.13,
+				"png": 0.12,
 				"drift": 0
 			}
 		}

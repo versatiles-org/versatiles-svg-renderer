@@ -15,6 +15,7 @@ export {
 } from './collision.js';
 export { haloEdges, HALO_LEVELS, traceGlyph, traceHalo } from './glyph_outline.js';
 export { labelAnchors } from './label_anchors.js';
+export { mergeLines } from './merge_lines.js';
 export {
 	fitsMaxAngle,
 	layoutAlongLine,
