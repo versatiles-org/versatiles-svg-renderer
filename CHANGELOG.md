@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-11-23
+
+### Features
+
+- **core:** fade label halos with text-halo-blur, level by level, as MapLibre GL JS does ([15b6b01](https://github.com/versatiles-org/versatiles-svg-renderer/commit/15b6b01722e833475499fed9532d12ed773909dc))
+
+### Bug Fixes
+
+- **core:** leave out letters the glyph server lacks, as MapLibre GL JS does, instead of drawing the label as text ([a7e0b0c](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a7e0b0c074aea282d5a6fb2e2877280b6645eb3a))
+- **core:** trace label halos from the glyphs' distance field, boxes and all, as MapLibre GL JS draws them ([f0df572](https://github.com/versatiles-org/versatiles-svg-renderer/commit/f0df5728d2666f8cc16cbdc9143f2f37ee195177))
+- **core:** place labels along lines as MapLibre GL JS does: by their size at zoom 18, half the spacing in where a line goes on from the next tile, once per text nearby ([258ab08](https://github.com/versatiles-org/versatiles-svg-renderer/commit/258ab0854bad5a23786688de7c7a11c3b1a32684))
+- **core:** join the ways of a street that meet before placing labels along them, as MapLibre GL JS does ([304ac7c](https://github.com/versatiles-org/versatiles-svg-renderer/commit/304ac7c9c0e58d27e7ea3e7cac06c2c43a69b8f3))
+- **core:** test labels along lines for collisions by circles along them, as MapLibre GL JS does, not by a box per glyph ([21f6e74](https://github.com/versatiles-org/versatiles-svg-renderer/commit/21f6e74e9559b4e2d899b239750c07b2fc01beeb))
+- **core:** fade an SVG label's text and halo each by text-opacity, as MapLibre GL JS does, not the label as a whole ([e185156](https://github.com/versatiles-org/versatiles-svg-renderer/commit/e185156d4167c8bc544078193da5ca5e418b29ea))
+- **core:** write SVG coordinates in hundredths of a pixel, not tenths, so that thin lines and dashes end where MapLibre GL JS draws them ([a921502](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a921502c2ed6300926070a5ef0926a434d02b940))
+
+### Chores
+
+- update @versatiles/style to 9.1.1 ([a0eb31f](https://github.com/versatiles-org/versatiles-svg-renderer/commit/a0eb31f3c91f50cba362f78cf9d4c8e208fcb453))
+
 ## [2.8.0] - 2026-11-22
 
 ### Features
