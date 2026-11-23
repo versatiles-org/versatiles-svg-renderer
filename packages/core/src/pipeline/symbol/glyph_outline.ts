@@ -1,7 +1,8 @@
 /**
  * The outlines of glyphs, traced from their signed distance fields (SDF): where the field
- * crosses MapLibre GL JS's edge value, the glyph's shape as MapLibre draws it. The outline
- * is placed in MapLibre's glyph frame, so a renderer only has to move, turn and scale it.
+ * crosses MapLibre GL JS's edge value, the glyph's shape as MapLibre draws it, and where it
+ * crosses the value of a halo's edge, the halo. The outlines are placed in MapLibre's glyph
+ * frame, so a renderer only has to move, turn and scale them.
  */
 import type { GlyphOutline } from '../../types.js';
 import { type Glyph, GLYPH_BORDER, GLYPH_EM } from '../../sources/index.js';
@@ -15,8 +16,27 @@ const TOLERANCE = 0.08;
 /** MapLibre's `SHAPING_DEFAULT_OFFSET`: from the middle of a line of text to its glyphs. */
 const LINE_OFFSET = -17;
 
+/** MapLibre's `SDF_PX`: the field falls by 1/8 of its range per pixel at 24 px per em. */
+const SDF_PX = 8;
+
 /** Traces `glyph`'s outline; `key` identifies it (e.g. font stack and code point). */
 export function traceGlyph(glyph: Glyph, key: string): GlyphOutline {
+	return traceAt(glyph, key, EDGE);
+}
+
+/**
+ * Traces the outline of `glyph`'s halo, `width` pixels at 24 px per em beyond its edge, as
+ * MapLibre draws it (`symbol_sdf.fragment.glsl`): where the field exceeds (6 − width) / 8.
+ * MapLibre draws no further than the glyph's bitmap and the pixel of empty padding around it
+ * in its atlas, and the field reaches only 3 pixels beyond the glyph's ink: a halo wider than
+ * that fills more and more of the box, and one 6 pixels wide or more all of it.
+ */
+export function traceHalo(glyph: Glyph, key: string, width: number): GlyphOutline {
+	return traceAt(glyph, key, (255 * (6 - width)) / SDF_PX);
+}
+
+/** Traces where `glyph`'s field exceeds `edge`, in MapLibre's glyph frame. */
+function traceAt(glyph: Glyph, key: string, edge: number): GlyphOutline {
 	const advance = glyph.advance / GLYPH_EM;
 	const w = glyph.width + 2 * GLYPH_BORDER;
 	const h = glyph.height + 2 * GLYPH_BORDER;
@@ -25,8 +45,19 @@ export function traceGlyph(glyph: Glyph, key: string): GlyphOutline {
 	}
 	const dx = glyph.left - GLYPH_BORDER - glyph.advance / 2;
 	const dy = LINE_OFFSET - glyph.top - GLYPH_BORDER;
-	const rings = traceContours(glyph.bitmap, w, h).map((ring) =>
-		simplify(ring, TOLERANCE).map(([x, y]): [number, number] => [
+	const contours: [number, number][][] =
+		edge > 0
+			? traceContours(glyph.bitmap, w, h, edge).map((ring) => simplify(ring, TOLERANCE))
+			: [
+					[
+						[-1, -1],
+						[w + 1, -1],
+						[w + 1, h + 1],
+						[-1, h + 1],
+					],
+				];
+	const rings = contours.map((ring) =>
+		ring.map(([x, y]): [number, number] => [
 			Math.round((x + dx) * 100) / 100,
 			Math.round((y + dy) * 100) / 100,
 		]),
@@ -36,10 +67,16 @@ export function traceGlyph(glyph: Glyph, key: string): GlyphOutline {
 
 /**
  * The closed contours where the field `values` (`w` × `h`, row by row, sampled at pixel
- * centers) crosses {@link EDGE}, by marching squares. Outside the bitmap, the field is 0,
- * so every contour closes.
+ * centers) crosses `edge` ({@link EDGE}, the glyph's), by marching squares. Outside the
+ * bitmap, the field is 0, so every contour closes: as in MapLibre's atlas, where a pixel of
+ * empty padding surrounds each glyph.
  */
-export function traceContours(values: Uint8Array, w: number, h: number): [number, number][][] {
+export function traceContours(
+	values: Uint8Array,
+	w: number,
+	h: number,
+	edge = EDGE,
+): [number, number][][] {
 	const at = (i: number, j: number): number =>
 		i < 0 || j < 0 || i >= w || j >= h ? 0 : values[j * w + i]!;
 
@@ -49,7 +86,7 @@ export function traceContours(values: Uint8Array, w: number, h: number): [number
 		if (!points.has(key)) {
 			const v0 = at(i0, j0);
 			const v1 = at(i1, j1);
-			const t = v1 === v0 ? 0.5 : (EDGE - v0) / (v1 - v0);
+			const t = v1 === v0 ? 0.5 : (edge - v0) / (v1 - v0);
 			points.set(key, [i0 + 0.5 + (i1 - i0) * t, j0 + 0.5 + (j1 - j0) * t]);
 		}
 		return key;
@@ -62,10 +99,10 @@ export function traceContours(values: Uint8Array, w: number, h: number): [number
 
 	for (let j = -1; j < h; j++) {
 		for (let i = -1; i < w; i++) {
-			const tl = at(i, j) > EDGE;
-			const tr = at(i + 1, j) > EDGE;
-			const br = at(i + 1, j + 1) > EDGE;
-			const bl = at(i, j + 1) > EDGE;
+			const tl = at(i, j) > edge;
+			const tr = at(i + 1, j) > edge;
+			const br = at(i + 1, j + 1) > edge;
+			const bl = at(i, j + 1) > edge;
 			const cell = (tl ? 8 : 0) | (tr ? 4 : 0) | (br ? 2 : 0) | (bl ? 1 : 0);
 			if (cell === 0 || cell === 15) continue;
 			const top = (): string => crossing(`h${String(i)},${String(j)}`, i, j, i + 1, j);
@@ -74,7 +111,7 @@ export function traceContours(values: Uint8Array, w: number, h: number): [number
 			const left = (): string => crossing(`v${String(i)},${String(j)}`, i, j, i, j + 1);
 			const right = (): string =>
 				crossing(`v${String(i + 1)},${String(j)}`, i + 1, j, i + 1, j + 1);
-			const centerInside = (at(i, j) + at(i + 1, j) + at(i + 1, j + 1) + at(i, j + 1)) / 4 > EDGE;
+			const centerInside = (at(i, j) + at(i + 1, j) + at(i + 1, j + 1) + at(i, j + 1)) / 4 > edge;
 			switch (cell) {
 				case 1:
 				case 14:

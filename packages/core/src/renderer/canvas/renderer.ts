@@ -21,6 +21,7 @@ import type {
 	CircleStyle,
 	FillPattern,
 	FillStyle,
+	GlyphOutline,
 	GlyphPlacement,
 	IconStyle,
 	LinePattern,
@@ -774,31 +775,29 @@ export class CanvasRenderer implements Renderer {
 		const haloColor = new Color(style.haloColor);
 		const hasHalo = style.haloWidth > 0 && haloColor.alpha > 0;
 		this.#paint(this.ctx, [0, 0], style.opacity, (ctx) => {
-			ctx.fillStyle = color.hex;
-			ctx.strokeStyle = haloColor.hex;
-			ctx.lineJoin = 'round';
-			for (const pass of hasHalo ? ['halo', 'fill'] : ['fill']) {
+			// Each glyph's halo is an outline of its own, traced as MapLibre draws it.
+			const passes: [string, (glyph: PlacedGlyph) => GlyphOutline | undefined][] = [
+				[color.hex, (glyph) => glyph.outline],
+			];
+			if (hasHalo) passes.unshift([haloColor.hex, (glyph) => glyph.halo]);
+			for (const [fill, outlineOf] of passes) {
+				ctx.fillStyle = fill;
 				for (const glyph of glyphs) {
-					if (glyph.outline.rings.length === 0) continue;
+					const outline = outlineOf(glyph);
+					if (!outline || outline.rings.length === 0) continue;
 					ctx.save();
 					ctx.translate(glyph.x, glyph.y);
 					ctx.rotate((glyph.angle * Math.PI) / 180);
 					ctx.scale(glyph.scale, glyph.scale);
 					ctx.beginPath();
-					for (const ring of glyph.outline.rings) {
+					for (const ring of outline.rings) {
 						ring.forEach(([x, y], i) => {
 							if (i === 0) ctx.moveTo(x, y);
 							else ctx.lineTo(x, y);
 						});
 						ctx.closePath();
 					}
-					if (pass === 'halo') {
-						// The outlines are scaled; the halo's width is on screen.
-						ctx.lineWidth = haloStroke(style.haloWidth, style.size) / glyph.scale;
-						ctx.stroke();
-					} else {
-						ctx.fill('evenodd');
-					}
+					ctx.fill('evenodd');
 					ctx.restore();
 				}
 			}

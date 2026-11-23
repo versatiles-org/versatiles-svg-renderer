@@ -994,23 +994,23 @@
 		}
 	},
 	"parity-halos": {
-		"svg": 0.25,
-		"png": 0.22,
+		"svg": 0.08,
+		"png": 0.06,
 		"drift": 0.02,
 		"cells": {
 			"12 px, halo 1": {
-				"svg": 0.19,
+				"svg": 0.18,
 				"png": 0.17,
-				"drift": 0.07
+				"drift": 0.06
 			},
-			"12 px, halo 3 (capped)": {
-				"svg": 0.14,
-				"png": 0.13,
+			"12 px, halo 3 (box)": {
+				"svg": 0.05,
+				"png": 0.05,
 				"drift": 0
 			},
 			"24 px, halo 1": {
-				"svg": 0.12,
-				"png": 0.11,
+				"svg": 0.11,
+				"png": 0.1,
 				"drift": 0
 			},
 			"24 px, halo 3": {
@@ -1018,23 +1018,23 @@
 				"png": 0.02,
 				"drift": 0
 			},
-			"24 px, halo 6 (capped)": {
-				"svg": 0.58,
-				"png": 0.56,
+			"24 px, halo 6 (box)": {
+				"svg": 0.06,
+				"png": 0.06,
 				"drift": 0
 			},
 			"40 px, halo 2": {
-				"svg": 0.02,
+				"svg": 0.01,
 				"png": 0.02,
 				"drift": 0
 			},
-			"40 px, halo 8 (capped)": {
-				"svg": 0.91,
-				"png": 0.87,
+			"40 px, halo 8 (box)": {
+				"svg": 0.01,
+				"png": 0.01,
 				"drift": 0
 			},
 			"translucent halo": {
-				"svg": 0.05,
+				"svg": 0.04,
 				"png": 0.05,
 				"drift": 0
 			},

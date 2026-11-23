@@ -82,6 +82,9 @@ export const TEXT_BASELINE = { server: 7 / 24, local: 10.5 / 24 } as const;
  * on both sides; but no further than its glyphs' distance field reaches, 3 of 24 pixels per
  * em beyond their ink (the glyph server's buffer, and the one MapLibre draws its own glyphs
  * with). Wider still, MapLibre fills each glyph's box instead.
+ *
+ * For labels drawn as text, which have no distance field. A label drawn as glyphs traces
+ * each glyph's halo from its field instead, boxes and all (`traceHalo`).
  */
 export function haloStroke(haloWidth: number, size: number): number {
 	return 2 * Math.max(0, Math.min(haloWidth, (size * 3) / 24));

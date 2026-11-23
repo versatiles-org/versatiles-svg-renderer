@@ -1065,6 +1065,32 @@ describe('CanvasRenderer', () => {
 			expect(at(r, 110, 100)[3]).toBe(0);
 		});
 
+		test("fills each glyph's halo outline under the glyphs, in the halo's colour", () => {
+			const r = makeRenderer();
+			const square = (half: number, key: string) => ({
+				key,
+				rings: [
+					[
+						[-half, -half],
+						[half, -half],
+						[half, half],
+						[-half, half],
+					] as [number, number][],
+				],
+				advance: 1,
+			});
+			// At scale 0.5: the glyph 6 px around (100, 100), its halo 12 px.
+			const glyphs = [
+				{ outline: square(12, 'g'), halo: square(24, 'h'), x: 100, y: 100, angle: 0, scale: 0.5 },
+			];
+			r.drawLabels('l', [
+				[makePointFeature([[0, 0]]), symbolStyle({ glyphs, textOverlay: true, haloWidth: 6 })],
+			]);
+			expect(at(r, 100, 100).slice(0, 4)).toEqual([255, 0, 0, 255]); // the glyph, over its halo
+			expect(at(r, 109, 109).slice(0, 4)).toEqual([0, 0, 255, 255]); // the halo
+			expect(at(r, 114, 100)[3]).toBe(0); // beyond it
+		});
+
 		test('draws a label of several lines, each at its point', () => {
 			const r = makeRenderer();
 			const lines = [

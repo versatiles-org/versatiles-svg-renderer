@@ -33,6 +33,7 @@ import type {
 	BackgroundStyle,
 	CircleStyle,
 	FillStyle,
+	GlyphOutline,
 	GlyphPlacement,
 	IconStyle,
 	LinePattern,
@@ -631,25 +632,25 @@ export class SVGRenderer {
 	 * with `<use>`. All halos come first, then all glyphs, as MapLibre draws them.
 	 */
 	#glyphLabel(style: LabelStyle, glyphs: PlacedGlyph[], color: Color): string {
-		const scale = glyphs[0]?.scale ?? 1;
-		const uses = glyphs
-			.map((glyph) => {
-				const [x, y] = roundXY(glyph.x, glyph.y);
-				const angle = Math.round(glyph.angle * 10) / 10;
-				const rotate = angle === 0 ? '' : ` rotate(${String(angle)})`;
-				return `<use xlink:href="#${this.#defs.glyph(glyph.outline)}" transform="translate(${formatNum(x)},${formatNum(y)})${rotate} scale(${formatScale(glyph.scale)})" />`;
-			})
-			.join('');
+		const uses = (outlineOf: (glyph: PlacedGlyph) => GlyphOutline | undefined): string =>
+			glyphs
+				.map((glyph) => {
+					const outline = outlineOf(glyph);
+					if (!outline) return '';
+					const [x, y] = roundXY(glyph.x, glyph.y);
+					const angle = Math.round(glyph.angle * 10) / 10;
+					const rotate = angle === 0 ? '' : ` rotate(${String(angle)})`;
+					return `<use xlink:href="#${this.#defs.glyph(outline)}" transform="translate(${formatNum(x)},${formatNum(y)})${rotate} scale(${formatScale(glyph.scale)})" />`;
+				})
+				.join('');
 		const opacity = style.opacity < 1 ? ` opacity="${style.opacity.toFixed(3)}"` : '';
 		const parts = [`<g${opacity}>`];
 		const haloColor = new Color(style.haloColor);
 		if (style.haloWidth > 0 && haloColor.alpha > 0) {
-			// The outlines are scaled; the halo's width is on screen.
-			parts.push(
-				`<g fill="none" stroke="${haloColor.rgb}" stroke-width="${formatScale(haloStroke(style.haloWidth, style.size) / scale)}"${opacityAttr('stroke-opacity', haloColor.opacity)} stroke-linejoin="round">${uses}</g>`,
-			);
+			// Each glyph's halo is an outline of its own, traced as MapLibre draws it.
+			parts.push(`<g ${fillAttr(haloColor)}>${uses((glyph) => glyph.halo)}</g>`);
 		}
-		parts.push(`<g ${fillAttr(color)}>${uses}</g>`, '</g>');
+		parts.push(`<g ${fillAttr(color)}>${uses((glyph) => glyph.outline)}</g>`, '</g>');
 		return parts.join('');
 	}
 

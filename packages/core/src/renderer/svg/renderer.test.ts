@@ -1386,9 +1386,21 @@ describe('SVGRenderer', () => {
 				],
 				advance: 0.5,
 			};
+			const halo = {
+				key: 'F\u000065\u0000halo 4',
+				rings: [
+					[
+						[-1, 1],
+						[11, 1],
+						[11, -11],
+						[-1, -11],
+					] as [number, number][],
+				],
+				advance: 0.5,
+			};
 			const glyphs = [
-				{ outline, x: 10, y: 20, angle: 0, scale: 0.5 },
-				{ outline, x: 20, y: 20, angle: 30, scale: 0.5 },
+				{ outline, halo, x: 10, y: 20, angle: 0, scale: 0.5 },
+				{ outline, halo, x: 20, y: 20, angle: 30, scale: 0.5 },
 			];
 			const feature = new Feature({
 				type: 'Point',
@@ -1407,15 +1419,20 @@ describe('SVGRenderer', () => {
 			const r = makeRenderer();
 			r.drawLabels('l', [[feature, style]]);
 			const svg = r.getString();
-			// One definition, two uses, in the halo and in the fill.
+			// The halos first, filled with the halo's colour, then the glyphs: each outline
+			// defined once and used once per glyph.
 			expect(
-				svg.match(/<path id="glyph-0" fill-rule="evenodd" d="M0,0L10,0L10,-10Z" \/>/g),
+				svg.match(/<path id="glyph-0" fill-rule="evenodd" d="M-1,1L11,1L11,-11L-1,-11Z" \/>/g),
 			).toHaveLength(1);
-			expect(svg.match(/<use xlink:href="#glyph-0"/g)).toHaveLength(4);
+			expect(
+				svg.match(/<path id="glyph-1" fill-rule="evenodd" d="M0,0L10,0L10,-10Z" \/>/g),
+			).toHaveLength(1);
+			expect(svg).toMatch(
+				/<g fill="#FFFFFF"><use xlink:href="#glyph-0"[^>]*\/><use xlink:href="#glyph-0"/,
+			);
+			expect(svg.match(/<use xlink:href="#glyph-1"/g)).toHaveLength(2);
 			expect(svg).toContain('transform="translate(20,20) rotate(30) scale(0.5)"');
-			// The halo reaches 2 px beyond the outlines on screen: a stroke 4 px wide, 8 in the
-			// outlines' units, scaled by 0.5.
-			expect(svg).toContain('stroke="#FFFFFF" stroke-width="8"');
+			expect(svg).not.toContain('stroke=');
 			// The invisible text, as wide as the glyphs, on their baseline.
 			expect(svg).toMatch(
 				/<text x="15" y="24.7" textLength="12" lengthAdjust="spacingAndGlyphs" [^>]*fill-opacity="0">AA<\/text>/,

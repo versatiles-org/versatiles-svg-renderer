@@ -40,6 +40,7 @@ import {
 	singleLine,
 	tableMetrics,
 	traceGlyph,
+	traceHalo,
 	verticalText,
 	withVerticalPunctuation,
 	type Box,
@@ -237,16 +238,24 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 			hasGlyphRanges(drawnCharacters(labelStyle.text), rangeOf);
 		const fallbackMetrics = tableMetrics(labelStyle?.font);
 		const metrics = asGlyphs ? glyphMetrics(glyphAt, fallbackMetrics) : fallbackMetrics;
-		const outlineOf = (codePoint: number): GlyphOutline | undefined => {
-			const glyph = glyphAt(codePoint);
-			if (!glyph) return undefined;
-			const key = `${fontStack}\0${String(codePoint)}`;
+		const traced = (key: string, trace: () => GlyphOutline): GlyphOutline => {
 			let outline = context.outlines.get(key);
 			if (!outline) {
-				outline = traceGlyph(glyph, key);
+				outline = trace();
 				context.outlines.set(key, outline);
 			}
 			return outline;
+		};
+		const outlineOf: OutlineOf = (codePoint, haloWidth) => {
+			const glyph = glyphAt(codePoint);
+			if (!glyph) return undefined;
+			const key = `${fontStack}\0${String(codePoint)}`;
+			const outline = traced(key, () => traceGlyph(glyph, key));
+			// The halo's width in pixels at 24 px per em, to a hundredth: outlines are drawn no finer.
+			const width = Math.round(haloWidth * 100) / 100;
+			if (width <= 0) return { outline };
+			const haloKey = `${key}\0halo ${String(width)}`;
+			return { outline, halo: traced(haloKey, () => traceHalo(glyph, haloKey, width)) };
 		};
 		const textOverlay = job.labels === 'glyphs-text';
 
@@ -675,18 +684,28 @@ function drawnLines(
 }
 
 /**
+ * A glyph's outline, and its halo's if `haloWidth` (in pixels at 24 px per em) is above 0;
+ * nothing if the glyph server has no glyph for `codePoint`.
+ */
+type OutlineOf = (
+	codePoint: number,
+	haloWidth: number,
+) => Pick<PlacedGlyph, 'outline' | 'halo'> | undefined;
+
+/**
  * The glyphs of a label's lines, as MapLibre places them: along each line as drawn from its
  * start, one advance after the other, turned with `text-rotate` around the label's point `x`, `y`.
  */
 function glyphsOfLines(
 	lineBoxes: { glyphs: string; left: number; y: number }[],
 	style: SymbolStyle,
-	outlineOf: (codePoint: number) => GlyphOutline | undefined,
+	outlineOf: OutlineOf,
 	x: number,
 	y: number,
 	metrics: FontMetrics,
 ): PlacedGlyph[] {
 	const scale = style.size / GLYPH_EM;
+	const haloWidth = style.haloWidth / scale;
 	const spacing = (style.letterSpacing ?? 0) * style.size;
 	const radians = (style.rotate * Math.PI) / 180;
 	const cos = Math.cos(radians);
@@ -696,12 +715,12 @@ function glyphsOfLines(
 		let pen = line.left;
 		for (const char of line.glyphs) {
 			const advance = metrics.advance(char) * style.size;
-			const outline = outlineOf(char.codePointAt(0)!);
-			if (outline) {
+			const glyph = outlineOf(char.codePointAt(0)!, haloWidth);
+			if (glyph) {
 				const dx = pen + advance / 2 - x;
 				const dy = line.y - y;
 				placed.push({
-					outline,
+					...glyph,
 					x: x + dx * cos - dy * sin,
 					y: y + dx * sin + dy * cos,
 					angle: style.rotate,
@@ -721,21 +740,22 @@ function glyphsOfLines(
 function glyphsAlongPath(
 	path: GlyphPlacement[],
 	style: SymbolStyle,
-	outlineOf: (codePoint: number) => GlyphOutline | undefined,
+	outlineOf: OutlineOf,
 	metrics: FontMetrics,
 ): PlacedGlyph[] {
 	const scale = style.size / GLYPH_EM;
+	const haloWidth = style.haloWidth / scale;
 	const placed: PlacedGlyph[] = [];
 	for (const grapheme of path) {
 		const radians = (grapheme.angle * Math.PI) / 180;
 		let along = -(metrics.advance(grapheme.text) * style.size) / 2;
 		for (const char of grapheme.text) {
 			const advance = metrics.advance(char) * style.size;
-			const outline = outlineOf(char.codePointAt(0)!);
-			if (outline) {
+			const glyph = outlineOf(char.codePointAt(0)!, haloWidth);
+			if (glyph) {
 				const offset = along + advance / 2;
 				placed.push({
-					outline,
+					...glyph,
 					x: grapheme.x + offset * Math.cos(radians),
 					y: grapheme.y + offset * Math.sin(radians),
 					angle: grapheme.angle,

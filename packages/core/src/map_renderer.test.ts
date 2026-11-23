@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
-import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type {
+	StyleSpecification,
+	SymbolLayerSpecification,
+} from '@maplibre/maplibre-gl-style-spec';
 import type { Feature } from 'geojson';
 import { SVGMapRenderer, viewSize } from './map_renderer.js';
 import { renderToSVG } from './render_svg.js';
@@ -341,6 +344,35 @@ describe('SVGMapRenderer', () => {
 			expect(await render('A', 'glyphs-text')).toMatch(/<text [^>]*fill-opacity="0">AB</);
 			// Without any of its glyphs, the label is not drawn at all.
 			expect(await render('')).not.toMatch(/<text|#glyph/);
+		});
+
+		test("traces each glyph's halo from its distance field, as a box if it is wide", async () => {
+			const render = (haloWidth: number) => {
+				const style = labelStyle(true, 'A');
+				style.layers[1] = {
+					...(style.layers[1] as SymbolLayerSpecification),
+					paint: { 'text-halo-width': haloWidth, 'text-halo-color': '#00ff00' },
+				};
+				return new SVGMapRenderer({
+					style,
+					labels: 'glyphs',
+					fetch: glyphFetch('A'),
+					onWarning: vi.fn(),
+				}).renderSVG({ width: 200, height: 200, zoom: 3 });
+			};
+			// A halo of 1 px: an outline of its own, filled under the glyph's.
+			const narrow = await render(1);
+			expect(narrow.match(/<path id="glyph-\d"/g)).toHaveLength(2);
+			expect(narrow).toMatch(
+				/<g fill="#00FF00"><use xlink:href="#glyph-0"[^>]*\/><\/g><g fill="#000000"><use xlink:href="#glyph-1"/,
+			);
+			expect(narrow).not.toContain('stroke=');
+			// 12 px at 16 px per em are 18 at 24: wider than the field, MapLibre fills the glyph's
+			// whole box, its 16 × 20 bitmap and a pixel of padding around it.
+			const wide = await render(12);
+			expect(wide).toContain(
+				'<path id="glyph-0" fill-rule="evenodd" d="M-11,-18L7,-18L7,4L-11,4Z" />',
+			);
 		});
 
 		test('draws a label as text if one of its glyph ranges cannot be loaded', async () => {

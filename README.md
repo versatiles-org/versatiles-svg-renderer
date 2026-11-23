@@ -214,7 +214,7 @@ What MapLibre GL JS can do, and how far the SVG and PNG renderers follow it. Uns
 
 ¹ The text is drawn, its formatting is lost.
 
-² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones. A halo wider than 3/24 of the text size, which MapLibre fills out to the box of each glyph, follows the letters.
+² Except `text-halo-blur`, left out on purpose: sharp halos come closer to MapLibre's faint ones. Labels drawn from the glyph server's glyphs get their halos traced from the same distance field MapLibre draws them with, so a halo wider than 3/24 of the text size fills out to the box of each glyph, as in MapLibre. Labels drawn as text have no distance field: there, such a halo follows the letters.
 
 ³ Given to the renderer as the `images` option.
 

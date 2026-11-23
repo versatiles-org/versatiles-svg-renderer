@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { traceContours, traceGlyph } from './glyph_outline.js';
+import { traceContours, traceGlyph, traceHalo } from './glyph_outline.js';
 import { rectangleSdf } from '../../sources/__fixtures__/glyphs.js';
 
 /** The bounding box of rings. */
@@ -69,5 +69,56 @@ describe('traceGlyph', () => {
 			advance: 6,
 		};
 		expect(traceGlyph(space, 's')).toEqual({ key: 's', rings: [], advance: 0.25 });
+		expect(traceHalo(space, 's', 2)).toEqual({ key: 's', rings: [], advance: 0.25 });
+	});
+});
+
+describe('traceHalo', () => {
+	// A 10 × 12 rectangle; its outline spans [−6, −12, 4, 0] (see above), its bitmap 3 px more.
+	const glyph = {
+		id: 65,
+		bitmap: rectangleSdf(10, 12),
+		width: 10,
+		height: 12,
+		left: 1,
+		top: -5,
+		advance: 14,
+	};
+
+	test('without a width, traces the outline of the glyph itself', () => {
+		expect(traceHalo(glyph, 'h', 0).rings).toEqual(traceGlyph(glyph, 'g').rings);
+	});
+
+	test("traces where the field exceeds MapLibre's halo edge, (6 − width) / 8", () => {
+		// Width 1: the edge 255 / 8 lower, which the test field (24 per pixel) reaches 255 / 8 / 24
+		// pixels beyond the rectangle's outline.
+		const beyond = 255 / 8 / 24;
+		const [x0, y0, x1, y1] = bounds(traceHalo(glyph, 'h', 1).rings);
+		expect(x0).toBeCloseTo(-6 - beyond, 1);
+		expect(y0).toBeCloseTo(-12 - beyond, 1);
+		expect(x1).toBeCloseTo(4 + beyond, 1);
+		expect(y1).toBeCloseTo(0 + beyond, 1);
+	});
+
+	test('fills the bitmap and its pixel of padding, no further, when the halo is wider than the field', () => {
+		// Width 4.5: the field ends 3 px beyond the outline, at the bitmap's edge, before the halo
+		// does. The halo fades into the padding.
+		const [x0, y0, x1, y1] = bounds(traceHalo(glyph, 'h', 4.5).rings);
+		expect(x0).toBeLessThan(-9);
+		expect(x0).toBeGreaterThan(-10);
+		expect(y0).toBeLessThan(-15);
+		expect(y1).toBeGreaterThan(3);
+		expect(x1).toBeLessThan(8);
+		// Width 6 or more: all of it, a box.
+		const box = traceHalo(glyph, 'h', 8);
+		expect(box.key).toBe('h');
+		expect(box.rings).toEqual([
+			[
+				[-10, -16],
+				[8, -16],
+				[8, 4],
+				[-10, 4],
+			],
+		]);
 	});
 });

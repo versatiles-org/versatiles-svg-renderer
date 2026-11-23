@@ -81,6 +81,8 @@ export interface GlyphOutline {
 /** A glyph of a label drawn as glyphs: its outline, its middle on screen, angle and scale. */
 export interface PlacedGlyph {
 	outline: GlyphOutline;
+	/** The outline of its halo, in the same frame, if the label has one. */
+	halo?: GlyphOutline;
 	/** Where the middle of the glyph's advance lies, in the middle of its line of text. */
 	x: number;
 	y: number;

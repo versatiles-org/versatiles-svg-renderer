@@ -13,7 +13,7 @@ export {
 	type PlacedSymbol,
 	type TextLayout,
 } from './collision.js';
-export { traceGlyph } from './glyph_outline.js';
+export { traceGlyph, traceHalo } from './glyph_outline.js';
 export { labelAnchors } from './label_anchors.js';
 export {
 	fitsMaxAngle,
