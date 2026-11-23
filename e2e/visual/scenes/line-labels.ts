@@ -1,11 +1,12 @@
 /**
  * Labels along lines where MapLibre places them by more than the line itself, one case per
  * cell: it joins the ways of a street that meet end to start (`merge_lines.ts`), labels two
- * carriageways of one street once (`anchorIsTooClose`), and spaces labels by their size at
- * zoom 18 (`getAnchors`).
+ * carriageways of one street once (`anchorIsTooClose`), spaces labels by their size at zoom 18
+ * (`getAnchors`), and tests them for collisions by circles along them (`placeCollisionCircles`).
  *
  * | split way, joined          | roundabout of four arcs   | split way, one reversed   |
  * | three parts out of order   | text-size by zoom         | two carriageways          |
+ * | diagonal streets, circles  |                           |                           |
  *
  * Each line lies on one side of 0°, a tile border at zoom 12, where MapLibre would place a
  * label on each tile's part of the line.
@@ -147,6 +148,33 @@ export const cells: Cell[] = [
 		],
 		layout: { 'text-size': 14 },
 	}),
+	// Two diagonal streets 30 px apart, each label in its layer and blocking the other's way:
+	// MapLibre tests them by circles 14 px in radius along them, which leave room for both,
+	// where the boxes around each turned glyph would reach 20 px to either side.
+	{
+		title: 'diagonal streets, circles',
+		build: (x, y) => {
+			const diagonal = (id: string, text: string, shift: number) =>
+				lineCell({
+					id,
+					title: id,
+					text,
+					lines: () => [
+						[
+							[x - 0.012 + shift, y - 0.012],
+							[x + 0.012 + shift, y + 0.012],
+						],
+					],
+					layout: { 'text-allow-overlap': false },
+				}).build(x, y);
+			const upper = diagonal('line-diagonal-upper', 'Upper Street', 0);
+			const lower = diagonal('line-diagonal-lower', 'Lower Street', 0.00726);
+			return {
+				sources: { ...upper.sources, ...lower.sources },
+				layers: [...upper.layers, ...lower.layers],
+			};
+		},
+	},
 ];
 
 export function lineLabelsStyle(): StyleSpecification {

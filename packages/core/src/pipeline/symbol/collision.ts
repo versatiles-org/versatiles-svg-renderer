@@ -1,8 +1,9 @@
 /**
  * Collision detection of labels and icons, as MapLibre GL JS places symbols
  * (`placement.ts`): symbol layers from the top down, and within a layer in the order of its
- * features (by `symbol-sort-key` first). A symbol is shown if its boxes do not overlap any
- * box placed before, and then blocks its own area. The renderers draw what is kept.
+ * features (by `symbol-sort-key` first). A symbol is shown if its boxes, or the circles along
+ * a label on a line, do not overlap any placed before, and then blocks its own area. The
+ * renderers draw what is kept.
  */
 import { iconQuads, mapTextAnchor, quadsBox } from '../../layout/index.js';
 import type { GlyphPlacement, IconStyle, SpriteEntry, SymbolStyle } from '../../types.js';
@@ -12,6 +13,16 @@ import { VIEW_MARGIN } from '../../geo/index.js';
 
 /** An axis-aligned box on screen: `[left, top, right, bottom]`. */
 export type Box = [number, number, number, number];
+
+/** A circle on screen, as MapLibre places them along a label on a line. */
+export interface Circle {
+	x: number;
+	y: number;
+	radius: number;
+}
+
+/** What a symbol covers: a box, or one of the circles along a label on a line. */
+export type Shape = Box | Circle;
 
 /** The height of a line of text, in ems: MapLibre's default `text-line-height`. */
 const LINE_HEIGHT = 1.2;
@@ -49,8 +60,8 @@ export interface CollisionOptions {
 
 /** A label, an icon or both at one point, and whether they are shown. */
 export interface PlacedSymbol {
-	/** The label's area: one box, or one per glyph for a label along a line. */
-	textBoxes?: Box[];
+	/** The label's area: one box, or circles along it for a label along a line. */
+	textBoxes?: Shape[];
 	iconBox?: Box;
 	options: CollisionOptions;
 	showText: boolean;
@@ -61,7 +72,7 @@ export interface PlacedSymbol {
 	 * (`anchor`) and puts its boxes into `textBoxes` and `iconBox`. Places of a later `group`
 	 * (writing mode) are tried only if none of an earlier one can be placed.
 	 */
-	anchors?: { textBoxes: Box[]; iconBox?: Box; group?: number }[];
+	anchors?: { textBoxes: Shape[]; iconBox?: Box; group?: number }[];
 	/** The one of `anchors` placed, or the first if none could be. */
 	anchor?: number;
 }
@@ -233,21 +244,63 @@ export function paddedBox(
 	return pad(rotate(box, style.rotate, [x, y]), padding);
 }
 
-/** The box of one glyph of a label along a line, grown by `text-padding`. */
-export function glyphBox(
-	glyph: GlyphPlacement,
-	advance: number,
-	size: number,
-	padding: number,
-): Box {
-	const height = size * LINE_HEIGHT;
-	const box: Box = [
-		glyph.x - advance / 2,
-		glyph.y - height / 2,
-		glyph.x + advance / 2,
-		glyph.y + height / 2,
-	];
-	return pad(rotate(box, glyph.angle, [glyph.x, glyph.y]), padding);
+/**
+ * The circles a label along a line covers, as MapLibre places them (`placeCollisionCircles`):
+ * `radius` each, along the label from the middle of its first glyph to the middle of its last
+ * (`glyphs`, in order), a quarter radius in from both ends, and 2.5 radii apart at most, so
+ * that a little room is left between them.
+ */
+export function lineCircles(glyphs: GlyphPlacement[], radius: number): Circle[] {
+	const points = glyphs.map(({ x, y }) => [x, y] as const);
+	if (points.length === 0) return [];
+	const distances = [0];
+	for (let i = 1; i < points.length; i++) {
+		const [ax, ay] = points[i - 1]!;
+		const [bx, by] = points[i]!;
+		distances.push(distances[i - 1]! + Math.hypot(bx - ax, by - ay));
+	}
+	const length = distances[distances.length - 1]!;
+	const padding = Math.min(radius * 0.25, length / 2);
+	const paddedLength = length - padding * 2;
+	const count = length <= radius / 2 ? 1 : Math.ceil(paddedLength / (radius * 2.5)) + 1;
+	const circles: Circle[] = [];
+	for (let i = 0; i < count; i++) {
+		const along = (i / Math.max(count - 1, 1)) * paddedLength + padding;
+		let j = 1;
+		while (j < points.length - 1 && distances[j]! < along) j++;
+		const [ax, ay] = points[Math.max(j - 1, 0)]!;
+		const [bx, by] = points[Math.min(j, points.length - 1)]!;
+		const segment = distances[j]! - distances[j - 1]!;
+		const t = points.length > 1 && segment > 0 ? (along - distances[j - 1]!) / segment : 0;
+		circles.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t, radius });
+	}
+	return circles;
+}
+
+/** The box around `shape`. */
+function boundsOf(shape: Shape): Box {
+	if (Array.isArray(shape)) return shape;
+	const { x, y, radius } = shape;
+	return [x - radius, y - radius, x + radius, y + radius];
+}
+
+/** Whether two shapes overlap, as MapLibre's `GridIndex` tests them. */
+function overlaps(a: Shape, b: Shape): boolean {
+	if (Array.isArray(a) && Array.isArray(b)) {
+		return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+	}
+	if (!Array.isArray(a) && !Array.isArray(b)) {
+		const both = a.radius + b.radius;
+		return both * both > (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+	}
+	const [circle, box] = Array.isArray(a) ? [b as Circle, a] : [a, b as Box];
+	const halfWidth = (box[2] - box[0]) / 2;
+	const halfHeight = (box[3] - box[1]) / 2;
+	const dx = Math.abs(circle.x - (box[0] + halfWidth));
+	const dy = Math.abs(circle.y - (box[1] + halfHeight));
+	if (dx > halfWidth + circle.radius || dy > halfHeight + circle.radius) return false;
+	if (dx <= halfWidth || dy <= halfHeight) return true;
+	return (dx - halfWidth) ** 2 + (dy - halfHeight) ** 2 <= circle.radius ** 2;
 }
 
 /** The box an icon covers, placed as the renderers draw it, grown by `icon-padding`. */
@@ -264,9 +317,9 @@ export function iconBox(
 	return pad(box, padding);
 }
 
-/** The boxes placed so far, each with its symbol's overlap mode, in a grid of cells. */
+/** The shapes placed so far, each with its symbol's overlap mode, in a grid of cells. */
 export class CollisionIndex {
-	readonly #cells = new Map<number, { box: Box; mode: OverlapMode }[]>();
+	readonly #cells = new Map<number, { shape: Shape; mode: OverlapMode }[]>();
 	readonly #area: Box;
 
 	/** For an image of `width` × `height` pixels. */
@@ -279,33 +332,32 @@ export class CollisionIndex {
 		];
 	}
 
-	/** Whether `box` lies at least partly within the image (and its padding). */
-	public isInView(box: Box): boolean {
+	/** Whether `shape` lies at least partly within the image (and its padding). */
+	public isInView(shape: Shape): boolean {
 		const area = this.#area;
+		const box = boundsOf(shape);
 		return box[0] < area[2] && box[2] > area[0] && box[1] < area[3] && box[3] > area[1];
 	}
 
 	/**
-	 * Whether `box` overlaps a box placed so far that a symbol with overlap `mode` must not
-	 * overlap: with `never` any, with `cooperative` only those placed with `never`.
+	 * Whether `shape` overlaps a shape placed so far that a symbol with overlap `mode` must
+	 * not overlap: with `never` any, with `cooperative` only those placed with `never`.
 	 */
-	public collides(box: Box, mode: OverlapMode = 'never'): boolean {
+	public collides(shape: Shape, mode: OverlapMode = 'never'): boolean {
 		if (mode === 'always') return false;
-		for (const key of this.#keys(box)) {
-			for (const { box: other, mode: otherMode } of this.#cells.get(key) ?? []) {
+		for (const key of this.#keys(boundsOf(shape))) {
+			for (const { shape: other, mode: otherMode } of this.#cells.get(key) ?? []) {
 				if (mode === 'cooperative' && otherMode !== 'never') continue;
-				if (box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1]) {
-					return true;
-				}
+				if (overlaps(shape, other)) return true;
 			}
 		}
 		return false;
 	}
 
-	/** Records `box`, placed by a symbol with overlap `mode`. */
-	public insert(box: Box, mode: OverlapMode = 'never'): void {
-		const entry = { box, mode };
-		for (const key of this.#keys(box)) {
+	/** Records `shape`, placed by a symbol with overlap `mode`. */
+	public insert(shape: Shape, mode: OverlapMode = 'never'): void {
+		const entry = { shape, mode };
+		for (const key of this.#keys(boundsOf(shape))) {
 			let cell = this.#cells.get(key);
 			if (!cell) this.#cells.set(key, (cell = []));
 			cell.push(entry);

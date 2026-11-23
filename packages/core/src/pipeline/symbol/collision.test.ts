@@ -4,6 +4,7 @@ import {
 	CollisionIndex,
 	iconBox,
 	layoutText,
+	lineCircles,
 	overlapMode,
 	placeSymbols,
 	textBox,
@@ -149,6 +150,38 @@ describe('CollisionIndex', () => {
 		const index = new CollisionIndex(100, 100);
 		expect(index.isInView([150, 150, 160, 160])).toBe(true);
 		expect(index.isInView([210, 0, 220, 10])).toBe(false);
+		expect(index.isInView({ x: 205, y: 50, radius: 10 })).toBe(true);
+	});
+
+	test('tests circles against circles and boxes, as MapLibre does', () => {
+		const index = new CollisionIndex(100, 100);
+		index.insert({ x: 50, y: 50, radius: 10 });
+		expect(index.collides({ x: 65, y: 50, radius: 6 })).toBe(true);
+		expect(index.collides({ x: 66, y: 50, radius: 6 })).toBe(false); // touching is fine
+		// A box beside the circle; and one at its corner, outside it.
+		expect(index.collides([58, 45, 70, 55])).toBe(true);
+		expect(index.collides([58, 58, 70, 70])).toBe(false);
+		index.insert([0, 0, 20, 20]);
+		expect(index.collides({ x: 25, y: 10, radius: 6 })).toBe(true);
+		expect(index.collides({ x: 25, y: 25, radius: 6 })).toBe(false);
+	});
+});
+
+describe('lineCircles', () => {
+	const along = (xs: number[]) => xs.map((x) => ({ text: 'a', x, y: 0, angle: 0 }));
+
+	test("covers a label from its first glyph's middle to its last's, 2.5 radii apart at most", () => {
+		// 100 px, a quarter radius (2) in from both ends: 96 px, in ceil(96 / 20) = 5 gaps.
+		const circles = lineCircles(along([0, 50, 100]), 8);
+		expect(circles.map(({ x }) => Math.round(x * 10) / 10)).toEqual([
+			2, 21.2, 40.4, 59.6, 78.8, 98,
+		]);
+		expect(circles.every(({ y, radius }) => y === 0 && radius === 8)).toBe(true);
+	});
+
+	test('puts one circle on a label shorter than half a radius', () => {
+		expect(lineCircles(along([0, 3]), 8)).toEqual([{ x: 1.5, y: 0, radius: 8 }]);
+		expect(lineCircles(along([7]), 8)).toEqual([{ x: 7, y: 0, radius: 8 }]);
 	});
 });
 

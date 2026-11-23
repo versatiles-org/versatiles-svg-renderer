@@ -20,7 +20,6 @@ import {
 	drawnCharacters,
 	fitsMaxAngle,
 	glyphAdvances,
-	glyphBox,
 	glyphMetrics,
 	haloEdges,
 	iconBox,
@@ -31,6 +30,7 @@ import {
 	layoutVertically,
 	layoutVerticalText,
 	lineAnchors,
+	lineCircles,
 	measureLine,
 	mergeLines,
 	overlapMode,
@@ -46,6 +46,7 @@ import {
 	verticalText,
 	withVerticalPunctuation,
 	type Box,
+	type Shape,
 	type CollisionOptions,
 	type FontMetrics,
 	type PlacedSymbol,
@@ -132,6 +133,8 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 	const { getPaint, getLayout } = evaluateLayer(layer);
 	// The text size of zoom 18, by which MapLibre places labels along lines.
 	const { getLayout: layoutAt18 } = evaluateLayer(layer, 18);
+	// The text size of the zoom level after the tiles', by which MapLibre lays out labels.
+	const { getLayout: layoutAtNextZoom } = evaluateLayer(layer, Math.floor(layer.job.view.zoom) + 1);
 	// The anchors of each text along lines in each tile, so far (`anchorIsTooClose`).
 	const anchorsOfText = new Map<string, { x: number; y: number }[]>();
 	const tooClose = (
@@ -578,7 +581,7 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 				const lineAngle = (anchor.angle * 180) / Math.PI;
 
 				let label: [LayerFeature, SymbolStyle] | undefined;
-				let textBoxes: Box[] | undefined;
+				let textBoxes: Shape[] | undefined;
 				if (labelStyle && glyphs && textAlongLine) {
 					const offset: [number, number] = [
 						labelStyle.offset[0] * labelStyle.size,
@@ -592,15 +595,13 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 						offset,
 						keepUpright,
 					);
-					let advances = glyphs.advances;
 					// Along a line that runs more up and down than across, it is set vertically.
 					if (vertical && runsVertically(placed)) {
-						advances = vertical.advances;
 						placed = layoutVertically(
 							line,
 							distance,
 							vertical.chars,
-							advances,
+							vertical.advances,
 							vertical.upright,
 							offset,
 							labelStyle.size,
@@ -622,9 +623,13 @@ async function prepareSymbolLayer(layer: Layer): Promise<SymbolEntry[]> {
 								}
 							: { ...labelStyle, path },
 					];
-					textBoxes = path.map((glyph, i) =>
-						glyphBox(glyph, advances[i]!, labelStyle.size, textPadding),
-					);
+					// MapLibre tests a label along a line by circles along it, as high as a line of text
+					// at the size of the zoom level after the tile's (`placeCollisionCircles`).
+					const layoutSize =
+						(layoutAtNextZoom('text-size', feature) as number | undefined) ?? labelStyle.size;
+					const lineHeight = getLayout('text-line-height', feature) as number;
+					const diameter = (Math.max(10, 24 * lineHeight) * layoutSize) / 24;
+					textBoxes = lineCircles(path, diameter / 2 + textPadding);
 				} else if (labelStyle && single) {
 					const tx = anchor.x + textTranslate[0];
 					const ty = anchor.y + textTranslate[1];

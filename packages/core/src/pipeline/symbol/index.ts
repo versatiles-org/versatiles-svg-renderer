@@ -1,13 +1,14 @@
 /** Laying out labels and icons, and placing them without overlap. */
 export {
 	CollisionIndex,
-	glyphBox,
 	iconBox,
 	layoutText,
+	lineCircles,
 	overlapMode,
 	paddedBox,
 	placeSymbols,
 	type Box,
+	type Shape,
 	type CollisionOptions,
 	type OverlapMode,
 	type PlacedSymbol,
