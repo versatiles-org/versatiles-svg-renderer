@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2026-11-26
+
+### Chores
+
+- update dependencies, @versatiles/style to 9.1.3 ([add2ab7](https://github.com/versatiles-org/versatiles-svg-renderer/commit/add2ab79a64ebf9cae7fd6f1cf5fd6a769df8ad7))
+
 ## [2.9.0] - 2026-11-23
 
 ### Features
